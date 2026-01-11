@@ -1,0 +1,42 @@
+:root[data-theme='dark'] {
+  /* App background and text */
+  --app-bg: #1e1e1e;
+  --text-color: #d4d4d4;
+  --text-color-active: #ffffff;
+  --text-color-muted: #8b8b8b;
+  --border-color: #3c3c3c;
+
+  /* Tab bar */
+  --tab-bar-bg: #252526;
+  --tab-bg: #2d2d30;
+  --tab-hover-bg: #3c3c3c;
+  --tab-active-bg: #1e1e1e;
+  --tab-close-hover-bg: #4a4a4a;
+  --tab-close-active-bg: #5a5a5a;
+
+  /* Toolbar */
+  --toolbar-bg: #252526;
+  --toolbar-border: #3c3c3c;
+  --button-bg: #3c3c3c;
+  --button-hover-bg: #4a4a4a;
+  --button-active-bg: #5a5a5a;
+
+  /* Preview */
+  --preview-bg: #1e1e1e;
+  --preview-text: #d4d4d4;
+  --preview-heading: #ffffff;
+  --preview-text-muted: #8b8b8b;
+  --preview-border: #3c3c3c;
+  --preview-link: #4daafc;
+  --preview-code-bg: rgba(110, 118, 129, 0.4);
+  --preview-code-block-bg: #2d2d30;
+  --preview-table-header-bg: #2d2d30;
+  --preview-table-row-alt-bg: #252526;
+
+  /* Accent color */
+  --accent-color: #4daafc;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #424242;
+  --scrollbar-thumb-hover: #4e4e4e;
+}
