@@ -6,10 +6,9 @@
   "author": "",
   "license": "MIT",
   "scripts": {
-    "dev": "electron-vite dev",
+    "start": "electron-vite dev",
     "build": "electron-vite build",
-    "preview": "electron-vite preview",
-    "start": "electron-vite preview"
+    "preview": "electron-vite preview"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
