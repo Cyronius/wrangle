@@ -1,0 +1,165 @@
+.title-bar {
+  display: flex;
+  align-items: stretch;
+  height: 36px;
+  background-color: var(--title-bar-bg, var(--toolbar-bg));
+  border-bottom: 1px solid var(--border-color);
+  -webkit-app-region: drag;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.title-bar-menus {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.title-bar-tabs {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  -webkit-app-region: no-drag;
+}
+
+/* Override tab-bar styles when inside title-bar */
+.title-bar-tabs .tab-bar {
+  border-bottom: none;
+  background-color: transparent;
+  height: 100%;
+}
+
+/* Menu Bar Styles */
+.menu-bar {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.menu-item {
+  position: relative;
+  height: 100%;
+}
+
+.menu-button {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.menu-button:hover,
+.menu-item.open .menu-button {
+  background-color: var(--button-hover-bg);
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 200px;
+  background-color: var(--dropdown-bg, var(--toolbar-bg));
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  padding: 4px 0;
+}
+
+.menu-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.menu-dropdown-item:hover {
+  background-color: var(--button-hover-bg);
+}
+
+.menu-dropdown-item .shortcut {
+  color: var(--text-muted, #888);
+  font-size: 12px;
+  margin-left: 24px;
+}
+
+.menu-dropdown-separator {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 4px 0;
+}
+
+.menu-submenu {
+  position: relative;
+}
+
+.menu-submenu-indicator {
+  margin-left: auto;
+  padding-left: 12px;
+}
+
+.menu-submenu-dropdown {
+  position: absolute;
+  top: -4px;
+  left: 100%;
+  min-width: 160px;
+  background-color: var(--dropdown-bg, var(--toolbar-bg));
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+  padding: 4px 0;
+}
+
+/* Window Controls */
+.window-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.window-control-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  font-size: 10px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.window-control-button:hover {
+  background-color: var(--button-hover-bg);
+}
+
+.window-control-button.close:hover {
+  background-color: #e81123;
+  color: white;
+}
+
+.window-control-button svg {
+  width: 10px;
+  height: 10px;
+}

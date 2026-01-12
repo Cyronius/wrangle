@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState } from './store/store'
 import { setViewMode } from './store/layoutSlice'
 import { setTheme } from './store/themeSlice'
-import { addTab, updateTab, setActiveTab } from './store/tabsSlice'
+import { addTab, updateTab, setActiveTab, nextTab, previousTab } from './store/tabsSlice'
 import { MonacoEditor } from './components/Editor/MonacoEditor'
 import { EditorLayout } from './components/Layout/EditorLayout'
 import { TabBar } from './components/Tabs/TabBar'
 import { MarkdownToolbar } from './components/UI/MarkdownToolbar'
+import { TitleBar } from './components/TitleBar/TitleBar'
 import { ThemeProvider } from './components/ThemeProvider'
 import { useImageDrop } from './hooks/useImageDrop'
 import * as monaco from 'monaco-editor'
@@ -101,7 +102,54 @@ function AppContent() {
     }
   }, [])
 
+  // Ctrl+Scroll wheel zoom
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault()
+        // deltaY > 0 means scrolling down (zoom out), < 0 means scrolling up (zoom in)
+        window.electron.window.zoom(e.deltaY > 0 ? -1 : 1)
+      }
+    }
+    window.addEventListener('wheel', handleWheel, { passive: false })
+    return () => window.removeEventListener('wheel', handleWheel)
+  }, [])
+
   // File operations
+  const handleNewFile = useCallback(() => {
+    const newTabId = `tab-${Date.now()}`
+    dispatch(addTab({
+      id: newTabId,
+      filename: 'Untitled',
+      content: '# New Document\n\nStart typing...',
+      isDirty: false
+    }))
+    dispatch(setActiveTab(newTabId))
+  }, [dispatch])
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+N: New file
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault()
+        handleNewFile()
+      }
+      // Ctrl+PageDown: Next tab
+      if ((e.ctrlKey || e.metaKey) && e.key === 'PageDown') {
+        e.preventDefault()
+        dispatch(nextTab())
+      }
+      // Ctrl+PageUp: Previous tab
+      if ((e.ctrlKey || e.metaKey) && e.key === 'PageUp') {
+        e.preventDefault()
+        dispatch(previousTab())
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleNewFile, dispatch])
+
   const handleOpen = async () => {
     const fileData = await window.electron.file.open()
     if (fileData) {
@@ -189,6 +237,9 @@ function AppContent() {
   useEffect(() => {
     const unsubscribe = window.electron.onMenuCommand((command: string) => {
       switch (command) {
+        case 'file:new':
+          handleNewFile()
+          break
         case 'file:open':
           handleOpen()
           break
@@ -240,15 +291,22 @@ function AppContent() {
 
   return (
     <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <TabBar
-        onCloseTab={async (tabId) => {
-          // Clean up temp directory if tab was never saved
-          const tabToClose = tabs.find((t) => t.id === tabId)
-          if (tabToClose && !tabToClose.path) {
-            await window.electron.file.cleanupTemp(tabId)
-          }
-        }}
-      />
+      <TitleBar
+        onFileNew={handleNewFile}
+        onFileOpen={handleOpen}
+        onFileSave={handleSave}
+        onFileSaveAs={handleSaveAs}
+      >
+        <TabBar
+          onCloseTab={async (tabId) => {
+            // Clean up temp directory if tab was never saved
+            const tabToClose = tabs.find((t) => t.id === tabId)
+            if (tabToClose && !tabToClose.path) {
+              await window.electron.file.cleanupTemp(tabId)
+            }
+          }}
+        />
+      </TitleBar>
       <MarkdownToolbar editorRef={editorRef} />
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         {isDragging && (

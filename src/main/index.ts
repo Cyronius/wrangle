@@ -1,7 +1,6 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, Menu } from 'electron'
 import { join } from 'path'
 import { registerAllHandlers } from './ipc'
-import { createApplicationMenu } from './menu/menu-template'
 import { initTempRoot } from './utils/temp-dir-manager'
 
 function createWindow(): void {
@@ -10,7 +9,8 @@ function createWindow(): void {
     width: 1200,
     height: 800,
     show: false,
-    autoHideMenuBar: false,
+    frame: false,
+    titleBarStyle: 'hidden',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -28,8 +28,8 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
-  // Create application menu
-  createApplicationMenu(mainWindow)
+  // Hide native menu - using custom title bar menu instead
+  Menu.setApplicationMenu(null)
 
   // HMR for renderer based on electron-vite cli
   // Load the remote URL for development or the local html file for production

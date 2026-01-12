@@ -3,7 +3,7 @@ import * as monaco from 'monaco-editor'
 type EditorCommand = (editor: monaco.editor.IStandaloneCodeEditor) => void
 
 /**
- * Wraps the current selection with prefix and suffix
+ * Wraps the current selection with prefix and suffix, or unwraps if already wrapped (toggle behavior)
  */
 function wrapSelection(
   editor: monaco.editor.IStandaloneCodeEditor,
@@ -15,8 +15,94 @@ function wrapSelection(
   if (!selection || !model) return
 
   const text = model.getValueInRange(selection)
-  const newText = `${prefix}${text}${suffix}`
+  const lineContent = model.getLineContent(selection.startLineNumber)
 
+  // For single-line selections, check if markers are outside the selection
+  if (selection.startLineNumber === selection.endLineNumber) {
+    const beforeStart = selection.startColumn - 1 - prefix.length
+    const afterEnd = selection.endColumn - 1
+
+    // Check if text before selection ends with prefix and text after selection starts with suffix
+    const textBefore = lineContent.substring(Math.max(0, beforeStart), selection.startColumn - 1)
+    const textAfter = lineContent.substring(afterEnd, afterEnd + suffix.length)
+
+    if (textBefore === prefix && textAfter === suffix) {
+      // Remove formatting - expand range to include markers and replace with just the text
+      const expandedRange = new monaco.Range(
+        selection.startLineNumber,
+        selection.startColumn - prefix.length,
+        selection.endLineNumber,
+        selection.endColumn + suffix.length
+      )
+      editor.executeEdits('', [
+        {
+          range: expandedRange,
+          text: text
+        }
+      ])
+      // Set selection to the unwrapped text
+      editor.setSelection(
+        new monaco.Selection(
+          selection.startLineNumber,
+          selection.startColumn - prefix.length,
+          selection.endLineNumber,
+          selection.endColumn - prefix.length
+        )
+      )
+      return
+    }
+  }
+
+  // Check if selection itself starts and ends with the markers
+  if (text.startsWith(prefix) && text.endsWith(suffix) && text.length >= prefix.length + suffix.length) {
+    const unwrapped = text.slice(prefix.length, text.length - suffix.length)
+    editor.executeEdits('', [
+      {
+        range: selection,
+        text: unwrapped
+      }
+    ])
+    // Adjust selection
+    editor.setSelection(
+      new monaco.Selection(
+        selection.startLineNumber,
+        selection.startColumn,
+        selection.endLineNumber,
+        selection.endColumn - prefix.length - suffix.length
+      )
+    )
+    return
+  }
+
+  // Handle empty selection (cursor only) - check if cursor is inside empty markers
+  if (selection.isEmpty()) {
+    const col = selection.startColumn - 1
+    // Check for empty markers like ** or `` around cursor
+    const potentialStart = col - prefix.length
+    const potentialEnd = col + suffix.length
+    if (potentialStart >= 0 && potentialEnd <= lineContent.length) {
+      const around = lineContent.substring(potentialStart, potentialEnd)
+      if (around === prefix + suffix) {
+        // Remove empty markers
+        editor.executeEdits('', [
+          {
+            range: new monaco.Range(
+              selection.startLineNumber,
+              potentialStart + 1,
+              selection.startLineNumber,
+              potentialEnd + 1
+            ),
+            text: ''
+          }
+        ])
+        editor.setPosition(new monaco.Position(selection.startLineNumber, potentialStart + 1))
+        return
+      }
+    }
+  }
+
+  // Add formatting
+  const newText = `${prefix}${text}${suffix}`
   editor.executeEdits('', [
     {
       range: selection,
@@ -25,13 +111,20 @@ function wrapSelection(
   ])
 
   // Update selection to be inside the wrapped text
-  const newSelection = new monaco.Selection(
-    selection.startLineNumber,
-    selection.startColumn + prefix.length,
-    selection.endLineNumber,
-    selection.endColumn + prefix.length
-  )
-  editor.setSelection(newSelection)
+  if (selection.isEmpty()) {
+    // For empty selection, place cursor between markers
+    editor.setPosition(
+      new monaco.Position(selection.startLineNumber, selection.startColumn + prefix.length)
+    )
+  } else {
+    const newSelection = new monaco.Selection(
+      selection.startLineNumber,
+      selection.startColumn + prefix.length,
+      selection.endLineNumber,
+      selection.endColumn + prefix.length
+    )
+    editor.setSelection(newSelection)
+  }
 }
 
 /**

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
-import { renderMarkdown, initializeMermaid } from '../../utils/markdown-renderer'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { renderMarkdownWithSourceMap, initializeMermaid, SourceMap } from '../../utils/markdown-renderer'
+import { SourceRange } from '../../utils/source-map'
 import './preview.css'
 
 interface MarkdownPreviewProps {
@@ -7,15 +8,18 @@ interface MarkdownPreviewProps {
   baseDir?: string | null
   syncScroll?: boolean
   onScroll?: (scrollRatio: number) => void
+  onSourceSelect?: (range: SourceRange) => void
 }
 
 export function MarkdownPreview({
   content,
   baseDir = null,
   syncScroll = false,
-  onScroll
+  onScroll,
+  onSourceSelect
 }: MarkdownPreviewProps) {
   const [html, setHtml] = useState('')
+  const [sourceMap, setSourceMap] = useState<SourceMap | null>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const isScrollingRef = useRef(false)
 
@@ -27,11 +31,56 @@ export function MarkdownPreview({
   // Render markdown whenever content or baseDir changes
   useEffect(() => {
     const render = async () => {
-      const rendered = await renderMarkdown(content, baseDir)
+      const { html: rendered, sourceMap: map } = await renderMarkdownWithSourceMap(content, baseDir)
       setHtml(rendered)
+      setSourceMap(map)
     }
     render()
   }, [content, baseDir])
+
+  // Handle selection in preview to find source range
+  const handleSelectionChange = useCallback(() => {
+    if (!onSourceSelect || !sourceMap) return
+
+    const selection = window.getSelection()
+    if (!selection || selection.isCollapsed) return
+
+    // Find the element with data-source-id closest to the selection
+    const anchorNode = selection.anchorNode
+    if (!anchorNode) return
+
+    // Get the element containing the selection
+    let element: Element | null = null
+    if (anchorNode.nodeType === Node.TEXT_NODE) {
+      element = anchorNode.parentElement
+    } else if (anchorNode.nodeType === Node.ELEMENT_NODE) {
+      element = anchorNode as Element
+    }
+
+    if (!element) return
+
+    // Find the closest element with a source-id
+    const sourceElement = element.closest('[data-source-id]')
+    if (sourceElement) {
+      const sourceId = sourceElement.getAttribute('data-source-id')
+      if (sourceId) {
+        const range = sourceMap.getRange(sourceId)
+        if (range) {
+          onSourceSelect(range)
+        }
+      }
+    }
+  }, [onSourceSelect, sourceMap])
+
+  // Listen for selection changes
+  useEffect(() => {
+    if (!onSourceSelect) return
+
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange)
+    }
+  }, [onSourceSelect, handleSelectionChange])
 
   // Handle scroll synchronization
   useEffect(() => {
@@ -84,3 +133,5 @@ export function MarkdownPreview({
     </div>
   )
 }
+
+export type { SourceRange }

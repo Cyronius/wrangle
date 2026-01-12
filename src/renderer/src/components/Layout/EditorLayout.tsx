@@ -1,9 +1,11 @@
 import { Allotment } from 'allotment'
 import { MonacoEditor } from '../Editor/MonacoEditor'
 import { MarkdownPreview } from '../Preview/MarkdownPreview'
+import { SourceRange } from '../../utils/source-map'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store/store'
 import { setSplitRatio } from '../../store/layoutSlice'
+import * as monaco from 'monaco-editor'
 import 'allotment/dist/style.css'
 
 interface EditorLayoutProps {
@@ -11,7 +13,7 @@ interface EditorLayoutProps {
   onChange: (value: string | undefined) => void
   baseDir?: string | null
   theme?: 'vs-dark' | 'vs'
-  editorRef?: React.MutableRefObject<any>
+  editorRef?: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>
 }
 
 export function EditorLayout({
@@ -35,6 +37,30 @@ export function EditorLayout({
     }
   }
 
+  // Handle preview selection - select corresponding text in editor
+  const handlePreviewSourceSelect = (range: SourceRange) => {
+    if (!editorRef?.current) return
+
+    const editor = editorRef.current
+    const model = editor.getModel()
+    if (!model) return
+
+    // Convert character offsets to Monaco positions
+    const startPos = model.getPositionAt(range.start)
+    const endPos = model.getPositionAt(range.end)
+
+    // Set selection in editor
+    editor.setSelection(new monaco.Selection(
+      startPos.lineNumber,
+      startPos.column,
+      endPos.lineNumber,
+      endPos.column
+    ))
+
+    // Focus the editor
+    editor.focus()
+  }
+
   // Render based on view mode
   if (viewMode === 'editor-only') {
     return (
@@ -47,7 +73,12 @@ export function EditorLayout({
   if (viewMode === 'preview-only') {
     return (
       <div style={{ height: '100%', width: '100%' }}>
-        <MarkdownPreview content={content} baseDir={baseDir} syncScroll={false} />
+        <MarkdownPreview
+          content={content}
+          baseDir={baseDir}
+          syncScroll={false}
+          onSourceSelect={handlePreviewSourceSelect}
+        />
       </div>
     )
   }
@@ -65,7 +96,12 @@ export function EditorLayout({
         <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} />
       </Allotment.Pane>
       <Allotment.Pane minSize={200}>
-        <MarkdownPreview content={content} baseDir={baseDir} syncScroll={previewSync} />
+        <MarkdownPreview
+          content={content}
+          baseDir={baseDir}
+          syncScroll={previewSync}
+          onSourceSelect={handlePreviewSourceSelect}
+        />
       </Allotment.Pane>
     </Allotment>
   )

@@ -6,6 +6,13 @@ export function createApplicationMenu(mainWindow: BrowserWindow): void {
       label: 'File',
       submenu: [
         {
+          label: 'New',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => {
+            mainWindow.webContents.send('menu:command', 'file:new')
+          }
+        },
+        {
           label: 'Open',
           accelerator: 'CmdOrCtrl+O',
           click: () => {
@@ -93,7 +100,7 @@ export function createApplicationMenu(mainWindow: BrowserWindow): void {
         { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },
-        { role: 'toggleDevTools' },
+        { role: 'toggleDevTools', accelerator: 'F12' },
         { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },

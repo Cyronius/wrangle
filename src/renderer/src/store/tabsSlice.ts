@@ -44,9 +44,21 @@ const tabsSlice = createSlice({
       if (tab) {
         Object.assign(tab, action.payload)
       }
+    },
+    nextTab(state) {
+      if (state.tabs.length <= 1) return
+      const currentIndex = state.tabs.findIndex((t) => t.id === state.activeTabId)
+      const nextIndex = (currentIndex + 1) % state.tabs.length
+      state.activeTabId = state.tabs[nextIndex].id
+    },
+    previousTab(state) {
+      if (state.tabs.length <= 1) return
+      const currentIndex = state.tabs.findIndex((t) => t.id === state.activeTabId)
+      const prevIndex = currentIndex === 0 ? state.tabs.length - 1 : currentIndex - 1
+      state.activeTabId = state.tabs[prevIndex].id
     }
   }
 })
 
-export const { addTab, closeTab, setActiveTab, updateTab } = tabsSlice.actions
+export const { addTab, closeTab, setActiveTab, updateTab, nextTab, previousTab } = tabsSlice.actions
 export default tabsSlice.reducer

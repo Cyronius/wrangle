@@ -20,6 +20,10 @@ export interface ElectronAPI {
     minimize: () => void
     maximize: () => void
     close: () => void
+    zoom: (delta: number) => void
+    getZoom: () => Promise<number>
+    isMaximized: () => Promise<boolean>
+    print: () => void
   }
   onMenuCommand: (callback: (command: string) => void) => () => void
 }

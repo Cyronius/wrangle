@@ -1,42 +1,42 @@
 :root[data-theme='light'] {
-  /* App background and text */
-  --app-bg: #ffffff;
+  /* App background and text - warm off-white tones */
+  --app-bg: #faf8f5;
   --text-color: #1a1a1a;
   --text-color-active: #000000;
   --text-color-muted: #6a6a6a;
-  --border-color: #e1e4e8;
+  --border-color: #e1ddd8;
 
   /* Tab bar */
-  --tab-bar-bg: #f6f8fa;
-  --tab-bg: #f6f8fa;
-  --tab-hover-bg: #e1e4e8;
-  --tab-active-bg: #ffffff;
-  --tab-close-hover-bg: #d1d5db;
-  --tab-close-active-bg: #b4b8bd;
+  --tab-bar-bg: #f5f2ed;
+  --tab-bg: #f5f2ed;
+  --tab-hover-bg: #ebe7e2;
+  --tab-active-bg: #faf8f5;
+  --tab-close-hover-bg: #ddd9d4;
+  --tab-close-active-bg: #ccc8c3;
 
   /* Toolbar */
-  --toolbar-bg: #f6f8fa;
-  --toolbar-border: #e1e4e8;
-  --button-bg: #ffffff;
-  --button-hover-bg: #e1e4e8;
-  --button-active-bg: #d1d5db;
+  --toolbar-bg: #f5f2ed;
+  --toolbar-border: #e1ddd8;
+  --button-bg: #faf8f5;
+  --button-hover-bg: #ebe7e2;
+  --button-active-bg: #ddd9d4;
 
   /* Preview */
-  --preview-bg: #ffffff;
+  --preview-bg: #faf8f5;
   --preview-text: #1a1a1a;
   --preview-heading: #1a1a1a;
   --preview-text-muted: #6a6a6a;
-  --preview-border: #e1e4e8;
+  --preview-border: #e1ddd8;
   --preview-link: #0969da;
-  --preview-code-bg: rgba(175, 184, 193, 0.2);
-  --preview-code-block-bg: #f6f8fa;
-  --preview-table-header-bg: #f6f8fa;
-  --preview-table-row-alt-bg: #f6f8fa;
+  --preview-code-bg: rgba(175, 168, 155, 0.2);
+  --preview-code-block-bg: #f5f2ed;
+  --preview-table-header-bg: #f5f2ed;
+  --preview-table-row-alt-bg: #f5f2ed;
 
   /* Accent color */
   --accent-color: #0969da;
 
   /* Scrollbar */
-  --scrollbar-thumb: #d1d5db;
-  --scrollbar-thumb-hover: #b4b8bd;
+  --scrollbar-thumb: #ccc8c3;
+  --scrollbar-thumb-hover: #b4b0ab;
 }
