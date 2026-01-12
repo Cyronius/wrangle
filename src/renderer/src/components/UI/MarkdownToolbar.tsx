@@ -203,46 +203,44 @@ export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
         ))}
       </div>
 
-      <div className="toolbar-separator"></div>
+      <div className="toolbar-group">
+        {toolbarButtons.slice(0, 4).map((btn) => (
+          <button
+            key={btn.command}
+            className={`toolbar-button ${activeFormats.has(btn.command) ? 'active' : ''}`}
+            onClick={() => executeCommand(btn.command)}
+            title={btn.title}
+          >
+            {btn.icon || btn.label}
+          </button>
+        ))}
+      </div>
 
-      {toolbarButtons.slice(0, 4).map((btn) => (
-        <button
-          key={btn.command}
-          className={`toolbar-button ${activeFormats.has(btn.command) ? 'active' : ''}`}
-          onClick={() => executeCommand(btn.command)}
-          title={btn.title}
-        >
-          {btn.icon || btn.label}
-        </button>
-      ))}
+      <div className="toolbar-group">
+        {toolbarButtons.slice(4, 7).map((btn) => (
+          <button
+            key={btn.command}
+            className={`toolbar-button ${activeFormats.has(btn.command) ? 'active' : ''}`}
+            onClick={() => executeCommand(btn.command)}
+            title={btn.title}
+          >
+            {btn.icon || btn.label}
+          </button>
+        ))}
+      </div>
 
-      <div className="toolbar-separator"></div>
-
-      {toolbarButtons.slice(4, 7).map((btn) => (
-        <button
-          key={btn.command}
-          className={`toolbar-button ${activeFormats.has(btn.command) ? 'active' : ''}`}
-          onClick={() => executeCommand(btn.command)}
-          title={btn.title}
-        >
-          {btn.icon || btn.label}
-        </button>
-      ))}
-
-      <div className="toolbar-separator"></div>
-
-      {toolbarButtons.slice(7).map((btn) => (
-        <button
-          key={btn.command}
-          className={`toolbar-button ${activeFormats.has(btn.command) ? 'active' : ''}`}
-          onClick={() => executeCommand(btn.command)}
-          title={btn.title}
-        >
-          {btn.icon || btn.label}
-        </button>
-      ))}
-
-      <div className="toolbar-separator"></div>
+      <div className="toolbar-group">
+        {toolbarButtons.slice(7).map((btn) => (
+          <button
+            key={btn.command}
+            className={`toolbar-button ${activeFormats.has(btn.command) ? 'active' : ''}`}
+            onClick={() => executeCommand(btn.command)}
+            title={btn.title}
+          >
+            {btn.icon || btn.label}
+          </button>
+        ))}
+      </div>
 
       <div className="toolbar-group view-mode-group">
         {viewModeButtons.map((btn) => (

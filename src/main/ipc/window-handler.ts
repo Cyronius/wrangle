@@ -45,4 +45,16 @@ export function registerWindowHandlers(): void {
     const window = BrowserWindow.fromWebContents(event.sender)
     window?.webContents.print({ silent: false, printBackground: true })
   })
+
+  ipcMain.on('window:resetZoom', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (window) {
+      window.webContents.setZoomLevel(0)
+    }
+  })
+
+  ipcMain.on('window:toggleDevTools', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    window?.webContents.toggleDevTools()
+  })
 }

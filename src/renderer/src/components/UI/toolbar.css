@@ -1,7 +1,7 @@
 .markdown-toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 12px;
   padding: 8px 12px;
   background-color: var(--toolbar-bg);
   border-bottom: 1px solid var(--toolbar-border);
@@ -74,12 +74,6 @@
   border-color: var(--accent-color);
 }
 
-.toolbar-separator {
-  width: 1px;
-  height: 20px;
-  background-color: var(--border-color);
-  margin: 0 4px;
-}
 
 /* Scrollbar for toolbar */
 .markdown-toolbar::-webkit-scrollbar {

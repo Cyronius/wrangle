@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, Menu } from 'electron'
+import { app, shell, BrowserWindow, Menu, globalShortcut } from 'electron'
 import { join } from 'path'
 import { registerAllHandlers } from './ipc'
 import { initTempRoot } from './utils/temp-dir-manager'
@@ -11,6 +11,7 @@ function createWindow(): void {
     show: false,
     frame: false,
     titleBarStyle: 'hidden',
+    icon: join(__dirname, '../../src/assets/tangle.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -59,11 +60,40 @@ app.whenReady().then(async () => {
 
   createWindow()
 
+  // Register global shortcuts to toggle DevTools (works even when DevTools has focus)
+  // Try F12 first, fall back to Ctrl+Shift+I if F12 is reserved
+  const toggleDevTools = () => {
+    console.log('DevTools shortcut triggered')
+    const windows = BrowserWindow.getAllWindows()
+    if (windows.length > 0) {
+      const win = windows.find(w => !w.isDestroyed())
+      if (win) {
+        win.webContents.toggleDevTools()
+      }
+    }
+  }
+
+  const f12Success = globalShortcut.register('F12', toggleDevTools)
+  console.log('F12 global shortcut registered:', f12Success)
+
+  // Also register Ctrl+Shift+I as a reliable alternative
+  const ctrlShiftISuccess = globalShortcut.register('CommandOrControl+Shift+I', toggleDevTools)
+  console.log('Ctrl+Shift+I global shortcut registered:', ctrlShiftISuccess)
+
+  if (!f12Success && !ctrlShiftISuccess) {
+    console.error('Failed to register any DevTools shortcuts')
+  }
+
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+// Unregister global shortcuts when quitting
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
 })
 
 // Quit when all windows are closed, except on macOS

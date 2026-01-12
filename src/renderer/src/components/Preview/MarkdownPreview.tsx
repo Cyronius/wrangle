@@ -9,6 +9,7 @@ interface MarkdownPreviewProps {
   syncScroll?: boolean
   onScroll?: (scrollRatio: number) => void
   onSourceSelect?: (range: SourceRange) => void
+  zoomLevel?: number
 }
 
 export function MarkdownPreview({
@@ -16,8 +17,11 @@ export function MarkdownPreview({
   baseDir = null,
   syncScroll = false,
   onScroll,
-  onSourceSelect
+  onSourceSelect,
+  zoomLevel = 0
 }: MarkdownPreviewProps) {
+  // Calculate zoom scale (10% per level)
+  const zoomScale = Math.pow(1.1, zoomLevel)
   const [html, setHtml] = useState('')
   const [sourceMap, setSourceMap] = useState<SourceMap | null>(null)
   const previewRef = useRef<HTMLDivElement>(null)
@@ -128,6 +132,10 @@ export function MarkdownPreview({
     <div ref={previewRef} className="markdown-preview">
       <div
         className="markdown-body"
+        style={{
+          fontSize: `${zoomScale}em`,
+          lineHeight: 1.6
+        }}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>

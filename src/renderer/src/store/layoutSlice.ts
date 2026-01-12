@@ -6,12 +6,14 @@ interface LayoutState {
   viewMode: ViewMode
   splitRatio: number
   previewSync: boolean
+  zoomLevel: number // 0 = 100%, positive = zoom in, negative = zoom out
 }
 
 const initialState: LayoutState = {
   viewMode: 'split',
   splitRatio: 0.5,
-  previewSync: true
+  previewSync: true,
+  zoomLevel: 0
 }
 
 const layoutSlice = createSlice({
@@ -26,9 +28,20 @@ const layoutSlice = createSlice({
     },
     togglePreviewSync(state) {
       state.previewSync = !state.previewSync
+    },
+    zoomIn(state) {
+      // Max zoom level of 5 (roughly 150% at 10% per level)
+      state.zoomLevel = Math.min(5, state.zoomLevel + 1)
+    },
+    zoomOut(state) {
+      // Min zoom level of -5 (roughly 50% at 10% per level)
+      state.zoomLevel = Math.max(-5, state.zoomLevel - 1)
+    },
+    resetZoom(state) {
+      state.zoomLevel = 0
     }
   }
 })
 
-export const { setViewMode, setSplitRatio, togglePreviewSync } = layoutSlice.actions
+export const { setViewMode, setSplitRatio, togglePreviewSync, zoomIn, zoomOut, resetZoom } = layoutSlice.actions
 export default layoutSlice.reducer

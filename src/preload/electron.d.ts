@@ -21,9 +21,11 @@ export interface ElectronAPI {
     maximize: () => void
     close: () => void
     zoom: (delta: number) => void
+    resetZoom: () => void
     getZoom: () => Promise<number>
     isMaximized: () => Promise<boolean>
     print: () => void
+    toggleDevTools: () => void
   }
   onMenuCommand: (callback: (command: string) => void) => () => void
 }

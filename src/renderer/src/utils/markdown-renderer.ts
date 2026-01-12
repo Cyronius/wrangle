@@ -219,20 +219,21 @@ export function initializeMermaid(): void {
 
 /**
  * Custom renderer that adds source mapping attributes to HTML elements
+ * Uses # private fields to prevent marked.js from enumerating them as renderer methods
  */
 class SourceMappingRenderer extends Renderer {
-  private sourceMap: SourceMap
-  private markdown: string
-  private searchOffset: number = 0
+  #sourceMap: SourceMap
+  #markdown: string
+  #searchOffset: number = 0
 
   constructor(markdown: string) {
     super()
-    this.markdown = markdown
-    this.sourceMap = new SourceMap()
+    this.#markdown = markdown
+    this.#sourceMap = new SourceMap()
   }
 
-  private findSourceRange(raw: string): SourceRange | null {
-    const index = this.markdown.indexOf(raw, this.searchOffset)
+  #findSourceRange(raw: string): SourceRange | null {
+    const index = this.#markdown.indexOf(raw, this.#searchOffset)
     if (index !== -1) {
       // Don't update searchOffset for inline elements to handle nested content
       return { start: index, end: index + raw.length }
@@ -240,10 +241,10 @@ class SourceMappingRenderer extends Renderer {
     return null
   }
 
-  private addSourceAttr(html: string, type: string, raw: string): string {
-    const range = this.findSourceRange(raw)
+  #addSourceAttr(html: string, type: string, raw: string): string {
+    const range = this.#findSourceRange(raw)
     if (range) {
-      const id = this.sourceMap.addEntry(type, range)
+      const id = this.#sourceMap.addEntry(type, range)
       // Insert data-source-id attribute into the opening tag
       return html.replace(/^<(\w+)/, `<$1 data-source-id="${id}"`)
     }
@@ -254,19 +255,19 @@ class SourceMappingRenderer extends Renderer {
   heading({ tokens, depth, raw }: Tokens.Heading): string {
     const text = this.parser.parseInline(tokens)
     const html = `<h${depth}>${text}</h${depth}>\n`
-    return this.addSourceAttr(html, `heading${depth}`, raw)
+    return this.#addSourceAttr(html, `heading${depth}`, raw)
   }
 
   paragraph({ tokens, raw }: Tokens.Paragraph): string {
     const text = this.parser.parseInline(tokens)
     const html = `<p>${text}</p>\n`
-    return this.addSourceAttr(html, 'paragraph', raw)
+    return this.#addSourceAttr(html, 'paragraph', raw)
   }
 
   blockquote({ tokens, raw }: Tokens.Blockquote): string {
     const body = this.parser.parse(tokens)
     const html = `<blockquote>\n${body}</blockquote>\n`
-    return this.addSourceAttr(html, 'blockquote', raw)
+    return this.#addSourceAttr(html, 'blockquote', raw)
   }
 
   list({ items, ordered, start, raw }: Tokens.List): string {
@@ -274,7 +275,7 @@ class SourceMappingRenderer extends Renderer {
     const startAttr = ordered && start !== 1 ? ` start="${start}"` : ''
     const body = items.map(item => this.listitem(item)).join('')
     const html = `<${tag}${startAttr}>\n${body}</${tag}>\n`
-    return this.addSourceAttr(html, 'list', raw)
+    return this.#addSourceAttr(html, 'list', raw)
   }
 
   listitem({ tokens, task, checked, raw }: Tokens.ListItem): string {
@@ -286,14 +287,14 @@ class SourceMappingRenderer extends Renderer {
       itemBody = this.parser.parse(tokens)
     }
     const html = `<li>${itemBody}</li>\n`
-    return this.addSourceAttr(html, 'listitem', raw)
+    return this.#addSourceAttr(html, 'listitem', raw)
   }
 
   code({ text, lang, raw }: Tokens.Code): string {
     const language = hljs.getLanguage(lang || '') ? lang : 'plaintext'
     const highlighted = hljs.highlight(text, { language: language || 'plaintext' }).value
     const html = `<pre><code class="hljs language-${language}">${highlighted}</code></pre>\n`
-    return this.addSourceAttr(html, 'code', raw)
+    return this.#addSourceAttr(html, 'code', raw)
   }
 
   table({ header, rows, raw }: Tokens.Table): string {
@@ -311,48 +312,48 @@ class SourceMappingRenderer extends Renderer {
     const bodyHtml = `<tbody>${bodyRows}</tbody>`
 
     const html = `<table>${headerHtml}${bodyHtml}</table>\n`
-    return this.addSourceAttr(html, 'table', raw)
+    return this.#addSourceAttr(html, 'table', raw)
   }
 
   // Override inline elements
   strong({ tokens, raw }: Tokens.Strong): string {
     const text = this.parser.parseInline(tokens)
     const html = `<strong>${text}</strong>`
-    return this.addSourceAttr(html, 'strong', raw)
+    return this.#addSourceAttr(html, 'strong', raw)
   }
 
   em({ tokens, raw }: Tokens.Em): string {
     const text = this.parser.parseInline(tokens)
     const html = `<em>${text}</em>`
-    return this.addSourceAttr(html, 'em', raw)
+    return this.#addSourceAttr(html, 'em', raw)
   }
 
   del({ tokens, raw }: Tokens.Del): string {
     const text = this.parser.parseInline(tokens)
     const html = `<del>${text}</del>`
-    return this.addSourceAttr(html, 'del', raw)
+    return this.#addSourceAttr(html, 'del', raw)
   }
 
   codespan({ text, raw }: Tokens.Codespan): string {
     const html = `<code>${text}</code>`
-    return this.addSourceAttr(html, 'codespan', raw)
+    return this.#addSourceAttr(html, 'codespan', raw)
   }
 
   link({ href, title, tokens, raw }: Tokens.Link): string {
     const text = this.parser.parseInline(tokens)
     const titleAttr = title ? ` title="${title}"` : ''
     const html = `<a href="${href}"${titleAttr}>${text}</a>`
-    return this.addSourceAttr(html, 'link', raw)
+    return this.#addSourceAttr(html, 'link', raw)
   }
 
   image({ href, title, text, raw }: Tokens.Image): string {
     const titleAttr = title ? ` title="${title}"` : ''
     const html = `<img src="${href}" alt="${text}"${titleAttr}>`
-    return this.addSourceAttr(html, 'image', raw)
+    return this.#addSourceAttr(html, 'image', raw)
   }
 
   getSourceMap(): SourceMap {
-    return this.sourceMap
+    return this.#sourceMap
   }
 }
 

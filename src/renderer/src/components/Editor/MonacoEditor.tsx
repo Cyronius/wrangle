@@ -7,10 +7,11 @@ interface MonacoEditorProps {
   value: string
   onChange: (value: string | undefined) => void
   theme?: 'vs-dark' | 'vs'
+  fontSize?: number
 }
 
 export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | null, MonacoEditorProps>(
-  ({ value, onChange, theme = 'vs-dark' }, ref) => {
+  ({ value, onChange, theme = 'vs-dark', fontSize = 14 }, ref) => {
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
 
     const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor) => {
@@ -118,13 +119,14 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
           automaticLayout: true,
           wordWrap: 'on',
           minimap: { enabled: false },
-          fontSize: 14,
+          fontSize,
           lineNumbers: 'on',
           renderWhitespace: 'selection',
           scrollBeyondLastLine: false,
           folding: true,
           quickSuggestions: false,
           multiCursorModifier: 'ctrlCmd',
+          mouseWheelZoom: false,
           find: {
             seedSearchStringFromSelection: 'always',
             autoFindInSelection: 'never'

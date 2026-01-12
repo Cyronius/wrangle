@@ -13,15 +13,21 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  margin-right: 16px;
   -webkit-app-region: no-drag;
 }
 
 .title-bar-tabs {
-  flex: 1;
   display: flex;
   align-items: stretch;
   overflow: hidden;
+  margin-left: 16px;
   -webkit-app-region: no-drag;
+}
+
+.title-bar-spacer {
+  flex: 1;
+  -webkit-app-region: drag;
 }
 
 /* Override tab-bar styles when inside title-bar */

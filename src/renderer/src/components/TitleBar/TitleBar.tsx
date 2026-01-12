@@ -18,10 +18,11 @@ interface TitleBarProps {
   onFileOpen: () => void
   onFileSave: () => void
   onFileSaveAs: () => void
+  onCloseTab?: () => void
   children?: React.ReactNode
 }
 
-export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, children }: TitleBarProps) {
+export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCloseTab, children }: TitleBarProps) {
   const dispatch = useDispatch()
   const viewMode = useSelector((state: RootState) => state.layout.mode)
   const theme = useSelector((state: RootState) => state.theme.currentTheme)
@@ -75,6 +76,7 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, chil
       { label: 'Open', shortcut: 'Ctrl+O', action: onFileOpen },
       { label: 'Save', shortcut: 'Ctrl+S', action: onFileSave },
       { label: 'Save As', shortcut: 'Ctrl+Shift+S', action: onFileSaveAs },
+      { label: 'Close Tab', shortcut: 'Ctrl+W', action: onCloseTab },
       { separator: true, label: '' },
       { label: 'Print', shortcut: 'Ctrl+P', action: () => window.electron.window.print() },
       { separator: true, label: '' },
@@ -105,11 +107,11 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, chil
         ]
       },
       { separator: true, label: '' },
-      { label: 'Reset Zoom', shortcut: 'Ctrl+0', action: () => window.electron.window.zoom(0) },
+      { label: 'Reset Zoom', shortcut: 'Ctrl+0', action: () => window.electron.window.resetZoom() },
       { label: 'Zoom In', shortcut: 'Ctrl++', action: () => window.electron.window.zoom(1) },
       { label: 'Zoom Out', shortcut: 'Ctrl+-', action: () => window.electron.window.zoom(-1) },
       { separator: true, label: '' },
-      { label: 'Toggle Developer Tools', shortcut: 'F12' }
+      { label: 'Toggle Developer Tools', shortcut: 'F12', action: () => window.electron.window.toggleDevTools() }
     ]
   }
 
@@ -193,6 +195,8 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, chil
       <div className="title-bar-tabs">
         {children}
       </div>
+
+      <div className="title-bar-spacer"></div>
 
       <div className="window-controls">
         <button className="window-control-button" onClick={handleMinimize} title="Minimize">

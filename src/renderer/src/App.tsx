@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState } from './store/store'
-import { setViewMode } from './store/layoutSlice'
+import { setViewMode, zoomIn, zoomOut, resetZoom } from './store/layoutSlice'
 import { setTheme } from './store/themeSlice'
-import { addTab, updateTab, setActiveTab, nextTab, previousTab } from './store/tabsSlice'
+import { addTab, updateTab, setActiveTab, closeTab, nextTab, previousTab } from './store/tabsSlice'
 import { MonacoEditor } from './components/Editor/MonacoEditor'
 import { EditorLayout } from './components/Layout/EditorLayout'
 import { TabBar } from './components/Tabs/TabBar'
@@ -26,7 +26,7 @@ function AppContent() {
   const activeTab = tabs.find(t => t.id === activeTabId)
 
   // Local state for current content
-  const [content, setContent] = useState(activeTab?.content || '# Welcome to Tangle\n\nStart typing...')
+  const [content, setContent] = useState(activeTab?.content || '')
   const [currentFilePath, setCurrentFilePath] = useState<string | undefined>(activeTab?.path)
   const [baseDir, setBaseDir] = useState<string | null>(null)
 
@@ -55,7 +55,7 @@ function AppContent() {
       dispatch(addTab({
         id: welcomeId,
         filename: 'Untitled',
-        content: '# Welcome to Tangle\n\nStart typing...',
+        content: '',
         isDirty: false
       }))
     }
@@ -102,18 +102,19 @@ function AppContent() {
     }
   }, [])
 
-  // Ctrl+Scroll wheel zoom
+  // Ctrl+Scroll wheel zoom - use capture phase to intercept before Monaco
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey) {
         e.preventDefault()
+        e.stopPropagation()
         // deltaY > 0 means scrolling down (zoom out), < 0 means scrolling up (zoom in)
-        window.electron.window.zoom(e.deltaY > 0 ? -1 : 1)
+        dispatch(e.deltaY > 0 ? zoomOut() : zoomIn())
       }
     }
-    window.addEventListener('wheel', handleWheel, { passive: false })
-    return () => window.removeEventListener('wheel', handleWheel)
-  }, [])
+    window.addEventListener('wheel', handleWheel, { passive: false, capture: true })
+    return () => window.removeEventListener('wheel', handleWheel, { capture: true })
+  }, [dispatch])
 
   // File operations
   const handleNewFile = useCallback(() => {
@@ -121,11 +122,27 @@ function AppContent() {
     dispatch(addTab({
       id: newTabId,
       filename: 'Untitled',
-      content: '# New Document\n\nStart typing...',
+      content: '',
       isDirty: false
     }))
     dispatch(setActiveTab(newTabId))
   }, [dispatch])
+
+  // Close tab handler
+  const handleCloseTab = useCallback(async () => {
+    if (!activeTab) return
+
+    if (tabs.length === 1) {
+      // Last tab - close window
+      window.electron.window.close()
+    } else {
+      // Close tab and cleanup temp files if unsaved
+      if (!activeTab.path) {
+        await window.electron.file.cleanupTemp(activeTab.id)
+      }
+      dispatch(closeTab(activeTab.id))
+    }
+  }, [activeTab, tabs.length, dispatch])
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -134,6 +151,11 @@ function AppContent() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         e.preventDefault()
         handleNewFile()
+      }
+      // Ctrl+W: Close current tab
+      if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
+        e.preventDefault()
+        handleCloseTab()
       }
       // Ctrl+PageDown: Next tab
       if ((e.ctrlKey || e.metaKey) && e.key === 'PageDown') {
@@ -145,10 +167,30 @@ function AppContent() {
         e.preventDefault()
         dispatch(previousTab())
       }
+      // Ctrl+0: Reset zoom
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault()
+        dispatch(resetZoom())
+      }
+      // Ctrl+Plus or Ctrl+=: Zoom in
+      if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) {
+        e.preventDefault()
+        dispatch(zoomIn())
+      }
+      // Ctrl+Minus: Zoom out
+      if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault()
+        dispatch(zoomOut())
+      }
+      // F12: Toggle DevTools (fallback for when global shortcut fails)
+      if (e.key === 'F12') {
+        e.preventDefault()
+        window.electron.window.toggleDevTools()
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleNewFile, dispatch])
+  }, [handleNewFile, handleCloseTab, dispatch])
 
   const handleOpen = async () => {
     const fileData = await window.electron.file.open()
@@ -296,6 +338,7 @@ function AppContent() {
         onFileOpen={handleOpen}
         onFileSave={handleSave}
         onFileSaveAs={handleSaveAs}
+        onCloseTab={handleCloseTab}
       >
         <TabBar
           onCloseTab={async (tabId) => {

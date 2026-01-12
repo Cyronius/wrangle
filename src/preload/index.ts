@@ -21,9 +21,11 @@ const electronAPI: ElectronAPI = {
     maximize: () => ipcRenderer.send('window:maximize'),
     close: () => ipcRenderer.send('window:close'),
     zoom: (delta: number) => ipcRenderer.send('window:zoom', delta),
+    resetZoom: () => ipcRenderer.send('window:resetZoom'),
     getZoom: () => ipcRenderer.invoke('window:getZoom'),
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
-    print: () => ipcRenderer.send('window:print')
+    print: () => ipcRenderer.send('window:print'),
+    toggleDevTools: () => ipcRenderer.send('window:toggleDevTools')
   },
   onMenuCommand: (callback: (command: string) => void) => {
     const subscription = (_event: Electron.IpcRendererEvent, command: string) => callback(command)

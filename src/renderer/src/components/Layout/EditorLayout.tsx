@@ -16,6 +16,11 @@ interface EditorLayoutProps {
   editorRef?: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>
 }
 
+// Calculate font size based on zoom level (base 14px, 10% per level)
+function getZoomedFontSize(zoomLevel: number): number {
+  return Math.round(14 * Math.pow(1.1, zoomLevel))
+}
+
 export function EditorLayout({
   content,
   onChange,
@@ -24,7 +29,10 @@ export function EditorLayout({
   editorRef
 }: EditorLayoutProps) {
   const dispatch = useDispatch()
-  const { viewMode, splitRatio, previewSync } = useSelector((state: RootState) => state.layout)
+  const { viewMode, splitRatio, previewSync, zoomLevel } = useSelector((state: RootState) => state.layout)
+
+  // Calculate zoomed font size for editor
+  const fontSize = getZoomedFontSize(zoomLevel)
 
   const handleSplitChange = (sizes: number[]) => {
     if (sizes.length === 2) {
@@ -65,7 +73,7 @@ export function EditorLayout({
   if (viewMode === 'editor-only') {
     return (
       <div style={{ height: '100%', width: '100%' }}>
-        <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} />
+        <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} />
       </div>
     )
   }
@@ -78,6 +86,7 @@ export function EditorLayout({
           baseDir={baseDir}
           syncScroll={false}
           onSourceSelect={handlePreviewSourceSelect}
+          zoomLevel={zoomLevel}
         />
       </div>
     )
@@ -93,7 +102,7 @@ export function EditorLayout({
       defaultSizes={[editorSize, previewSize]}
     >
       <Allotment.Pane minSize={200}>
-        <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} />
+        <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} />
       </Allotment.Pane>
       <Allotment.Pane minSize={200}>
         <MarkdownPreview
@@ -101,6 +110,7 @@ export function EditorLayout({
           baseDir={baseDir}
           syncScroll={previewSync}
           onSourceSelect={handlePreviewSourceSelect}
+          zoomLevel={zoomLevel}
         />
       </Allotment.Pane>
     </Allotment>
