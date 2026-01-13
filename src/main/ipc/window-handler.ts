@@ -1,4 +1,5 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, dialog } from 'electron'
+import { writeFile } from 'fs/promises'
 
 export function registerWindowHandlers(): void {
   ipcMain.on('window:minimize', (event) => {
@@ -56,5 +57,36 @@ export function registerWindowHandlers(): void {
   ipcMain.on('window:toggleDevTools', (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     window?.webContents.toggleDevTools()
+  })
+
+  ipcMain.handle('window:exportPdf', async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) return null
+
+    const result = await dialog.showSaveDialog(window, {
+      title: 'Export as PDF',
+      defaultPath: 'document.pdf',
+      filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
+    })
+
+    if (result.canceled || !result.filePath) return null
+
+    try {
+      const pdfBuffer = await window.webContents.printToPDF({
+        printBackground: true,
+        margins: {
+          top: 0.5,
+          bottom: 0.5,
+          left: 0.5,
+          right: 0.5
+        }
+      })
+
+      await writeFile(result.filePath, pdfBuffer)
+      return result.filePath
+    } catch (error) {
+      console.error('Failed to export PDF:', error)
+      return null
+    }
   })
 }

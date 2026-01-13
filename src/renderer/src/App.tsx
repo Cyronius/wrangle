@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState } from './store/store'
-import { setViewMode, zoomIn, zoomOut, resetZoom } from './store/layoutSlice'
+import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline } from './store/layoutSlice'
 import { setTheme } from './store/themeSlice'
 import { addTab, updateTab, setActiveTab, closeTab, nextTab, previousTab } from './store/tabsSlice'
 import { MonacoEditor } from './components/Editor/MonacoEditor'
@@ -10,6 +10,7 @@ import { TabBar } from './components/Tabs/TabBar'
 import { MarkdownToolbar } from './components/UI/MarkdownToolbar'
 import { TitleBar } from './components/TitleBar/TitleBar'
 import { ThemeProvider } from './components/ThemeProvider'
+import { OutlineSidebar } from './components/Outline/OutlineSidebar'
 import { useImageDrop } from './hooks/useImageDrop'
 import * as monaco from 'monaco-editor'
 
@@ -21,6 +22,7 @@ function AppContent() {
   // Redux state
   const { tabs, activeTabId } = useSelector((state: RootState) => state.tabs)
   const theme = useSelector((state: RootState) => state.theme.currentTheme)
+  const showOutline = useSelector((state: RootState) => state.layout.showOutline)
 
   // Get active tab
   const activeTab = tabs.find(t => t.id === activeTabId)
@@ -144,6 +146,95 @@ function AppContent() {
     }
   }, [activeTab, tabs.length, dispatch])
 
+  const handleOpen = useCallback(async () => {
+    const fileData = await window.electron.file.open()
+    if (fileData) {
+      // Check if file is already open
+      const existingTab = tabs.find(t => t.path === fileData.path)
+      if (existingTab) {
+        dispatch(setActiveTab(existingTab.id))
+        return
+      }
+
+      // Create new tab
+      const filename = fileData.path.split(/[\\/]/).pop() || 'Untitled'
+      const newTabId = `tab-${Date.now()}`
+      dispatch(addTab({
+        id: newTabId,
+        filename,
+        content: fileData.content,
+        path: fileData.path,
+        isDirty: false
+      }))
+      dispatch(setActiveTab(newTabId))
+    }
+  }, [tabs, dispatch])
+
+  const handleSaveAs = useCallback(async () => {
+    if (!activeTab) return
+
+    const wasUnsaved = !activeTab.path
+
+    // Extract first H1 heading for suggested filename
+    const h1Match = content.match(/^#\s+(.+)$/m)
+    const suggestedName = h1Match
+      ? h1Match[1].trim().replace(/[^a-zA-Z0-9-_ ]/g, '').substring(0, 50)
+      : undefined
+
+    const filePath = await window.electron.file.saveAs(content, suggestedName)
+    if (filePath) {
+      // If this was previously an unsaved file, move temp files to saved location
+      if (wasUnsaved) {
+        await window.electron.file.moveTempFiles(activeTab.id, filePath)
+      }
+
+      const filename = filePath.split(/[\\/]/).pop() || 'Untitled'
+      dispatch(updateTab({
+        id: activeTab.id,
+        filename,
+        content,
+        path: filePath,
+        isDirty: false
+      }))
+      setCurrentFilePath(filePath)
+
+      // Update base directory for preview
+      const lastSlash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'))
+      if (lastSlash !== -1) {
+        setBaseDir(filePath.substring(0, lastSlash))
+      }
+
+      // Clear auto-save timeout since we just saved
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current)
+      }
+    }
+  }, [activeTab, content, dispatch])
+
+  const handleSave = useCallback(async () => {
+    if (!activeTab) return
+
+    if (activeTab.path) {
+      // Save to existing path
+      const success = await window.electron.file.save(activeTab.path, content)
+      if (success) {
+        dispatch(updateTab({
+          id: activeTab.id,
+          content,
+          isDirty: false
+        }))
+
+        // Clear auto-save timeout since we just saved
+        if (autoSaveTimeoutRef.current) {
+          clearTimeout(autoSaveTimeoutRef.current)
+        }
+      }
+    } else {
+      // No path, do save as
+      await handleSaveAs()
+    }
+  }, [activeTab, content, dispatch, handleSaveAs])
+
   // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -151,6 +242,21 @@ function AppContent() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         e.preventDefault()
         handleNewFile()
+      }
+      // Ctrl+O: Open file
+      if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+        e.preventDefault()
+        handleOpen()
+      }
+      // Ctrl+S: Save file
+      if ((e.ctrlKey || e.metaKey) && e.key === 's' && !e.shiftKey) {
+        e.preventDefault()
+        handleSave()
+      }
+      // Ctrl+Shift+S: Save As
+      if ((e.ctrlKey || e.metaKey) && e.key === 's' && e.shiftKey) {
+        e.preventDefault()
+        handleSaveAs()
       }
       // Ctrl+W: Close current tab
       if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
@@ -182,6 +288,32 @@ function AppContent() {
         e.preventDefault()
         dispatch(zoomOut())
       }
+      // Ctrl+P: Print
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault()
+        window.electron.window.print()
+      }
+      // Ctrl+Z: Undo (when editor not focused, Monaco handles its own)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        if (!document.activeElement?.closest('.monaco-editor')) {
+          e.preventDefault()
+          editorRef.current?.trigger('keyboard', 'undo', null)
+          editorRef.current?.focus()
+        }
+      }
+      // Ctrl+Y: Redo (when editor not focused)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        if (!document.activeElement?.closest('.monaco-editor')) {
+          e.preventDefault()
+          editorRef.current?.trigger('keyboard', 'redo', null)
+          editorRef.current?.focus()
+        }
+      }
+      // Ctrl+Shift+O: Toggle outline
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'o') {
+        e.preventDefault()
+        dispatch(toggleOutline())
+      }
       // F12: Toggle DevTools (fallback for when global shortcut fails)
       if (e.key === 'F12') {
         e.preventDefault()
@@ -190,90 +322,7 @@ function AppContent() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleNewFile, handleCloseTab, dispatch])
-
-  const handleOpen = async () => {
-    const fileData = await window.electron.file.open()
-    if (fileData) {
-      // Check if file is already open
-      const existingTab = tabs.find(t => t.path === fileData.path)
-      if (existingTab) {
-        dispatch(setActiveTab(existingTab.id))
-        return
-      }
-
-      // Create new tab
-      const filename = fileData.path.split(/[\\/]/).pop() || 'Untitled'
-      const newTabId = `tab-${Date.now()}`
-      dispatch(addTab({
-        id: newTabId,
-        filename,
-        content: fileData.content,
-        path: fileData.path,
-        isDirty: false
-      }))
-      dispatch(setActiveTab(newTabId))
-    }
-  }
-
-  const handleSave = async () => {
-    if (!activeTab) return
-
-    if (activeTab.path) {
-      // Save to existing path
-      const success = await window.electron.file.save(activeTab.path, content)
-      if (success) {
-        dispatch(updateTab({
-          id: activeTab.id,
-          content,
-          isDirty: false
-        }))
-
-        // Clear auto-save timeout since we just saved
-        if (autoSaveTimeoutRef.current) {
-          clearTimeout(autoSaveTimeoutRef.current)
-        }
-      }
-    } else {
-      // No path, do save as
-      await handleSaveAs()
-    }
-  }
-
-  const handleSaveAs = async () => {
-    if (!activeTab) return
-
-    const wasUnsaved = !activeTab.path
-
-    const filePath = await window.electron.file.saveAs(content)
-    if (filePath) {
-      // If this was previously an unsaved file, move temp files to saved location
-      if (wasUnsaved) {
-        await window.electron.file.moveTempFiles(activeTab.id, filePath)
-      }
-
-      const filename = filePath.split(/[\\/]/).pop() || 'Untitled'
-      dispatch(updateTab({
-        id: activeTab.id,
-        filename,
-        content,
-        path: filePath,
-        isDirty: false
-      }))
-      setCurrentFilePath(filePath)
-
-      // Update base directory for preview
-      const lastSlash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'))
-      if (lastSlash !== -1) {
-        setBaseDir(filePath.substring(0, lastSlash))
-      }
-
-      // Clear auto-save timeout since we just saved
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current)
-      }
-    }
-  }
+  }, [handleNewFile, handleCloseTab, handleOpen, handleSave, handleSaveAs, dispatch])
 
   // Menu command handler
   useEffect(() => {
@@ -328,6 +377,94 @@ function AppContent() {
     }
   })
 
+  // Undo/Redo handlers for Monaco editor
+  const handleUndo = useCallback(() => {
+    editorRef.current?.trigger('keyboard', 'undo', null)
+    editorRef.current?.focus()
+  }, [])
+
+  const handleRedo = useCallback(() => {
+    editorRef.current?.trigger('keyboard', 'redo', null)
+    editorRef.current?.focus()
+  }, [])
+
+  // Copy as Rich Text - copies preview HTML to clipboard
+  const handleCopyRichText = useCallback(async () => {
+    const previewElement = document.querySelector('.markdown-body')
+    if (!previewElement) return
+
+    const html = previewElement.innerHTML
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([previewElement.textContent || ''], { type: 'text/plain' })
+        })
+      ])
+    } catch (error) {
+      console.error('Failed to copy rich text:', error)
+    }
+  }, [])
+
+  // Export as HTML - creates a standalone HTML file
+  const handleExportHtml = useCallback(async () => {
+    const previewElement = document.querySelector('.markdown-body')
+    if (!previewElement) return
+
+    const html = previewElement.innerHTML
+    const title = activeTab?.filename?.replace(/\.md$/, '') || 'Document'
+
+    // Create standalone HTML document with embedded styles
+    const htmlDoc = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title}</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      color: #333;
+    }
+    h1, h2, h3, h4, h5, h6 { margin-top: 24px; margin-bottom: 16px; font-weight: 600; line-height: 1.25; }
+    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: .3em; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: .3em; }
+    h3 { font-size: 1.25em; }
+    p { margin-top: 0; margin-bottom: 16px; }
+    a { color: #0366d6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { padding: .2em .4em; margin: 0; font-size: 85%; background-color: rgba(27,31,35,.05); border-radius: 3px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; }
+    pre { padding: 16px; overflow: auto; font-size: 85%; line-height: 1.45; background-color: #f6f8fa; border-radius: 3px; }
+    pre code { padding: 0; background-color: transparent; }
+    blockquote { padding: 0 1em; color: #6a737d; border-left: .25em solid #dfe2e5; margin: 0 0 16px 0; }
+    ul, ol { padding-left: 2em; margin-top: 0; margin-bottom: 16px; }
+    li { margin-top: .25em; }
+    table { border-spacing: 0; border-collapse: collapse; margin-bottom: 16px; }
+    th, td { padding: 6px 13px; border: 1px solid #dfe2e5; }
+    th { font-weight: 600; background-color: #f6f8fa; }
+    tr:nth-child(2n) { background-color: #f6f8fa; }
+    img { max-width: 100%; height: auto; }
+    hr { height: .25em; padding: 0; margin: 24px 0; background-color: #e1e4e8; border: 0; }
+  </style>
+</head>
+<body>
+  ${html}
+</body>
+</html>`
+
+    // Use file save dialog to save as HTML
+    await window.electron.file.saveAs(htmlDoc, title)
+  }, [activeTab?.filename])
+
+  // Export as PDF
+  const handleExportPdf = useCallback(async () => {
+    await window.electron.window.exportPdf()
+  }, [])
+
   // Monaco theme based on app theme
   const monacoTheme = theme === 'light' ? 'vs' : 'vs-dark'
 
@@ -339,6 +476,11 @@ function AppContent() {
         onFileSave={handleSave}
         onFileSaveAs={handleSaveAs}
         onCloseTab={handleCloseTab}
+        onEditUndo={handleUndo}
+        onEditRedo={handleRedo}
+        onCopyRichText={handleCopyRichText}
+        onExportHtml={handleExportHtml}
+        onExportPdf={handleExportPdf}
       >
         <TabBar
           onCloseTab={async (tabId) => {
@@ -351,36 +493,41 @@ function AppContent() {
         />
       </TitleBar>
       <MarkdownToolbar editorRef={editorRef} />
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        {isDragging && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(77, 170, 252, 0.1)',
-              border: '2px dashed var(--accent-color)',
-              zIndex: 1000,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '24px',
-              color: 'var(--accent-color)',
-              pointerEvents: 'none'
-            }}
-          >
-            Drop images here
-          </div>
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
+        {showOutline && (
+          <OutlineSidebar content={content} editorRef={editorRef} />
         )}
-        <EditorLayout
-          content={content}
-          onChange={handleChange}
-          baseDir={baseDir}
-          theme={monacoTheme}
-          editorRef={editorRef}
-        />
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          {isDragging && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(77, 170, 252, 0.1)',
+                border: '2px dashed var(--accent-color)',
+                zIndex: 1000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '24px',
+                color: 'var(--accent-color)',
+                pointerEvents: 'none'
+              }}
+            >
+              Drop images here
+            </div>
+          )}
+          <EditorLayout
+            content={content}
+            onChange={handleChange}
+            baseDir={baseDir}
+            theme={monacoTheme}
+            editorRef={editorRef}
+          />
+        </div>
       </div>
     </div>
   )

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { markdownCommands, MarkdownCommand } from '../../utils/markdown-commands'
 import { RootState } from '../../store/store'
-import { setViewMode, ViewMode } from '../../store/layoutSlice'
+import { setViewMode, ViewMode, toggleOutline } from '../../store/layoutSlice'
 import * as monaco from 'monaco-editor'
 import './toolbar.css'
 
@@ -17,20 +17,25 @@ interface ToolbarButton {
   icon?: string
 }
 
-const toolbarButtons: ToolbarButton[] = [
+// Text styling buttons (Bold, Italic, Strikethrough, Inline Code)
+const textStylingButtons: ToolbarButton[] = [
   { command: 'bold', label: 'B', title: 'Bold (Ctrl+B)', icon: '𝐁' },
   { command: 'italic', label: 'I', title: 'Italic (Ctrl+I)', icon: '𝐼' },
   { command: 'strikethrough', label: 'S', title: 'Strikethrough', icon: 'S̶' },
   { command: 'inlineCode', label: '</>', title: 'Inline Code (Ctrl+`)', icon: '</>' },
-  { command: 'link', label: '🔗', title: 'Link (Ctrl+K)' },
-  { command: 'image', label: '🖼', title: 'Image' },
-  { command: 'codeBlock', label: '{ }', title: 'Code Block' },
+]
+
+// Structure buttons (lists, blockquote, horizontal rule, table)
+const structureButtons: ToolbarButton[] = [
   { command: 'bulletList', label: '•', title: 'Bullet List' },
   { command: 'numberedList', label: '1.', title: 'Numbered List' },
   { command: 'taskList', label: '☑', title: 'Task List' },
   { command: 'blockquote', label: '❝', title: 'Blockquote' },
   { command: 'horizontalRule', label: '—', title: 'Horizontal Rule' },
-  { command: 'table', label: '⊞', title: 'Table' }
+  { command: 'table', label: '⊞', title: 'Table' },
+  { command: 'link', label: '🔗', title: 'Link (Ctrl+K)' },
+  { command: 'image', label: '🖼', title: 'Image' },
+  { command: 'codeBlock', label: '{ }', title: 'Code Block' },
 ]
 
 const headingButtons: ToolbarButton[] = [
@@ -62,6 +67,12 @@ const PreviewIcon = () => (
   </svg>
 )
 
+const OutlineIcon = () => (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+    <path d="M2 2h12v1H2V2zm0 4h8v1H2V6zm0 4h10v1H2v-1zm0 4h6v1H2v-1z"/>
+  </svg>
+)
+
 interface ViewModeButton {
   mode: ViewMode
   label: string
@@ -78,6 +89,7 @@ const viewModeButtons: ViewModeButton[] = [
 export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
   const dispatch = useDispatch()
   const viewMode = useSelector((state: RootState) => state.layout.mode)
+  const showOutline = useSelector((state: RootState) => state.layout.showOutline)
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set())
 
   // Track cursor position and detect active formatting
@@ -184,12 +196,34 @@ export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
 
   const executeCommand = (command: MarkdownCommand) => {
     if (!editorRef?.current) return
-    markdownCommands[command](editorRef.current)
+    // Focus editor before command to ensure selection is active
     editorRef.current.focus()
+    markdownCommands[command](editorRef.current)
+    // Return focus to preview if in preview-only mode
+    if (viewMode === 'preview-only') {
+      setTimeout(() => {
+        editorRef.current?.getContainerDomNode()?.blur()
+      }, 0)
+    }
   }
 
   return (
     <div className="markdown-toolbar">
+      {/* Text styling group: Bold, Italic, Strikethrough, Inline Code */}
+      <div className="toolbar-group">
+        {textStylingButtons.map((btn) => (
+          <button
+            key={btn.command}
+            className={`toolbar-button ${activeFormats.has(btn.command) ? 'active' : ''}`}
+            onClick={() => executeCommand(btn.command)}
+            title={btn.title}
+          >
+            {btn.icon || btn.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Headings H1-H6 */}
       <div className="toolbar-group heading-group">
         {headingButtons.map((btn) => (
           <button
@@ -203,8 +237,11 @@ export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
         ))}
       </div>
 
+      <div className="toolbar-separator" />
+
+      {/* Structure group: lists, blockquote, hr, table, link, image, code block */}
       <div className="toolbar-group">
-        {toolbarButtons.slice(0, 4).map((btn) => (
+        {structureButtons.map((btn) => (
           <button
             key={btn.command}
             className={`toolbar-button ${activeFormats.has(btn.command) ? 'active' : ''}`}
@@ -216,32 +253,9 @@ export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
         ))}
       </div>
 
-      <div className="toolbar-group">
-        {toolbarButtons.slice(4, 7).map((btn) => (
-          <button
-            key={btn.command}
-            className={`toolbar-button ${activeFormats.has(btn.command) ? 'active' : ''}`}
-            onClick={() => executeCommand(btn.command)}
-            title={btn.title}
-          >
-            {btn.icon || btn.label}
-          </button>
-        ))}
-      </div>
+      <div className="toolbar-separator" />
 
-      <div className="toolbar-group">
-        {toolbarButtons.slice(7).map((btn) => (
-          <button
-            key={btn.command}
-            className={`toolbar-button ${activeFormats.has(btn.command) ? 'active' : ''}`}
-            onClick={() => executeCommand(btn.command)}
-            title={btn.title}
-          >
-            {btn.icon || btn.label}
-          </button>
-        ))}
-      </div>
-
+      {/* View mode group: Editor, Split, Preview */}
       <div className="toolbar-group view-mode-group">
         {viewModeButtons.map((btn) => (
           <button
@@ -254,6 +268,17 @@ export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
           </button>
         ))}
       </div>
+
+      <div className="toolbar-separator" />
+
+      {/* Outline toggle button */}
+      <button
+        className={`toolbar-button ${showOutline ? 'active' : ''}`}
+        onClick={() => dispatch(toggleOutline())}
+        title="Toggle Outline (Ctrl+Shift+O)"
+      >
+        <OutlineIcon />
+      </button>
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import { setViewMode } from '../../store/layoutSlice'
 import { setTheme } from '../../store/themeSlice'
+import tangleIcon from '../../../../assets/tangle.png'
 import './TitleBar.css'
 
 interface MenuItem {
@@ -19,10 +20,15 @@ interface TitleBarProps {
   onFileSave: () => void
   onFileSaveAs: () => void
   onCloseTab?: () => void
+  onEditUndo?: () => void
+  onEditRedo?: () => void
+  onCopyRichText?: () => void
+  onExportHtml?: () => void
+  onExportPdf?: () => void
   children?: React.ReactNode
 }
 
-export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCloseTab, children }: TitleBarProps) {
+export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCloseTab, onEditUndo, onEditRedo, onCopyRichText, onExportHtml, onExportPdf, children }: TitleBarProps) {
   const dispatch = useDispatch()
   const viewMode = useSelector((state: RootState) => state.layout.mode)
   const theme = useSelector((state: RootState) => state.theme.currentTheme)
@@ -78,16 +84,20 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
       { label: 'Save As', shortcut: 'Ctrl+Shift+S', action: onFileSaveAs },
       { label: 'Close Tab', shortcut: 'Ctrl+W', action: onCloseTab },
       { separator: true, label: '' },
+      { label: 'Export as HTML', action: onExportHtml },
+      { label: 'Export as PDF', action: onExportPdf },
+      { separator: true, label: '' },
       { label: 'Print', shortcut: 'Ctrl+P', action: () => window.electron.window.print() },
       { separator: true, label: '' },
       { label: 'Exit', shortcut: 'Ctrl+Q', action: () => window.electron.window.close() }
     ],
     Edit: [
-      { label: 'Undo', shortcut: 'Ctrl+Z', action: () => document.execCommand('undo') },
-      { label: 'Redo', shortcut: 'Ctrl+Y', action: () => document.execCommand('redo') },
+      { label: 'Undo', shortcut: 'Ctrl+Z', action: onEditUndo },
+      { label: 'Redo', shortcut: 'Ctrl+Y', action: onEditRedo },
       { separator: true, label: '' },
       { label: 'Cut', shortcut: 'Ctrl+X', action: () => document.execCommand('cut') },
       { label: 'Copy', shortcut: 'Ctrl+C', action: () => document.execCommand('copy') },
+      { label: 'Copy as Rich Text', action: onCopyRichText },
       { label: 'Paste', shortcut: 'Ctrl+V', action: () => document.execCommand('paste') },
       { separator: true, label: '' },
       { label: 'Select All', shortcut: 'Ctrl+A', action: () => document.execCommand('selectAll') },
@@ -130,14 +140,18 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
     <div className="title-bar">
       <div className="title-bar-menus" ref={menuRef}>
         <div className="menu-bar">
-          {Object.entries(menus).map(([menuName, items]) => (
+          {Object.entries(menus).map(([menuName, items], index) => (
             <div key={menuName} className={`menu-item ${openMenu === menuName ? 'open' : ''}`}>
               <button
-                className="menu-button"
+                className={`menu-button ${index === 0 ? 'menu-button-icon' : ''}`}
                 onClick={() => handleMenuClick(menuName)}
                 onMouseEnter={() => openMenu && setOpenMenu(menuName)}
               >
-                {menuName}
+                {index === 0 ? (
+                  <img src={tangleIcon} alt="Menu" className="menu-icon" />
+                ) : (
+                  menuName
+                )}
               </button>
 
               {openMenu === menuName && (

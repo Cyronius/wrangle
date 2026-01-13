@@ -68,6 +68,16 @@
   background-color: var(--button-hover-bg);
 }
 
+.menu-button-icon {
+  padding: 0 10px;
+}
+
+.menu-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
 .menu-dropdown {
   position: absolute;
   top: 100%;
