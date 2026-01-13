@@ -65,8 +65,11 @@ export function EditorLayout({
       endPos.column
     ))
 
-    // Focus the editor
-    editor.focus()
+    // Only focus editor in split/editor-only mode, not preview-only
+    // This allows WYSIWYG editing: select in preview, use toolbar, stay in preview
+    if (viewMode !== 'preview-only') {
+      editor.focus()
+    }
   }
 
   // Render based on view mode
@@ -80,7 +83,11 @@ export function EditorLayout({
 
   if (viewMode === 'preview-only') {
     return (
-      <div style={{ height: '100%', width: '100%' }}>
+      <div style={{ height: '100%', width: '100%', position: 'relative' }}>
+        {/* Hidden editor - keeps editorRef valid for WYSIWYG toolbar commands */}
+        <div style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0, pointerEvents: 'none' }}>
+          <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} />
+        </div>
         <MarkdownPreview
           content={content}
           baseDir={baseDir}

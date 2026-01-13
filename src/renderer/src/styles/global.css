@@ -59,3 +59,61 @@ code {
   --scrollbar-thumb: #424242;
   --scrollbar-thumb-hover: #4e4e4e;
 }
+
+/* Print styles - only show preview content */
+@media print {
+  .title-bar,
+  .markdown-toolbar,
+  .tab-bar,
+  .monaco-editor,
+  .outline-sidebar,
+  [class*="allotment"] {
+    display: none !important;
+  }
+
+  body {
+    overflow: visible !important;
+    background-color: white !important;
+    color: black !important;
+  }
+
+  #root {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .markdown-preview {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .markdown-body {
+    max-width: none !important;
+    padding: 20px !important;
+    background-color: white !important;
+    color: black !important;
+  }
+
+  .markdown-body h1,
+  .markdown-body h2,
+  .markdown-body h3,
+  .markdown-body h4,
+  .markdown-body h5,
+  .markdown-body h6 {
+    color: black !important;
+  }
+
+  .markdown-body a {
+    color: #0066cc !important;
+  }
+
+  .markdown-body pre,
+  .markdown-body code {
+    background-color: #f5f5f5 !important;
+    color: black !important;
+  }
+}

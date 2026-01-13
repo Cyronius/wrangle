@@ -4,7 +4,7 @@ export interface ElectronAPI {
   file: {
     open: () => Promise<FileData | null>
     save: (path: string, content: string) => Promise<boolean>
-    saveAs: (content: string) => Promise<string | null>
+    saveAs: (content: string, suggestedName?: string) => Promise<string | null>
     copyImage: (
       sourcePath: string,
       tabId: string,
@@ -25,6 +25,7 @@ export interface ElectronAPI {
     getZoom: () => Promise<number>
     isMaximized: () => Promise<boolean>
     print: () => void
+    exportPdf: () => Promise<string | null>
     toggleDevTools: () => void
   }
   onMenuCommand: (callback: (command: string) => void) => () => void

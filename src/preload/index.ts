@@ -5,7 +5,7 @@ const electronAPI: ElectronAPI = {
   file: {
     open: () => ipcRenderer.invoke('file:open'),
     save: (path: string, content: string) => ipcRenderer.invoke('file:save', path, content),
-    saveAs: (content: string) => ipcRenderer.invoke('file:saveAs', content),
+    saveAs: (content: string, suggestedName?: string) => ipcRenderer.invoke('file:saveAs', content, suggestedName),
     copyImage: (sourcePath: string, tabId: string, markdownFilePath: string | null) =>
       ipcRenderer.invoke('file:copyImage', sourcePath, tabId, markdownFilePath),
     autoSave: (tabId: string, content: string, filePath: string | null) =>
@@ -25,6 +25,7 @@ const electronAPI: ElectronAPI = {
     getZoom: () => ipcRenderer.invoke('window:getZoom'),
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
     print: () => ipcRenderer.send('window:print'),
+    exportPdf: () => ipcRenderer.invoke('window:exportPdf'),
     toggleDevTools: () => ipcRenderer.send('window:toggleDevTools')
   },
   onMenuCommand: (callback: (command: string) => void) => {

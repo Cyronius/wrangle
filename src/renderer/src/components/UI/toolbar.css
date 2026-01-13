@@ -12,7 +12,14 @@
 .toolbar-group {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+}
+
+.toolbar-separator {
+  width: 1px;
+  height: 20px;
+  background-color: var(--border-color);
+  margin: 0 4px;
 }
 
 .toolbar-button {
@@ -93,26 +100,10 @@
   background: var(--scrollbar-thumb-hover);
 }
 
-/* View mode toggle group - radio style connected buttons */
-.view-mode-group {
-  display: flex;
-  gap: 0;
-}
-
+/* View mode toggle group */
 .view-mode-group .view-mode-button {
-  border-radius: 0;
-  border-right-width: 0;
   font-size: 12px;
   padding: 4px 10px;
-}
-
-.view-mode-group .view-mode-button:first-child {
-  border-radius: 4px 0 0 4px;
-}
-
-.view-mode-group .view-mode-button:last-child {
-  border-radius: 0 4px 4px 0;
-  border-right-width: 1px;
 }
 
 .view-mode-group .view-mode-button.active {
@@ -127,25 +118,9 @@
   opacity: 0.9;
 }
 
-/* Heading buttons group - connected style */
-.heading-group {
-  display: flex;
-  gap: 0;
-}
-
+/* Heading buttons group */
 .heading-group .heading-button {
-  border-radius: 0;
-  border-right-width: 0;
   font-size: 11px;
   padding: 4px 6px;
   min-width: 26px;
-}
-
-.heading-group .heading-button:first-child {
-  border-radius: 4px 0 0 4px;
-}
-
-.heading-group .heading-button:last-child {
-  border-radius: 0 4px 4px 0;
-  border-right-width: 1px;
 }

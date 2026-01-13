@@ -1,0 +1,107 @@
+.outline-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 200px;
+  min-width: 150px;
+  max-width: 300px;
+  height: 100%;
+  background-color: var(--toolbar-bg);
+  border-right: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.outline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.outline-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.outline-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted, #888);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.outline-close:hover {
+  background-color: var(--button-hover-bg);
+  color: var(--text-color);
+}
+
+.outline-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.outline-empty {
+  padding: 12px;
+  color: var(--text-muted, #888);
+  font-size: 13px;
+  text-align: center;
+}
+
+.outline-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.outline-item:hover {
+  background-color: var(--button-hover-bg);
+}
+
+/* Indentation for heading levels */
+.outline-level-1 { padding-left: 12px; font-weight: 600; }
+.outline-level-2 { padding-left: 24px; }
+.outline-level-3 { padding-left: 36px; }
+.outline-level-4 { padding-left: 48px; font-size: 12px; }
+.outline-level-5 { padding-left: 60px; font-size: 12px; }
+.outline-level-6 { padding-left: 72px; font-size: 12px; }
+
+/* Scrollbar styling */
+.outline-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.outline-content::-webkit-scrollbar-track {
+  background: var(--toolbar-bg);
+}
+
+.outline-content::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+
+.outline-content::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}

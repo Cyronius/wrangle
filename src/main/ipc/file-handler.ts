@@ -56,14 +56,16 @@ export function registerFileHandlers(): void {
   })
 
   // Handle file save as
-  ipcMain.handle('file:saveAs', async (_event, content: string) => {
+  ipcMain.handle('file:saveAs', async (_event, content: string, suggestedName?: string) => {
+    // Use suggested name if provided, otherwise default to 'untitled'
+    const defaultName = suggestedName ? `${suggestedName}.md` : 'untitled.md'
     const result = await dialog.showSaveDialog({
       filters: [
         { name: 'Markdown Files', extensions: ['md'] },
         { name: 'Text Files', extensions: ['txt'] },
         { name: 'All Files', extensions: ['*'] }
       ],
-      defaultPath: 'untitled.md'
+      defaultPath: defaultName
     })
 
     if (result.canceled || !result.filePath) {
