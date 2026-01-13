@@ -100,7 +100,7 @@ npm install
 
 3. Run the application:
 ```bash
-npm run dev
+npm start
 ```
 
 ---
@@ -109,12 +109,7 @@ npm run dev
 
 ### Running the Application
 
-**Development mode** (with hot reload):
-```bash
-npm run dev
-```
-
-**Build and preview**:
+**Development mode**:
 ```bash
 npm run build
 npm start
