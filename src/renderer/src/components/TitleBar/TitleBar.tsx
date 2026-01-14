@@ -25,10 +25,11 @@ interface TitleBarProps {
   onCopyRichText?: () => void
   onExportHtml?: () => void
   onExportPdf?: () => void
+  onOpenPreferences?: () => void
   children?: React.ReactNode
 }
 
-export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCloseTab, onEditUndo, onEditRedo, onCopyRichText, onExportHtml, onExportPdf, children }: TitleBarProps) {
+export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCloseTab, onEditUndo, onEditRedo, onCopyRichText, onExportHtml, onExportPdf, onOpenPreferences, children }: TitleBarProps) {
   const dispatch = useDispatch()
   const viewMode = useSelector((state: RootState) => state.layout.mode)
   const theme = useSelector((state: RootState) => state.theme.currentTheme)
@@ -88,6 +89,8 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
       { label: 'Export as PDF', action: onExportPdf },
       { separator: true, label: '' },
       { label: 'Print', shortcut: 'Ctrl+P', action: () => window.electron.window.print() },
+      { separator: true, label: '' },
+      { label: 'Preferences', shortcut: 'Ctrl+,', action: onOpenPreferences },
       { separator: true, label: '' },
       { label: 'Exit', shortcut: 'Ctrl+Q', action: () => window.electron.window.close() }
     ],

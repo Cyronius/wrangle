@@ -3,9 +3,67 @@ import { markedHighlight } from 'marked-highlight'
 import { gfmHeadingId } from 'marked-gfm-heading-id'
 import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
+import matter from 'gray-matter'
 import { SourceMap, SourceRange } from './source-map'
 
 export { SourceMap }
+
+/**
+ * Extract and process YAML front matter from markdown content
+ * Returns the content without front matter and the parsed data
+ */
+export function extractFrontMatter(markdown: string): {
+  content: string
+  data: Record<string, unknown>
+  hasFrontMatter: boolean
+} {
+  try {
+    const result = matter(markdown)
+    return {
+      content: result.content,
+      data: result.data as Record<string, unknown>,
+      hasFrontMatter: Object.keys(result.data).length > 0
+    }
+  } catch (e) {
+    // If parsing fails, return original content
+    console.warn('Failed to parse front matter:', e)
+    return {
+      content: markdown,
+      data: {},
+      hasFrontMatter: false
+    }
+  }
+}
+
+/**
+ * Render front matter data as a collapsible details element
+ */
+function renderFrontMatter(data: Record<string, unknown>): string {
+  if (Object.keys(data).length === 0) return ''
+
+  const rows = Object.entries(data).map(([key, value]) => {
+    const valueStr = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)
+    return `<tr><td><strong>${escapeHtml(key)}</strong></td><td>${escapeHtml(valueStr)}</td></tr>`
+  }).join('')
+
+  return `
+    <details class="front-matter">
+      <summary>Front Matter</summary>
+      <table class="front-matter-table">
+        <tbody>${rows}</tbody>
+      </table>
+    </details>
+  `
+}
+
+/**
+ * Escape HTML special characters
+ */
+function escapeHtml(text: string): string {
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
+}
 
 // Configure marked with extensions
 marked.use(
@@ -156,8 +214,16 @@ export async function renderMarkdown(
   try {
     console.log('[renderMarkdown] Called with baseDir:', baseDir)
 
+    // Extract front matter
+    const { content: markdownContent, data: frontMatterData, hasFrontMatter } = extractFrontMatter(markdown)
+
     // Convert markdown to HTML
-    let html = await marked.parse(markdown)
+    let html = await marked.parse(markdownContent)
+
+    // Prepend front matter if present
+    if (hasFrontMatter) {
+      html = renderFrontMatter(frontMatterData) + html
+    }
 
     // Process KaTeX math expressions
     html = processMath(html)
@@ -185,12 +251,14 @@ export async function renderMarkdown(
         'a', 'img',
         'div', 'span',
         'input', // For task lists
+        'details', 'summary', // For front matter
         'svg', 'path', 'rect', 'circle', 'line', 'polyline', 'polygon', 'text', 'g', 'defs', 'marker' // For mermaid
       ],
       ALLOWED_ATTR: [
         'href', 'title', 'alt', 'src',
         'class', 'id',
         'type', 'checked', 'disabled', // For task lists
+        'open', // For details element
         'viewBox', 'width', 'height', 'fill', 'stroke', 'stroke-width', 'd', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'points', 'transform', 'style', 'marker-end', 'marker-start' // For mermaid
       ],
       ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp|file):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
@@ -394,7 +462,15 @@ export async function renderMarkdownWithSourceMap(
   markedInstance.use({ renderer: customRenderer })
 
   try {
-    let html = await markedInstance.parse(markdown)
+    // Extract front matter
+    const { content: markdownContent, data: frontMatterData, hasFrontMatter } = extractFrontMatter(markdown)
+
+    let html = await markedInstance.parse(markdownContent)
+
+    // Prepend front matter if present
+    if (hasFrontMatter) {
+      html = renderFrontMatter(frontMatterData) + html
+    }
 
     // Process KaTeX math expressions
     html = processMath(html)
@@ -419,12 +495,14 @@ export async function renderMarkdownWithSourceMap(
         'a', 'img',
         'div', 'span',
         'input',
+        'details', 'summary', // For front matter
         'svg', 'path', 'rect', 'circle', 'line', 'polyline', 'polygon', 'text', 'g', 'defs', 'marker'
       ],
       ALLOWED_ATTR: [
         'href', 'title', 'alt', 'src',
         'class', 'id',
         'type', 'checked', 'disabled',
+        'open', // For details element
         'data-source-id', // Source mapping attribute
         'viewBox', 'width', 'height', 'fill', 'stroke', 'stroke-width', 'd', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'points', 'transform', 'style', 'marker-end', 'marker-start'
       ],

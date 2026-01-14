@@ -1,6 +1,7 @@
 import { Allotment } from 'allotment'
 import { MonacoEditor } from '../Editor/MonacoEditor'
 import { MarkdownPreview } from '../Preview/MarkdownPreview'
+import { SyncLockIcon } from './SyncLockIcon'
 import { SourceRange } from '../../utils/source-map'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store/store'
@@ -104,22 +105,25 @@ export function EditorLayout({
   const previewSize = (1 - splitRatio) * 100
 
   return (
-    <Allotment
-      onChange={handleSplitChange}
-      defaultSizes={[editorSize, previewSize]}
-    >
-      <Allotment.Pane minSize={200}>
-        <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} />
-      </Allotment.Pane>
-      <Allotment.Pane minSize={200}>
-        <MarkdownPreview
-          content={content}
-          baseDir={baseDir}
-          syncScroll={previewSync}
-          onSourceSelect={handlePreviewSourceSelect}
-          zoomLevel={zoomLevel}
-        />
-      </Allotment.Pane>
-    </Allotment>
+    <div style={{ height: '100%', width: '100%', position: 'relative' }}>
+      <Allotment
+        onChange={handleSplitChange}
+        defaultSizes={[editorSize, previewSize]}
+      >
+        <Allotment.Pane minSize={200}>
+          <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} />
+        </Allotment.Pane>
+        <Allotment.Pane minSize={200}>
+          <MarkdownPreview
+            content={content}
+            baseDir={baseDir}
+            syncScroll={previewSync}
+            onSourceSelect={handlePreviewSourceSelect}
+            zoomLevel={zoomLevel}
+          />
+        </Allotment.Pane>
+      </Allotment>
+      <SyncLockIcon />
+    </div>
   )
 }

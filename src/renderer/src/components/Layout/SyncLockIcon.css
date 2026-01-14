@@ -1,0 +1,42 @@
+.sync-lock-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  background: var(--button-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-color-muted);
+  transition: all 0.15s ease;
+  opacity: 0.7;
+}
+
+.sync-lock-icon:hover {
+  opacity: 1;
+  background: var(--button-hover-bg);
+  color: var(--text-color);
+}
+
+.sync-lock-icon.synced {
+  color: var(--accent-color);
+}
+
+.sync-lock-icon.synced:hover {
+  color: var(--accent-color);
+}
+
+.sync-lock-icon.unsynced {
+  color: var(--text-color-muted);
+}
+
+.sync-lock-icon svg {
+  display: block;
+}

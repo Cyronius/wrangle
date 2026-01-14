@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { ElectronAPI } from './electron'
+import { ElectronAPI, SettingsSchema } from './electron'
 
 const electronAPI: ElectronAPI = {
   file: {
@@ -27,6 +27,15 @@ const electronAPI: ElectronAPI = {
     print: () => ipcRenderer.send('window:print'),
     exportPdf: () => ipcRenderer.invoke('window:exportPdf'),
     toggleDevTools: () => ipcRenderer.send('window:toggleDevTools')
+  },
+  settings: {
+    getAll: () => ipcRenderer.invoke('settings:getAll'),
+    get: <K extends keyof SettingsSchema>(key: K) => ipcRenderer.invoke('settings:get', key),
+    set: <K extends keyof SettingsSchema>(key: K, value: SettingsSchema[K]) =>
+      ipcRenderer.invoke('settings:set', key, value),
+    setMultiple: (data: Partial<SettingsSchema>) => ipcRenderer.invoke('settings:setMultiple', data),
+    reset: () => ipcRenderer.invoke('settings:reset'),
+    getPath: () => ipcRenderer.invoke('settings:getPath')
   },
   onMenuCommand: (callback: (command: string) => void) => {
     const subscription = (_event: Electron.IpcRendererEvent, command: string) => callback(command)

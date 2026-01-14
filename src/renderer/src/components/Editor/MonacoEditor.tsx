@@ -1,7 +1,10 @@
 import { Editor } from '@monaco-editor/react'
 import * as monaco from 'monaco-editor'
-import { forwardRef, useRef } from 'react'
-import { markdownCommands } from '../../utils/markdown-commands'
+import { forwardRef, useRef, useEffect, useCallback } from 'react'
+import { useSelector } from 'react-redux'
+import { selectCurrentBindings, ShortcutBindings } from '../../store/settingsSlice'
+import { parseShortcutToMonaco } from '../../utils/shortcut-parser'
+import { commandMap } from '../../commands/registry'
 
 interface MonacoEditorProps {
   value: string
@@ -13,6 +16,80 @@ interface MonacoEditorProps {
 export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | null, MonacoEditorProps>(
   ({ value, onChange, theme = 'vs-dark', fontSize = 14 }, ref) => {
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
+    const disposablesRef = useRef<monaco.IDisposable[]>([])
+    const bindings = useSelector(selectCurrentBindings)
+
+    // Register editor actions based on current bindings
+    const registerEditorActions = useCallback(
+      (editor: monaco.editor.IStandaloneCodeEditor, currentBindings: ShortcutBindings) => {
+        // Dispose previous actions
+        disposablesRef.current.forEach((d) => d.dispose())
+        disposablesRef.current = []
+
+        // Commands to register in Monaco editor
+        const editorCommands = [
+          'edit.toggleCase',
+          'edit.lowercase',
+          'markdown.bold',
+          'markdown.italic',
+          'markdown.strikethrough',
+          'markdown.code',
+          'markdown.link',
+          'markdown.table',
+          'markdown.heading1',
+          'markdown.heading2',
+          'markdown.heading3',
+          'markdown.heading4',
+          'markdown.heading5',
+          'markdown.heading6',
+          'markdown.bulletList',
+          'markdown.numberedList',
+          'markdown.taskList',
+          'markdown.blockquote',
+          'markdown.codeBlock',
+          'markdown.image',
+          'markdown.hr'
+        ]
+
+        for (const commandId of editorCommands) {
+          const command = commandMap.get(commandId)
+          if (!command) continue
+
+          const binding = currentBindings[commandId]
+          const keybinding = binding ? parseShortcutToMonaco(binding) : null
+
+          try {
+            const disposable = editor.addAction({
+              id: commandId,
+              label: command.label,
+              keybindings: keybinding ? [keybinding] : [],
+              run: () => {
+                // Create a minimal context for the command
+                command.execute({
+                  editor,
+                  dispatch: () => {},
+                  getState: () => ({}),
+                  handlers: {
+                    onFileNew: () => {},
+                    onFileOpen: () => {},
+                    onFileSave: () => {},
+                    onFileSaveAs: () => {},
+                    onCloseTab: () => {},
+                    onEditUndo: () => {},
+                    onEditRedo: () => {},
+                    onOpenPreferences: () => {}
+                  }
+                })
+              }
+            })
+            disposablesRef.current.push(disposable)
+          } catch (e) {
+            console.warn(`Failed to register action ${commandId}:`, e)
+          }
+        }
+      },
+      []
+    )
 
     const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor) => {
       editorRef.current = editor
@@ -24,88 +101,24 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
         ref.current = editor
       }
 
-      // Register custom commands
-      editor.addAction({
-        id: 'toggleCase',
-        label: 'Toggle Case',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyU],
-        run: (ed) => {
-          const selection = ed.getSelection()
-          const text = ed.getModel()?.getValueInRange(selection!)
-          if (text && selection) {
-            // Toggle: if all uppercase, convert to lowercase; otherwise convert to uppercase
-            const isUppercase = text === text.toUpperCase() && text !== text.toLowerCase()
-            ed.executeEdits('', [
-              {
-                range: selection,
-                text: isUppercase ? text.toLowerCase() : text.toUpperCase()
-              }
-            ])
-          }
-        }
-      })
-
-      editor.addAction({
-        id: 'lowercase',
-        label: 'Convert to Lowercase',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyL],
-        run: (ed) => {
-          const selection = ed.getSelection()
-          const text = ed.getModel()?.getValueInRange(selection!)
-          if (text && selection) {
-            ed.executeEdits('', [
-              {
-                range: selection,
-                text: text.toLowerCase()
-              }
-            ])
-          }
-        }
-      })
-
-      // Markdown formatting shortcuts
-      editor.addAction({
-        id: 'markdown-bold',
-        label: 'Bold',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB],
-        run: (ed) => markdownCommands.bold(ed)
-      })
-
-      editor.addAction({
-        id: 'markdown-italic',
-        label: 'Italic',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI],
-        run: (ed) => markdownCommands.italic(ed)
-      })
-
-      editor.addAction({
-        id: 'markdown-strikethrough',
-        label: 'Strikethrough',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyX],
-        run: (ed) => markdownCommands.strikethrough(ed)
-      })
-
-      editor.addAction({
-        id: 'markdown-inline-code',
-        label: 'Inline Code',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Backquote],
-        run: (ed) => markdownCommands.inlineCode(ed)
-      })
-
-      editor.addAction({
-        id: 'markdown-link',
-        label: 'Insert Link',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK],
-        run: (ed) => markdownCommands.link(ed)
-      })
-
-      editor.addAction({
-        id: 'markdown-table',
-        label: 'Insert Table',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyT],
-        run: (ed) => markdownCommands.table(ed)
-      })
+      // Register actions with current bindings
+      registerEditorActions(editor, bindings)
     }
+
+    // Re-register actions when bindings change
+    useEffect(() => {
+      if (editorRef.current) {
+        registerEditorActions(editorRef.current, bindings)
+      }
+    }, [bindings, registerEditorActions])
+
+    // Cleanup on unmount
+    useEffect(() => {
+      return () => {
+        disposablesRef.current.forEach((d) => d.dispose())
+        disposablesRef.current = []
+      }
+    }, [])
 
     return (
       <Editor
@@ -127,6 +140,9 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
           quickSuggestions: false,
           multiCursorModifier: 'ctrlCmd',
           mouseWheelZoom: false,
+          tabSize: 2,
+          insertSpaces: true,
+          detectIndentation: false,
           find: {
             seedSearchStringFromSelection: 'always',
             autoFindInSelection: 'never'

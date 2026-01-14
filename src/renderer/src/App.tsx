@@ -1,21 +1,22 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
-import { store, RootState } from './store/store'
+import { store, RootState, AppDispatch } from './store/store'
 import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline } from './store/layoutSlice'
 import { setTheme } from './store/themeSlice'
 import { addTab, updateTab, setActiveTab, closeTab, nextTab, previousTab } from './store/tabsSlice'
-import { MonacoEditor } from './components/Editor/MonacoEditor'
+import { loadSettings } from './store/settingsSlice'
 import { EditorLayout } from './components/Layout/EditorLayout'
 import { TabBar } from './components/Tabs/TabBar'
 import { MarkdownToolbar } from './components/UI/MarkdownToolbar'
 import { TitleBar } from './components/TitleBar/TitleBar'
 import { ThemeProvider } from './components/ThemeProvider'
 import { OutlineSidebar } from './components/Outline/OutlineSidebar'
+import { PreferencesDialog } from './components/Preferences/PreferencesDialog'
 import { useImageDrop } from './hooks/useImageDrop'
 import * as monaco from 'monaco-editor'
 
 function AppContent() {
-  const dispatch = useDispatch()
+  const dispatch = useDispatch<AppDispatch>()
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -23,6 +24,14 @@ function AppContent() {
   const { tabs, activeTabId } = useSelector((state: RootState) => state.tabs)
   const theme = useSelector((state: RootState) => state.theme.currentTheme)
   const showOutline = useSelector((state: RootState) => state.layout.showOutline)
+
+  // Preferences dialog state
+  const [preferencesOpen, setPreferencesOpen] = useState(false)
+
+  // Load settings on mount
+  useEffect(() => {
+    dispatch(loadSettings())
+  }, [dispatch])
 
   // Get active tab
   const activeTab = tabs.find(t => t.id === activeTabId)
@@ -319,6 +328,11 @@ function AppContent() {
         e.preventDefault()
         window.electron.window.toggleDevTools()
       }
+      // Ctrl+,: Open preferences
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault()
+        setPreferencesOpen(true)
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -481,6 +495,7 @@ function AppContent() {
         onCopyRichText={handleCopyRichText}
         onExportHtml={handleExportHtml}
         onExportPdf={handleExportPdf}
+        onOpenPreferences={() => setPreferencesOpen(true)}
       >
         <TabBar
           onCloseTab={async (tabId) => {
@@ -529,6 +544,10 @@ function AppContent() {
           />
         </div>
       </div>
+      <PreferencesDialog
+        isOpen={preferencesOpen}
+        onClose={() => setPreferencesOpen(false)}
+      />
     </div>
   )
 }
