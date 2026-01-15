@@ -11,13 +11,23 @@ interface MonacoEditorProps {
   onChange: (value: string | undefined) => void
   theme?: 'vs-dark' | 'vs'
   fontSize?: number
+  onCursorChange?: (offset: number) => void
+  onScroll?: (offset: number) => void  // Character offset of first visible line
 }
 
 export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | null, MonacoEditorProps>(
-  ({ value, onChange, theme = 'vs-dark', fontSize = 14 }, ref) => {
+  ({ value, onChange, theme = 'vs-dark', fontSize = 14, onCursorChange, onScroll }, ref) => {
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
     const disposablesRef = useRef<monaco.IDisposable[]>([])
+    const cursorDisposableRef = useRef<monaco.IDisposable | null>(null)
+    const scrollDisposableRef = useRef<monaco.IDisposable | null>(null)
+    const onScrollRef = useRef(onScroll)
     const bindings = useSelector(selectCurrentBindings)
+
+    // Keep onScrollRef up to date
+    useEffect(() => {
+      onScrollRef.current = onScroll
+    }, [onScroll])
 
     // Register editor actions based on current bindings
     const registerEditorActions = useCallback(
@@ -103,6 +113,26 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
 
       // Register actions with current bindings
       registerEditorActions(editor, bindings)
+
+      // Set up scroll listener - must be done here since editor isn't available in useEffect
+      scrollDisposableRef.current = editor.onDidScrollChange(() => {
+        console.log('[MonacoEditor] onDidScrollChange fired, onScrollRef.current:', !!onScrollRef.current)
+        if (!onScrollRef.current) return
+
+        const model = editor.getModel()
+        if (!model) return
+
+        // Get the first visible line
+        const visibleRanges = editor.getVisibleRanges()
+        console.log('[MonacoEditor] visibleRanges:', visibleRanges.length)
+        if (visibleRanges.length === 0) return
+
+        const firstVisibleLine = visibleRanges[0].startLineNumber
+        // Get the character offset at the start of the first visible line
+        const offset = model.getOffsetAt({ lineNumber: firstVisibleLine, column: 1 })
+        console.log('[MonacoEditor] calling onScroll with offset:', offset)
+        onScrollRef.current(offset)
+      })
     }
 
     // Re-register actions when bindings change
@@ -112,11 +142,37 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
       }
     }, [bindings, registerEditorActions])
 
+    // Set up cursor position listener
+    useEffect(() => {
+      if (!editorRef.current || !onCursorChange) return
+
+      // Dispose previous listener
+      cursorDisposableRef.current?.dispose()
+
+      const editor = editorRef.current
+      cursorDisposableRef.current = editor.onDidChangeCursorPosition((e) => {
+        const model = editor.getModel()
+        if (model) {
+          const offset = model.getOffsetAt(e.position)
+          onCursorChange(offset)
+        }
+      })
+
+      return () => {
+        cursorDisposableRef.current?.dispose()
+        cursorDisposableRef.current = null
+      }
+    }, [onCursorChange])
+
     // Cleanup on unmount
     useEffect(() => {
       return () => {
         disposablesRef.current.forEach((d) => d.dispose())
         disposablesRef.current = []
+        cursorDisposableRef.current?.dispose()
+        cursorDisposableRef.current = null
+        scrollDisposableRef.current?.dispose()
+        scrollDisposableRef.current = null
       }
     }, [])
 

@@ -14,6 +14,14 @@ npm run build    # Build TypeScript and bundle with Vite
 npm run preview  # Run the built application (alias: npm start)
 ```
 
+**Important**: When running within Claude Code, you must unset the `ELECTRON_RUN_AS_NODE` environment variable before launching Electron:
+
+```bash
+unset ELECTRON_RUN_AS_NODE && ./node_modules/electron/dist/electron.exe .
+```
+
+This variable is set by Claude Code's environment and causes Electron to run as Node.js instead of as the Electron runtime, which breaks the `require('electron')` imports.
+
 ## Architecture
 
 ### Three-Process Electron Model

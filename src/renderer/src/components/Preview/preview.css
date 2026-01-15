@@ -304,3 +304,11 @@
   color: var(--preview-text);
   word-break: break-word;
 }
+
+/* Source highlight - shows which preview element corresponds to editor cursor */
+.markdown-body [data-source-id].source-highlight {
+  outline: 1px solid rgba(100, 149, 237, 0.4);
+  outline-offset: 2px;
+  background: rgba(100, 149, 237, 0.05);
+  border-radius: 2px;
+}

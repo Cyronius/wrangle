@@ -286,142 +286,130 @@ export function initializeMermaid(): void {
 }
 
 /**
- * Custom renderer that adds source mapping attributes to HTML elements
- * Uses # private fields to prevent marked.js from enumerating them as renderer methods
+ * Creates source mapping extensions for marked.js v12
+ * Uses extension array with renderer functions that receive full token objects
  */
-class SourceMappingRenderer extends Renderer {
-  #sourceMap: SourceMap
-  #markdown: string
-  #searchOffset: number = 0
+function createSourceMappingRenderer(markdown: string): {
+  extensions: Array<{ name: string; renderer: (token: any) => string | false }>
+  walkTokens: (token: any) => void
+  getSourceMap: () => SourceMap
+} {
+  const sourceMap = new SourceMap()
 
-  constructor(markdown: string) {
-    super()
-    this.#markdown = markdown
-    this.#sourceMap = new SourceMap()
-  }
-
-  #findSourceRange(raw: string): SourceRange | null {
-    const index = this.#markdown.indexOf(raw, this.#searchOffset)
-    if (index !== -1) {
-      // Don't update searchOffset for inline elements to handle nested content
-      return { start: index, end: index + raw.length }
+  // Build source map during token walking (before rendering)
+  function walkTokens(token: any): void {
+    if (token.raw && ['heading', 'paragraph', 'blockquote', 'list', 'code', 'table'].includes(token.type)) {
+      const index = markdown.indexOf(token.raw)
+      if (index !== -1) {
+        const id = sourceMap.addEntry(token.type, { start: index, end: index + token.raw.length })
+        // Store the source ID on the token for use during rendering
+        token._sourceId = id
+        console.log('[walkTokens] Added entry:', id, 'type:', token.type, 'range:', index, '-', index + token.raw.length)
+      }
     }
-    return null
   }
 
-  #addSourceAttr(html: string, type: string, raw: string): string {
-    const range = this.#findSourceRange(raw)
-    if (range) {
-      const id = this.#sourceMap.addEntry(type, range)
-      // Insert data-source-id attribute into the opening tag
-      return html.replace(/^<(\w+)/, `<$1 data-source-id="${id}"`)
+  // Extension array - each extension has a name (token type) and renderer function
+  // Renderer receives full token object and has access to this.parser
+  const extensions = [
+    {
+      name: 'heading',
+      renderer: function(this: { parser: any }, token: any): string {
+        const sourceId = token._sourceId
+        const text = this.parser.parseInline(token.tokens)
+        const attr = sourceId ? ` data-source-id="${sourceId}"` : ''
+        console.log('[ext-renderer] heading:', { sourceId, depth: token.depth, raw: token.raw?.substring(0, 30) })
+        return `<h${token.depth}${attr}>${text}</h${token.depth}>\n`
+      }
+    },
+    {
+      name: 'paragraph',
+      renderer: function(this: { parser: any }, token: any): string {
+        const sourceId = token._sourceId
+        const text = this.parser.parseInline(token.tokens)
+        const attr = sourceId ? ` data-source-id="${sourceId}"` : ''
+        console.log('[ext-renderer] paragraph:', { sourceId, raw: token.raw?.substring(0, 30) })
+        return `<p${attr}>${text}</p>\n`
+      }
+    },
+    {
+      name: 'blockquote',
+      renderer: function(this: { parser: any }, token: any): string {
+        const sourceId = token._sourceId
+        const body = this.parser.parse(token.tokens)
+        const attr = sourceId ? ` data-source-id="${sourceId}"` : ''
+        return `<blockquote${attr}>\n${body}</blockquote>\n`
+      }
+    },
+    {
+      name: 'list',
+      renderer: function(this: { parser: any }, token: any): string {
+        const sourceId = token._sourceId
+        const tag = token.ordered ? 'ol' : 'ul'
+        const startAttr = token.ordered && token.start !== 1 ? ` start="${token.start}"` : ''
+        const attr = sourceId ? ` data-source-id="${sourceId}"` : ''
+
+        let body = ''
+        for (const item of token.items) {
+          let itemBody = ''
+          if (item.task) {
+            const checkbox = `<input type="checkbox" ${item.checked ? 'checked' : ''} disabled> `
+            itemBody = checkbox + this.parser.parseInline(item.tokens)
+          } else {
+            itemBody = this.parser.parse(item.tokens)
+          }
+          body += `<li>${itemBody}</li>\n`
+        }
+
+        return `<${tag}${startAttr}${attr}>\n${body}</${tag}>\n`
+      }
+    },
+    {
+      name: 'code',
+      renderer: function(this: { parser: any }, token: any): string {
+        const sourceId = token._sourceId
+        const lang = (token.lang || '').match(/^\S*/)?.[0] || ''
+        const language = hljs.getLanguage(lang) ? lang : 'plaintext'
+        const highlighted = hljs.highlight(token.text, { language }).value
+        const attr = sourceId ? ` data-source-id="${sourceId}"` : ''
+        return `<pre${attr}><code class="hljs language-${language}">${highlighted}</code></pre>\n`
+      }
+    },
+    {
+      name: 'table',
+      renderer: function(this: { parser: any }, token: any): string {
+        const sourceId = token._sourceId
+        const attr = sourceId ? ` data-source-id="${sourceId}"` : ''
+
+        // Header
+        let headerCells = ''
+        for (const cell of token.header) {
+          const alignAttr = cell.align ? ` align="${cell.align}"` : ''
+          headerCells += `<th${alignAttr}>${this.parser.parseInline(cell.tokens)}</th>`
+        }
+        const headerHtml = `<thead><tr>${headerCells}</tr></thead>`
+
+        // Body
+        let bodyRows = ''
+        for (const row of token.rows) {
+          let cells = ''
+          for (const cell of row) {
+            const alignAttr = cell.align ? ` align="${cell.align}"` : ''
+            cells += `<td${alignAttr}>${this.parser.parseInline(cell.tokens)}</td>`
+          }
+          bodyRows += `<tr>${cells}</tr>\n`
+        }
+        const bodyHtml = `<tbody>${bodyRows}</tbody>`
+
+        return `<table${attr}>${headerHtml}${bodyHtml}</table>\n`
+      }
     }
-    return html
-  }
+  ]
 
-  // Override block-level elements
-  heading({ tokens, depth, raw }: Tokens.Heading): string {
-    const text = this.parser.parseInline(tokens)
-    const html = `<h${depth}>${text}</h${depth}>\n`
-    return this.#addSourceAttr(html, `heading${depth}`, raw)
-  }
-
-  paragraph({ tokens, raw }: Tokens.Paragraph): string {
-    const text = this.parser.parseInline(tokens)
-    const html = `<p>${text}</p>\n`
-    return this.#addSourceAttr(html, 'paragraph', raw)
-  }
-
-  blockquote({ tokens, raw }: Tokens.Blockquote): string {
-    const body = this.parser.parse(tokens)
-    const html = `<blockquote>\n${body}</blockquote>\n`
-    return this.#addSourceAttr(html, 'blockquote', raw)
-  }
-
-  list({ items, ordered, start, raw }: Tokens.List): string {
-    const tag = ordered ? 'ol' : 'ul'
-    const startAttr = ordered && start !== 1 ? ` start="${start}"` : ''
-    const body = items.map(item => this.listitem(item)).join('')
-    const html = `<${tag}${startAttr}>\n${body}</${tag}>\n`
-    return this.#addSourceAttr(html, 'list', raw)
-  }
-
-  listitem({ tokens, task, checked, raw }: Tokens.ListItem): string {
-    let itemBody = ''
-    if (task) {
-      const checkbox = `<input type="checkbox" ${checked ? 'checked' : ''} disabled> `
-      itemBody = checkbox + this.parser.parseInline(tokens)
-    } else {
-      itemBody = this.parser.parse(tokens)
-    }
-    const html = `<li>${itemBody}</li>\n`
-    return this.#addSourceAttr(html, 'listitem', raw)
-  }
-
-  code({ text, lang, raw }: Tokens.Code): string {
-    const language = hljs.getLanguage(lang || '') ? lang : 'plaintext'
-    const highlighted = hljs.highlight(text, { language: language || 'plaintext' }).value
-    const html = `<pre><code class="hljs language-${language}">${highlighted}</code></pre>\n`
-    return this.#addSourceAttr(html, 'code', raw)
-  }
-
-  table({ header, rows, raw }: Tokens.Table): string {
-    const headerCells = header.map(cell =>
-      `<th>${this.parser.parseInline(cell.tokens)}</th>`
-    ).join('')
-    const headerHtml = `<thead><tr>${headerCells}</tr></thead>`
-
-    const bodyRows = rows.map(row => {
-      const cells = row.map(cell =>
-        `<td>${this.parser.parseInline(cell.tokens)}</td>`
-      ).join('')
-      return `<tr>${cells}</tr>`
-    }).join('\n')
-    const bodyHtml = `<tbody>${bodyRows}</tbody>`
-
-    const html = `<table>${headerHtml}${bodyHtml}</table>\n`
-    return this.#addSourceAttr(html, 'table', raw)
-  }
-
-  // Override inline elements
-  strong({ tokens, raw }: Tokens.Strong): string {
-    const text = this.parser.parseInline(tokens)
-    const html = `<strong>${text}</strong>`
-    return this.#addSourceAttr(html, 'strong', raw)
-  }
-
-  em({ tokens, raw }: Tokens.Em): string {
-    const text = this.parser.parseInline(tokens)
-    const html = `<em>${text}</em>`
-    return this.#addSourceAttr(html, 'em', raw)
-  }
-
-  del({ tokens, raw }: Tokens.Del): string {
-    const text = this.parser.parseInline(tokens)
-    const html = `<del>${text}</del>`
-    return this.#addSourceAttr(html, 'del', raw)
-  }
-
-  codespan({ text, raw }: Tokens.Codespan): string {
-    const html = `<code>${text}</code>`
-    return this.#addSourceAttr(html, 'codespan', raw)
-  }
-
-  link({ href, title, tokens, raw }: Tokens.Link): string {
-    const text = this.parser.parseInline(tokens)
-    const titleAttr = title ? ` title="${title}"` : ''
-    const html = `<a href="${href}"${titleAttr}>${text}</a>`
-    return this.#addSourceAttr(html, 'link', raw)
-  }
-
-  image({ href, title, text, raw }: Tokens.Image): string {
-    const titleAttr = title ? ` title="${title}"` : ''
-    const html = `<img src="${href}" alt="${text}"${titleAttr}>`
-    return this.#addSourceAttr(html, 'image', raw)
-  }
-
-  getSourceMap(): SourceMap {
-    return this.#sourceMap
+  return {
+    extensions,
+    walkTokens,
+    getSourceMap: () => sourceMap
   }
 }
 
@@ -433,8 +421,8 @@ export async function renderMarkdownWithSourceMap(
   markdown: string,
   baseDir: string | null = null
 ): Promise<{ html: string; sourceMap: SourceMap }> {
-  // Create custom renderer with source mapping
-  const customRenderer = new SourceMappingRenderer(markdown)
+  // Create source mapping extensions
+  const { extensions, walkTokens, getSourceMap } = createSourceMappingRenderer(markdown)
 
   // Create a new Marked instance to avoid polluting the global marked state
   const markedInstance = new Marked()
@@ -458,14 +446,16 @@ export async function renderMarkdownWithSourceMap(
     smartypants: false
   })
 
-  // Use the custom renderer
-  markedInstance.use({ renderer: customRenderer })
+  // Use walkTokens to build source map, and extension renderers to add data-source-id attributes
+  markedInstance.use({ walkTokens, extensions })
 
   try {
     // Extract front matter
     const { content: markdownContent, data: frontMatterData, hasFrontMatter } = extractFrontMatter(markdown)
+    console.log('[renderMarkdownWithSourceMap] markdownContent length:', markdownContent.length)
 
     let html = await markedInstance.parse(markdownContent)
+    console.log('[renderMarkdownWithSourceMap] after parse, sourceMap size:', getSourceMap().size)
 
     // Prepend front matter if present
     if (hasFrontMatter) {
@@ -509,7 +499,7 @@ export async function renderMarkdownWithSourceMap(
       ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp|file):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
     })
 
-    return { html: sanitized, sourceMap: customRenderer.getSourceMap() }
+    return { html: sanitized, sourceMap: getSourceMap() }
   } catch (error) {
     console.error('Markdown rendering error:', error)
     return {

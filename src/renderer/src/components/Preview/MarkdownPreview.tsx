@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { renderMarkdownWithSourceMap, initializeMermaid, SourceMap } from '../../utils/markdown-renderer'
 import { SourceRange } from '../../utils/source-map'
 import './preview.css'
@@ -7,19 +7,28 @@ interface MarkdownPreviewProps {
   content: string
   baseDir?: string | null
   syncScroll?: boolean
-  onScroll?: (scrollRatio: number) => void
+  onScroll?: (sourceId: string | null) => void  // Source ID of topmost visible element
   onSourceSelect?: (range: SourceRange) => void
+  onSourceMapReady?: (sourceMap: SourceMap) => void
+  highlightSourceId?: string | null
   zoomLevel?: number
 }
 
-export function MarkdownPreview({
+export interface MarkdownPreviewHandle {
+  scrollToRatio: (ratio: number) => void
+  scrollToSourceId: (sourceId: string) => void
+}
+
+export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreviewProps>(function MarkdownPreview({
   content,
   baseDir = null,
   syncScroll = false,
   onScroll,
   onSourceSelect,
+  onSourceMapReady,
+  highlightSourceId,
   zoomLevel = 0
-}: MarkdownPreviewProps) {
+}, ref) {
   // Calculate zoom scale (10% per level)
   const zoomScale = Math.pow(1.1, zoomLevel)
   const [html, setHtml] = useState('')
@@ -35,12 +44,15 @@ export function MarkdownPreview({
   // Render markdown whenever content or baseDir changes
   useEffect(() => {
     const render = async () => {
+      console.log('[MarkdownPreview] rendering markdown, content length:', content.length)
       const { html: rendered, sourceMap: map } = await renderMarkdownWithSourceMap(content, baseDir)
+      console.log('[MarkdownPreview] render complete, sourceMap size:', map.size, 'html length:', rendered.length)
       setHtml(rendered)
       setSourceMap(map)
+      onSourceMapReady?.(map)
     }
     render()
-  }, [content, baseDir])
+  }, [content, baseDir, onSourceMapReady])
 
   // Handle selection in preview to find source range
   const handleSelectionChange = useCallback(() => {
@@ -86,20 +98,56 @@ export function MarkdownPreview({
     }
   }, [onSourceSelect, handleSelectionChange])
 
-  // Handle scroll synchronization
+  // Highlight element based on editor cursor position
+  useEffect(() => {
+    if (!previewRef.current) return
+
+    // Remove previous highlight
+    const previousHighlight = previewRef.current.querySelector('.source-highlight')
+    previousHighlight?.classList.remove('source-highlight')
+
+    if (!highlightSourceId) return
+
+    // Find and highlight the element
+    const element = previewRef.current.querySelector(`[data-source-id="${highlightSourceId}"]`)
+    if (element) {
+      element.classList.add('source-highlight')
+      // Scroll into view if needed
+      element.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [highlightSourceId])
+
+  // Handle scroll synchronization - find topmost visible element with source ID
   useEffect(() => {
     if (!syncScroll || !previewRef.current || !onScroll) return
 
     const handleScroll = () => {
       if (isScrollingRef.current) return
 
-      const element = previewRef.current
-      if (!element) return
+      const container = previewRef.current
+      if (!container) return
 
-      const scrollRatio =
-        element.scrollTop / (element.scrollHeight - element.clientHeight) || 0
+      // Find all elements with data-source-id
+      const sourceElements = container.querySelectorAll('[data-source-id]')
+      const containerRect = container.getBoundingClientRect()
 
-      onScroll(scrollRatio)
+      // Find the first element that's visible in the viewport
+      let topmostSourceId: string | null = null
+      for (const el of sourceElements) {
+        const rect = el.getBoundingClientRect()
+        // Check if element is at or below the top of the container
+        if (rect.top >= containerRect.top - 50) {
+          topmostSourceId = el.getAttribute('data-source-id')
+          break
+        }
+        // If element spans the top of the container, use it
+        if (rect.bottom > containerRect.top) {
+          topmostSourceId = el.getAttribute('data-source-id')
+          break
+        }
+      }
+
+      onScroll(topmostSourceId)
     }
 
     const element = previewRef.current
@@ -110,14 +158,12 @@ export function MarkdownPreview({
     }
   }, [syncScroll, onScroll])
 
-  // External scroll (from editor)
-  useEffect(() => {
-    if (!previewRef.current) return
+  // Expose scroll methods via ref
+  useImperativeHandle(ref, () => ({
+    scrollToRatio: (ratio: number) => {
+      const element = previewRef.current
+      if (!element) return
 
-    const element = previewRef.current
-
-    // This will be called when parent wants to sync preview scroll
-    ;(element as any).scrollToRatio = (ratio: number) => {
       isScrollingRef.current = true
       const maxScroll = element.scrollHeight - element.clientHeight
       element.scrollTop = maxScroll * ratio
@@ -125,8 +171,34 @@ export function MarkdownPreview({
       setTimeout(() => {
         isScrollingRef.current = false
       }, 100)
+    },
+    scrollToSourceId: (sourceId: string) => {
+      console.log('[MarkdownPreview] scrollToSourceId called with:', sourceId)
+      const container = previewRef.current
+      if (!container) {
+        console.log('[MarkdownPreview] no container ref')
+        return
+      }
+
+      const targetElement = container.querySelector(`[data-source-id="${sourceId}"]`) as HTMLElement | null
+      console.log('[MarkdownPreview] targetElement found:', !!targetElement)
+      if (!targetElement) return
+
+      isScrollingRef.current = true
+
+      // Calculate scroll position relative to container
+      const containerRect = container.getBoundingClientRect()
+      const elementRect = targetElement.getBoundingClientRect()
+      const relativeTop = elementRect.top - containerRect.top + container.scrollTop
+      console.log('[MarkdownPreview] scrolling to:', relativeTop)
+
+      container.scrollTop = relativeTop
+
+      setTimeout(() => {
+        isScrollingRef.current = false
+      }, 100)
     }
-  }, [])
+  }), [])
 
   return (
     <div ref={previewRef} className="markdown-preview">
@@ -140,6 +212,6 @@ export function MarkdownPreview({
       />
     </div>
   )
-}
+})
 
 export type { SourceRange }
