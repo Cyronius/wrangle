@@ -1,0 +1,182 @@
+.wysiwyg-editor-container {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.wysiwyg-editor-container .mdxeditor {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.wysiwyg-editor-container .mdxeditor-root-contenteditable {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1rem 2rem;
+}
+
+/* Dark theme overrides */
+.wysiwyg-editor-container.dark-theme {
+  background-color: var(--preview-bg, #1e1e1e);
+}
+
+.wysiwyg-editor-container.dark-theme .mdxeditor {
+  --accentBase: #3b82f6;
+  --accentBgSubtle: #1e3a5f;
+  --accentBg: #1e3a5f;
+  --accentBgHover: #2563eb;
+  --accentBgActive: #1d4ed8;
+  --accentLine: #3b82f6;
+  --accentBorder: #3b82f6;
+  --accentBorderHover: #60a5fa;
+  --accentSolid: #3b82f6;
+  --accentSolidHover: #2563eb;
+  --accentText: #60a5fa;
+  --accentTextContrast: #ffffff;
+
+  --baseBase: #1e1e1e;
+  --baseBgSubtle: #252526;
+  --baseBg: #1e1e1e;
+  --baseBgHover: #2d2d30;
+  --baseBgActive: #3c3c3c;
+  --baseLine: #3c3c3c;
+  --baseBorder: #3c3c3c;
+  --baseBorderHover: #505050;
+  --baseSolid: #6e6e6e;
+  --baseSolidHover: #8a8a8a;
+  --baseText: #cccccc;
+  --baseTextContrast: #ffffff;
+
+  background-color: var(--baseBg);
+  color: var(--baseText);
+}
+
+/* Content area styling */
+.wysiwyg-content {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--preview-text, #d4d4d4);
+}
+
+.dark-theme .wysiwyg-content {
+  color: #d4d4d4;
+}
+
+/* Headings */
+.wysiwyg-content h1,
+.wysiwyg-content h2,
+.wysiwyg-content h3,
+.wysiwyg-content h4,
+.wysiwyg-content h5,
+.wysiwyg-content h6 {
+  color: var(--preview-heading, #ffffff);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+.wysiwyg-content h1 { font-size: 2em; border-bottom: 1px solid var(--baseLine, #3c3c3c); padding-bottom: 0.3em; }
+.wysiwyg-content h2 { font-size: 1.5em; border-bottom: 1px solid var(--baseLine, #3c3c3c); padding-bottom: 0.3em; }
+.wysiwyg-content h3 { font-size: 1.25em; }
+.wysiwyg-content h4 { font-size: 1em; }
+.wysiwyg-content h5 { font-size: 0.875em; }
+.wysiwyg-content h6 { font-size: 0.85em; color: var(--baseSolid, #6e6e6e); }
+
+/* Links */
+.wysiwyg-content a {
+  color: var(--preview-link, #4fc3f7);
+  text-decoration: none;
+}
+
+.wysiwyg-content a:hover {
+  text-decoration: underline;
+}
+
+/* Code */
+.wysiwyg-content code {
+  background-color: var(--baseBgHover, rgba(110, 118, 129, 0.4));
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.wysiwyg-content pre {
+  background-color: var(--baseBgSubtle, #252526);
+  padding: 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.wysiwyg-content pre code {
+  background-color: transparent;
+  padding: 0;
+  font-size: 0.9em;
+}
+
+/* Blockquotes */
+.wysiwyg-content blockquote {
+  border-left: 4px solid var(--accentSolid, #3b82f6);
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  color: var(--baseSolid, #8a8a8a);
+  background-color: var(--baseBgSubtle, rgba(0, 0, 0, 0.1));
+}
+
+/* Lists */
+.wysiwyg-content ul,
+.wysiwyg-content ol {
+  padding-left: 2em;
+  margin: 1em 0;
+}
+
+.wysiwyg-content li {
+  margin: 0.25em 0;
+}
+
+/* Tables */
+.wysiwyg-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+
+.wysiwyg-content th,
+.wysiwyg-content td {
+  border: 1px solid var(--baseBorder, #3c3c3c);
+  padding: 0.5em 1em;
+  text-align: left;
+}
+
+.wysiwyg-content th {
+  background-color: var(--baseBgSubtle, #252526);
+  font-weight: 600;
+}
+
+.wysiwyg-content tr:nth-child(even) {
+  background-color: var(--baseBgSubtle, rgba(0, 0, 0, 0.05));
+}
+
+/* Horizontal rule */
+.wysiwyg-content hr {
+  border: none;
+  border-top: 1px solid var(--baseLine, #3c3c3c);
+  margin: 2em 0;
+}
+
+/* Images */
+.wysiwyg-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+/* Task lists */
+.wysiwyg-content input[type="checkbox"] {
+  margin-right: 0.5em;
+}

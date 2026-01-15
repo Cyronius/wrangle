@@ -11,7 +11,7 @@ function createWindow(): void {
     show: false,
     frame: false,
     titleBarStyle: 'hidden',
-    icon: join(__dirname, '../../src/assets/tangle.png'),
+    icon: join(__dirname, '../../src/assets/Wrangle-icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,

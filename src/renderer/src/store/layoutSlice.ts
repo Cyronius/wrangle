@@ -5,7 +5,6 @@ export type ViewMode = 'split' | 'editor-only' | 'preview-only'
 interface LayoutState {
   viewMode: ViewMode
   splitRatio: number
-  previewSync: boolean
   zoomLevel: number // 0 = 100%, positive = zoom in, negative = zoom out
   showOutline: boolean
 }
@@ -13,7 +12,6 @@ interface LayoutState {
 const initialState: LayoutState = {
   viewMode: 'split',
   splitRatio: 0.5,
-  previewSync: true,
   zoomLevel: 0,
   showOutline: false
 }
@@ -27,9 +25,6 @@ const layoutSlice = createSlice({
     },
     setSplitRatio(state, action: PayloadAction<number>) {
       state.splitRatio = Math.max(0.2, Math.min(0.8, action.payload))
-    },
-    togglePreviewSync(state) {
-      state.previewSync = !state.previewSync
     },
     zoomIn(state) {
       // Max zoom level of 5 (roughly 150% at 10% per level)
@@ -48,5 +43,5 @@ const layoutSlice = createSlice({
   }
 })
 
-export const { setViewMode, setSplitRatio, togglePreviewSync, zoomIn, zoomOut, resetZoom, toggleOutline } = layoutSlice.actions
+export const { setViewMode, setSplitRatio, zoomIn, zoomOut, resetZoom, toggleOutline } = layoutSlice.actions
 export default layoutSlice.reducer

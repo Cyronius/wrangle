@@ -60,6 +60,11 @@ code {
   --scrollbar-thumb-hover: #4e4e4e;
 }
 
+/* Hide Allotment's double divider line (the separator border pseudo-element) */
+[class*="splitViewView"]:not(:first-child)::before {
+  display: none !important;
+}
+
 /* Print styles - only show preview content */
 @media print {
   .title-bar,

@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import { setViewMode } from '../../store/layoutSlice'
 import { setTheme } from '../../store/themeSlice'
-import tangleIcon from '../../../../assets/tangle.png'
+import tangleIcon from '../../../../assets/Wrangle.png'
 import './TitleBar.css'
 
 interface MenuItem {

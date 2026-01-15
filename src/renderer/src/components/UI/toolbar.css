@@ -124,3 +124,59 @@
   padding: 4px 6px;
   min-width: 26px;
 }
+
+/* Custom tooltip styles (replaces browser native title tooltips for faster delay) */
+.toolbar-button[data-tooltip],
+.toolbar-select[data-tooltip] {
+  position: relative;
+}
+
+.toolbar-button[data-tooltip]::after,
+.toolbar-select[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: var(--app-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-color);
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition-delay: 0s;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Tooltip arrow */
+.toolbar-button[data-tooltip]::before,
+.toolbar-select[data-tooltip]::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--border-color);
+  z-index: 1001;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition-delay: 0s;
+  pointer-events: none;
+}
+
+.toolbar-button[data-tooltip]:hover::after,
+.toolbar-button[data-tooltip]:hover::before,
+.toolbar-select[data-tooltip]:hover::after,
+.toolbar-select[data-tooltip]:hover::before {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0.5s;
+}

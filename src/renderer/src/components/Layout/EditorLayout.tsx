@@ -1,8 +1,7 @@
+import { useEffect, useRef } from 'react'
 import { Allotment } from 'allotment'
 import { MonacoEditor } from '../Editor/MonacoEditor'
-import { MarkdownPreview } from '../Preview/MarkdownPreview'
-import { SyncLockIcon } from './SyncLockIcon'
-import { SourceRange } from '../../utils/source-map'
+import { WysiwygEditor } from '../Editor/WysiwygEditor'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store/store'
 import { setSplitRatio } from '../../store/layoutSlice'
@@ -12,7 +11,6 @@ import 'allotment/dist/style.css'
 interface EditorLayoutProps {
   content: string
   onChange: (value: string | undefined) => void
-  baseDir?: string | null
   theme?: 'vs-dark' | 'vs'
   editorRef?: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>
 }
@@ -25,15 +23,46 @@ function getZoomedFontSize(zoomLevel: number): number {
 export function EditorLayout({
   content,
   onChange,
-  baseDir = null,
   theme = 'vs-dark',
   editorRef
 }: EditorLayoutProps) {
   const dispatch = useDispatch()
-  const { viewMode, splitRatio, previewSync, zoomLevel } = useSelector((state: RootState) => state.layout)
+  const { viewMode, splitRatio, zoomLevel } = useSelector((state: RootState) => state.layout)
 
   // Calculate zoomed font size for editor
   const fontSize = getZoomedFontSize(zoomLevel)
+
+  // Track if we're programmatically scrolling to prevent feedback loops
+  const isScrollingSyncRef = useRef(false)
+
+  // Scroll sync: Monaco editor -> WYSIWYG editor
+  useEffect(() => {
+    if (viewMode !== 'split' || !editorRef?.current) return
+
+    const editor = editorRef.current
+    const disposable = editor.onDidScrollChange(() => {
+      if (isScrollingSyncRef.current) return
+
+      const scrollTop = editor.getScrollTop()
+      const scrollHeight = editor.getScrollHeight()
+      const clientHeight = editor.getLayoutInfo().height
+      const maxScroll = scrollHeight - clientHeight
+      const ratio = maxScroll > 0 ? scrollTop / maxScroll : 0
+
+      // Apply to WYSIWYG container
+      const wysiwygContainer = document.querySelector('.mdxeditor-root-contenteditable')
+      if (wysiwygContainer) {
+        isScrollingSyncRef.current = true
+        const wysiwygMaxScroll = wysiwygContainer.scrollHeight - wysiwygContainer.clientHeight
+        wysiwygContainer.scrollTop = wysiwygMaxScroll * ratio
+        setTimeout(() => {
+          isScrollingSyncRef.current = false
+        }, 50)
+      }
+    })
+
+    return () => disposable.dispose()
+  }, [viewMode, editorRef])
 
   const handleSplitChange = (sizes: number[]) => {
     if (sizes.length === 2) {
@@ -43,33 +72,6 @@ export function EditorLayout({
       // Clamp ratio between 0.2 and 0.8
       const clampedRatio = Math.max(0.2, Math.min(0.8, ratio))
       dispatch(setSplitRatio(clampedRatio))
-    }
-  }
-
-  // Handle preview selection - select corresponding text in editor
-  const handlePreviewSourceSelect = (range: SourceRange) => {
-    if (!editorRef?.current) return
-
-    const editor = editorRef.current
-    const model = editor.getModel()
-    if (!model) return
-
-    // Convert character offsets to Monaco positions
-    const startPos = model.getPositionAt(range.start)
-    const endPos = model.getPositionAt(range.end)
-
-    // Set selection in editor
-    editor.setSelection(new monaco.Selection(
-      startPos.lineNumber,
-      startPos.column,
-      endPos.lineNumber,
-      endPos.column
-    ))
-
-    // Only focus editor in split/editor-only mode, not preview-only
-    // This allows WYSIWYG editing: select in preview, use toolbar, stay in preview
-    if (viewMode !== 'preview-only') {
-      editor.focus()
     }
   }
 
@@ -84,46 +86,37 @@ export function EditorLayout({
 
   if (viewMode === 'preview-only') {
     return (
-      <div style={{ height: '100%', width: '100%', position: 'relative' }}>
-        {/* Hidden editor - keeps editorRef valid for WYSIWYG toolbar commands */}
-        <div style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0, pointerEvents: 'none' }}>
-          <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} />
-        </div>
-        <MarkdownPreview
-          content={content}
-          baseDir={baseDir}
-          syncScroll={false}
-          onSourceSelect={handlePreviewSourceSelect}
-          zoomLevel={zoomLevel}
+      <div style={{ height: '100%', width: '100%' }}>
+        <WysiwygEditor
+          value={content}
+          onChange={(val) => onChange(val)}
+          theme={theme === 'vs-dark' ? 'dark' : 'light'}
         />
       </div>
     )
   }
 
-  // Split view
+  // Split view: Monaco (raw markdown) on left, WysiwygEditor (rich text) on right
   const editorSize = splitRatio * 100
-  const previewSize = (1 - splitRatio) * 100
+  const wysiwygSize = (1 - splitRatio) * 100
 
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
       <Allotment
         onChange={handleSplitChange}
-        defaultSizes={[editorSize, previewSize]}
+        defaultSizes={[editorSize, wysiwygSize]}
       >
         <Allotment.Pane minSize={200}>
           <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} />
         </Allotment.Pane>
         <Allotment.Pane minSize={200}>
-          <MarkdownPreview
-            content={content}
-            baseDir={baseDir}
-            syncScroll={previewSync}
-            onSourceSelect={handlePreviewSourceSelect}
-            zoomLevel={zoomLevel}
+          <WysiwygEditor
+            value={content}
+            onChange={(val) => onChange(val)}
+            theme={theme === 'vs-dark' ? 'dark' : 'light'}
           />
         </Allotment.Pane>
       </Allotment>
-      <SyncLockIcon />
     </div>
   )
 }

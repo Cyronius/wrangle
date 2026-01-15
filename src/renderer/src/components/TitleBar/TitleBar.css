@@ -72,10 +72,10 @@
   padding: 0 10px;
 }
 
-.menu-icon {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
+.menu-icon {  
+  height: 16px;
+  width: 100px;
+  object-fit: cover;
 }
 
 .menu-dropdown {

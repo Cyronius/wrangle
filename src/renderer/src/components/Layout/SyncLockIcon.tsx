@@ -3,7 +3,11 @@ import { RootState } from '../../store/store'
 import { togglePreviewSync } from '../../store/layoutSlice'
 import './SyncLockIcon.css'
 
-export function SyncLockIcon() {
+interface SyncLockIconProps {
+  splitRatio: number
+}
+
+export function SyncLockIcon({ splitRatio }: SyncLockIconProps) {
   const dispatch = useDispatch()
   const previewSync = useSelector((state: RootState) => state.layout.previewSync)
 
@@ -11,11 +15,17 @@ export function SyncLockIcon() {
     dispatch(togglePreviewSync())
   }
 
+  // Position the icon at the split ratio position
+  const iconStyle: React.CSSProperties = {
+    left: `${splitRatio * 100}%`
+  }
+
   return (
     <button
       className={`sync-lock-icon ${previewSync ? 'synced' : 'unsynced'}`}
       onClick={handleClick}
       title={previewSync ? 'Preview scroll is synced - click to unlock' : 'Preview scroll is unlocked - click to sync'}
+      style={iconStyle}
     >
       {previewSync ? (
         // Locked/synced icon - chain links connected

@@ -216,7 +216,7 @@ export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
             key={btn.command}
             className={`toolbar-button ${activeFormats.has(btn.command) ? 'active' : ''}`}
             onClick={() => executeCommand(btn.command)}
-            title={btn.title}
+            data-tooltip={btn.title}
           >
             {btn.icon || btn.label}
           </button>
@@ -230,7 +230,7 @@ export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
             key={btn.command}
             className={`toolbar-button heading-button ${activeFormats.has(btn.command) ? 'active' : ''}`}
             onClick={() => executeCommand(btn.command)}
-            title={btn.title}
+            data-tooltip={btn.title}
           >
             {btn.label}
           </button>
@@ -246,7 +246,7 @@ export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
             key={btn.command}
             className={`toolbar-button ${activeFormats.has(btn.command) ? 'active' : ''}`}
             onClick={() => executeCommand(btn.command)}
-            title={btn.title}
+            data-tooltip={btn.title}
           >
             {btn.icon || btn.label}
           </button>
@@ -262,7 +262,7 @@ export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
             key={btn.mode}
             className={`toolbar-button view-mode-button ${viewMode === btn.mode ? 'active' : ''}`}
             onClick={() => dispatch(setViewMode(btn.mode))}
-            title={btn.title}
+            data-tooltip={btn.title}
           >
             {btn.icon}
           </button>
@@ -275,7 +275,7 @@ export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
       <button
         className={`toolbar-button ${showOutline ? 'active' : ''}`}
         onClick={() => dispatch(toggleOutline())}
-        title="Toggle Outline (Ctrl+Shift+O)"
+        data-tooltip="Toggle Outline (Ctrl+Shift+O)"
       >
         <OutlineIcon />
       </button>

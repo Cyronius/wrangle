@@ -1,7 +1,7 @@
 .sync-lock-icon {
   position: absolute;
   top: 50%;
-  left: 50%;
+  /* left is set dynamically via style prop based on splitRatio */
   transform: translate(-50%, -50%);
   z-index: 100;
   width: 28px;
@@ -15,7 +15,7 @@
   align-items: center;
   justify-content: center;
   color: var(--text-color-muted);
-  transition: all 0.15s ease;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
   opacity: 0.7;
 }
 

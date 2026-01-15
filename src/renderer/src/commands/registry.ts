@@ -1,4 +1,5 @@
 import * as monaco from 'monaco-editor'
+import { markdownCommands } from '../utils/markdown-commands'
 
 export type CommandCategory = 'file' | 'edit' | 'view' | 'navigation' | 'markdown' | 'app'
 
@@ -24,44 +25,6 @@ export interface CommandContext {
     onEditRedo: () => void
     onOpenPreferences: () => void
   }
-}
-
-// Markdown command helper - applies formatting to selection
-function applyMarkdownFormat(
-  editor: monaco.editor.IStandaloneCodeEditor | null,
-  prefix: string,
-  suffix: string = prefix
-): void {
-  if (!editor) return
-  const selection = editor.getSelection()
-  if (!selection) return
-
-  const model = editor.getModel()
-  if (!model) return
-
-  const selectedText = model.getValueInRange(selection)
-  const newText = `${prefix}${selectedText}${suffix}`
-
-  editor.executeEdits('', [{ range: selection, text: newText }])
-
-  // Position cursor appropriately
-  if (selectedText) {
-    // Keep selection around the text
-    editor.setSelection(new monaco.Selection(
-      selection.startLineNumber,
-      selection.startColumn + prefix.length,
-      selection.endLineNumber,
-      selection.endColumn + prefix.length
-    ))
-  } else {
-    // Place cursor between the markers
-    const newPos = new monaco.Position(
-      selection.startLineNumber,
-      selection.startColumn + prefix.length
-    )
-    editor.setPosition(newPos)
-  }
-  editor.focus()
 }
 
 // Insert text at cursor position
@@ -284,16 +247,6 @@ export const commands: CommandDefinition[] = [
     }
   },
   {
-    id: 'view.toggleSync',
-    label: 'Toggle Preview Sync',
-    category: 'view',
-    defaultBinding: null,
-    execute: (ctx) => {
-      const { togglePreviewSync } = require('../store/layoutSlice')
-      ctx.dispatch(togglePreviewSync())
-    }
-  },
-  {
     id: 'view.zoomIn',
     label: 'Zoom In',
     category: 'view',
@@ -344,34 +297,54 @@ export const commands: CommandDefinition[] = [
     }
   },
 
-  // Markdown formatting commands
+  // Markdown formatting commands - use unified markdownCommands for proper toggle behavior
   {
     id: 'markdown.bold',
     label: 'Bold',
     category: 'markdown',
     defaultBinding: 'Ctrl+B',
-    execute: (ctx) => applyMarkdownFormat(ctx.editor, '**')
+    execute: (ctx) => {
+      if (ctx.editor) {
+        markdownCommands.bold(ctx.editor)
+        ctx.editor.focus()
+      }
+    }
   },
   {
     id: 'markdown.italic',
     label: 'Italic',
     category: 'markdown',
     defaultBinding: 'Ctrl+I',
-    execute: (ctx) => applyMarkdownFormat(ctx.editor, '*')
+    execute: (ctx) => {
+      if (ctx.editor) {
+        markdownCommands.italic(ctx.editor)
+        ctx.editor.focus()
+      }
+    }
   },
   {
     id: 'markdown.strikethrough',
     label: 'Strikethrough',
     category: 'markdown',
     defaultBinding: 'Ctrl+Shift+X',
-    execute: (ctx) => applyMarkdownFormat(ctx.editor, '~~')
+    execute: (ctx) => {
+      if (ctx.editor) {
+        markdownCommands.strikethrough(ctx.editor)
+        ctx.editor.focus()
+      }
+    }
   },
   {
     id: 'markdown.code',
     label: 'Inline Code',
     category: 'markdown',
     defaultBinding: 'Ctrl+`',
-    execute: (ctx) => applyMarkdownFormat(ctx.editor, '`')
+    execute: (ctx) => {
+      if (ctx.editor) {
+        markdownCommands.inlineCode(ctx.editor)
+        ctx.editor.focus()
+      }
+    }
   },
   {
     id: 'markdown.link',

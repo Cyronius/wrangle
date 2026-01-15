@@ -538,7 +538,6 @@ function AppContent() {
           <EditorLayout
             content={content}
             onChange={handleChange}
-            baseDir={baseDir}
             theme={monacoTheme}
             editorRef={editorRef}
           />

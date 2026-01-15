@@ -30,6 +30,26 @@
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);
+  cursor: grab;
+  user-select: none;
+}
+
+.preferences-header:active {
+  cursor: grabbing;
+}
+
+.preferences-dialog.dragging .preferences-header {
+  cursor: grabbing;
+}
+
+/* When dragged, use absolute positioning instead of flex centering */
+.preferences-overlay.dragged {
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.preferences-overlay.dragged .preferences-dialog {
+  position: absolute;
 }
 
 .preferences-header h2 {
