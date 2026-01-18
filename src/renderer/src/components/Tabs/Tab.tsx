@@ -5,14 +5,15 @@ interface TabProps {
   isActive: boolean
   onClick: () => void
   onClose: (e: React.MouseEvent) => void
+  title?: string
 }
 
-export function Tab({ filename, isDirty, isActive, onClick, onClose }: TabProps) {
+export function Tab({ filename, isDirty, isActive, onClick, onClose, title }: TabProps) {
   return (
     <div
       className={`tab ${isActive ? 'active' : ''}`}
       onClick={onClick}
-      title={filename}
+      title={title || filename}
     >
       <span className="tab-label">
         {filename}

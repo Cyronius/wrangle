@@ -12,7 +12,9 @@ import { TitleBar } from './components/TitleBar/TitleBar'
 import { ThemeProvider } from './components/ThemeProvider'
 import { OutlineSidebar } from './components/Outline/OutlineSidebar'
 import { PreferencesDialog } from './components/Preferences/PreferencesDialog'
+import { EmptyState } from './components/EmptyState'
 import { useImageDrop } from './hooks/useImageDrop'
+import { extractH1 } from './utils/extractH1'
 import * as monaco from 'monaco-editor'
 
 function AppContent() {
@@ -61,16 +63,12 @@ function AppContent() {
         })
       }
     } else {
-      // No tabs, create a welcome tab
-      const welcomeId = `tab-${Date.now()}`
-      dispatch(addTab({
-        id: welcomeId,
-        filename: 'Untitled',
-        content: '',
-        isDirty: false
-      }))
+      // No active tab - show empty state
+      setContent('')
+      setCurrentFilePath(undefined)
+      setBaseDir(null)
     }
-  }, [activeTabId, activeTab, dispatch])
+  }, [activeTabId, activeTab])
 
   // Auto-save function
   const performAutoSave = async () => {
@@ -90,10 +88,14 @@ function AppContent() {
 
     // Mark tab as dirty if content changed
     if (activeTab && newContent !== activeTab.content) {
+      // Extract H1 for unsaved files to use as display title
+      const displayTitle = !activeTab.path ? extractH1(newContent) || undefined : undefined
+
       dispatch(updateTab({
         id: activeTab.id,
         content: newContent,
-        isDirty: true
+        isDirty: true,
+        displayTitle
       }))
 
       // Trigger auto-save with debouncing (2.5 seconds)
@@ -153,17 +155,12 @@ function AppContent() {
   const handleCloseTab = useCallback(async () => {
     if (!activeTab) return
 
-    if (tabs.length === 1) {
-      // Last tab - close window
-      window.electron.window.close()
-    } else {
-      // Close tab and cleanup temp files if unsaved
-      if (!activeTab.path) {
-        await window.electron.file.cleanupTemp(activeTab.id)
-      }
-      dispatch(closeTab(activeTab.id))
+    // Close tab and cleanup temp files if unsaved
+    if (!activeTab.path) {
+      await window.electron.file.cleanupTemp(activeTab.id)
     }
-  }, [activeTab, tabs.length, dispatch])
+    dispatch(closeTab(activeTab.id))
+  }, [activeTab, dispatch])
 
   const handleOpen = useCallback(async () => {
     const fileData = await window.electron.file.open()
@@ -517,42 +514,48 @@ function AppContent() {
           }}
         />
       </TitleBar>
-      <MarkdownToolbar editorRef={editorRef} />
+      {tabs.length > 0 && <MarkdownToolbar editorRef={editorRef} />}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
-        {showOutline && (
-          <OutlineSidebar content={content} editorRef={editorRef} />
-        )}
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          {isDragging && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: 'rgba(77, 170, 252, 0.1)',
-                border: '2px dashed var(--accent-color)',
-                zIndex: 1000,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '24px',
-                color: 'var(--accent-color)',
-                pointerEvents: 'none'
-              }}
-            >
-              Drop images here
+        {tabs.length === 0 ? (
+          <EmptyState onNewFile={handleNewFile} onOpenFile={handleOpen} />
+        ) : (
+          <>
+            {showOutline && (
+              <OutlineSidebar content={content} editorRef={editorRef} />
+            )}
+            <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+              {isDragging && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(77, 170, 252, 0.1)',
+                    border: '2px dashed var(--accent-color)',
+                    zIndex: 1000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '24px',
+                    color: 'var(--accent-color)',
+                    pointerEvents: 'none'
+                  }}
+                >
+                  Drop images here
+                </div>
+              )}
+              <EditorLayout
+                content={content}
+                onChange={handleChange}
+                baseDir={baseDir}
+                theme={monacoTheme}
+                editorRef={editorRef}
+              />
             </div>
-          )}
-          <EditorLayout
-            content={content}
-            onChange={handleChange}
-            baseDir={baseDir}
-            theme={monacoTheme}
-            editorRef={editorRef}
-          />
-        </div>
+          </>
+        )}
       </div>
       <PreferencesDialog
         isOpen={preferencesOpen}

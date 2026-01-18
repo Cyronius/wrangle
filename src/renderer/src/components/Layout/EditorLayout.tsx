@@ -3,11 +3,11 @@ import { Allotment } from 'allotment'
 import { MonacoEditor } from '../Editor/MonacoEditor'
 import { MarkdownPreview, MarkdownPreviewHandle } from '../Preview/MarkdownPreview'
 import { SyncLockIcon } from './SyncLockIcon'
-import { SourceRange, SourceMap } from '../../utils/source-map'
+import { SourceMap } from '../../utils/source-map'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store/store'
 import { setSplitRatio } from '../../store/layoutSlice'
-import * as monaco from 'monaco-editor'
+import type * as monaco from 'monaco-editor'
 import 'allotment/dist/style.css'
 
 interface EditorLayoutProps {
@@ -69,11 +69,8 @@ export function EditorLayout({
   const dispatch = useDispatch()
   const { viewMode, splitRatio, previewSync, zoomLevel } = useSelector((state: RootState) => state.layout)
 
-  // State for bidirectional sync
+  // State for scroll sync
   const [sourceMap, setSourceMap] = useState<SourceMap | null>(null)
-  const [highlightSourceId, setHighlightSourceId] = useState<string | null>(null)
-  const [cursorOffset, setCursorOffset] = useState<number | null>(null)
-  const [editorSelection, setEditorSelection] = useState<{ start: number; end: number } | null>(null)
 
   // Refs for scroll synchronization
   const previewRef = useRef<MarkdownPreviewHandle>(null)
@@ -90,32 +87,6 @@ export function EditorLayout({
 
   // Calculate zoomed font size for editor
   const fontSize = getZoomedFontSize(zoomLevel)
-
-  // Handle cursor position changes in editor - highlight corresponding preview element
-  const handleCursorChange = useCallback((offset: number) => {
-    // Normalize offset from editor (which may have CRLF) to match source map (which uses LF)
-    const normalizedOffset = normalizeOffset(content, offset)
-    setCursorOffset(normalizedOffset)
-    if (!sourceMap) {
-      setHighlightSourceId(null)
-      return
-    }
-    const elementId = sourceMap.findElementByOffset(normalizedOffset)
-    setHighlightSourceId(elementId)
-  }, [sourceMap, content])
-
-  // Handle selection changes in editor - for pseudo-selection in preview
-  const handleSelectionChange = useCallback((selection: { start: number; end: number } | null) => {
-    if (selection) {
-      // Normalize offsets from editor to match source map
-      setEditorSelection({
-        start: normalizeOffset(content, selection.start),
-        end: normalizeOffset(content, selection.end)
-      })
-    } else {
-      setEditorSelection(null)
-    }
-  }, [content])
 
   // Store sourceMap when preview renders
   const handleSourceMapReady = useCallback((map: SourceMap) => {
@@ -183,62 +154,6 @@ export function EditorLayout({
     }
   }
 
-  // Handle preview selection - select corresponding text in editor
-  const handlePreviewSourceSelect = (range: SourceRange) => {
-    if (!editorRef?.current) return
-
-    const editor = editorRef.current
-    const model = editor.getModel()
-    if (!model) return
-
-    // The range from source map is LF-normalized, but Monaco may use CRLF
-    // Convert back to CRLF offsets for Monaco
-    const crlfStart = denormalizeOffset(content, range.start)
-    const crlfEnd = denormalizeOffset(content, range.end)
-
-    // Convert character offsets to Monaco positions
-    const startPos = model.getPositionAt(crlfStart)
-    const endPos = model.getPositionAt(crlfEnd)
-
-    // Set selection in editor
-    editor.setSelection(new monaco.Selection(
-      startPos.lineNumber,
-      startPos.column,
-      endPos.lineNumber,
-      endPos.column
-    ))
-
-    // Only focus editor in split/editor-only mode, not preview-only
-    // This allows WYSIWYG editing: select in preview, use toolbar, stay in preview
-    if (viewMode !== 'preview-only') {
-      editor.focus()
-    }
-  }
-
-  // Handle preview click - position cursor at clicked location (no selection)
-  // Note: We DON'T focus the editor here to allow native cursor in preview
-  // The preview owns focus when clicked, with the editor cursor synced in background
-  const handlePreviewSourceClick = (offset: number) => {
-    if (!editorRef?.current) return
-
-    const editor = editorRef.current
-    const model = editor.getModel()
-    if (!model) return
-
-    // The offset from source map is LF-normalized, but Monaco may use CRLF
-    // Convert back to CRLF offset for Monaco
-    const crlfOffset = denormalizeOffset(content, offset)
-
-    // Convert character offset to Monaco position
-    const pos = model.getPositionAt(crlfOffset)
-
-    // Set cursor position (collapsed selection) - but don't focus editor
-    // This keeps focus in preview for native cursor/selection support
-    editor.setPosition(pos)
-
-    // Don't call editor.focus() - let preview keep focus for native cursor support
-  }
-
   // Render based on view mode
   if (viewMode === 'editor-only') {
     return (
@@ -259,8 +174,6 @@ export function EditorLayout({
           content={content}
           baseDir={baseDir}
           syncScroll={false}
-          onSourceSelect={handlePreviewSourceSelect}
-          onSourceClick={handlePreviewSourceClick}
           zoomLevel={zoomLevel}
         />
       </div>
@@ -284,9 +197,7 @@ export function EditorLayout({
             onChange={onChange}
             theme={theme}
             fontSize={fontSize}
-            onCursorChange={handleCursorChange}
             onScroll={handleEditorScroll}
-            onSelectionChange={handleSelectionChange}
           />
         </Allotment.Pane>
         <Allotment.Pane minSize={200}>
@@ -296,14 +207,8 @@ export function EditorLayout({
             baseDir={baseDir}
             syncScroll={previewSync}
             onScroll={handlePreviewScroll}
-            onSourceSelect={handlePreviewSourceSelect}
-            onSourceClick={handlePreviewSourceClick}
             onSourceMapReady={handleSourceMapReady}
-            highlightSourceId={highlightSourceId}
             zoomLevel={zoomLevel}
-            cursorOffset={previewSync ? cursorOffset : null}
-            selectionRange={previewSync ? editorSelection : null}
-            showPseudoCursor={previewSync}
           />
         </Allotment.Pane>
       </Allotment>

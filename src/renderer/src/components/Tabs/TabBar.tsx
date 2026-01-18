@@ -46,11 +46,12 @@ export function TabBar({ onCloseTab }: TabBarProps) {
         <Tab
           key={tab.id}
           id={tab.id}
-          filename={tab.filename}
+          filename={tab.displayTitle || tab.filename}
           isDirty={tab.isDirty}
           isActive={tab.id === activeTabId}
           onClick={() => handleTabClick(tab.id)}
           onClose={(e) => handleTabClose(e, tab.id)}
+          title={tab.path || tab.filename}
         />
       ))}
     </div>

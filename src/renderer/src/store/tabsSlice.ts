@@ -6,6 +6,7 @@ export interface TabDocument {
   filename: string
   content: string
   isDirty: boolean
+  displayTitle?: string  // H1 heading for unsaved files
 }
 
 interface TabsState {
