@@ -31,8 +31,13 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hotkeys-hook": "^4.4.1",
+    "react-markdown": "^10.1.0",
     "react-redux": "^9.0.4",
-    "streamdown": "^2.0.1",
+    "rehype-highlight": "^7.0.2",
+    "rehype-katex": "^7.0.1",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "unist-util-visit": "^5.0.0"
   },
   "devDependencies": {

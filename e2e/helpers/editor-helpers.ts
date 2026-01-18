@@ -183,4 +183,17 @@ export class EditorHelpers {
       return ''
     })
   }
+
+  /**
+   * Focus the editor without changing cursor position
+   */
+  async focus(): Promise<void> {
+    await this.page.evaluate(() => {
+      const editors = (window as any).monaco?.editor?.getEditors?.()
+      if (editors?.[0]) {
+        editors[0].focus()
+      }
+    })
+    await this.page.waitForTimeout(50)
+  }
 }

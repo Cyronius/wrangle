@@ -128,12 +128,12 @@ export class PreviewHelpers {
     return this.page.evaluate(() => {
       const highlighted = document.querySelector('.markdown-body .source-highlight')
       if (!highlighted) return null
-      return highlighted.getAttribute('data-source-id')
+      return highlighted.getAttribute('data-source-start')
     })
   }
 
   /**
-   * Get element by data-source-id
+   * Get element by data-source-start
    */
   async getElementBySourceId(sourceId: string): Promise<{
     bounds: { x: number; y: number; width: number; height: number }
@@ -141,7 +141,7 @@ export class PreviewHelpers {
     text: string
   } | null> {
     return this.page.evaluate((id) => {
-      const el = document.querySelector(`[data-source-id="${id}"]`) as HTMLElement
+      const el = document.querySelector(`[data-source-start="${id}"]`) as HTMLElement
       if (!el) return null
 
       const rect = el.getBoundingClientRect()
@@ -176,13 +176,13 @@ export class PreviewHelpers {
   }
 
   /**
-   * Get all elements with data-source-id in the preview
+   * Get all elements with data-source-start in the preview
    */
   async getSourceMappedElements(): Promise<Array<{ id: string; tagName: string }>> {
     return this.page.evaluate(() => {
-      const elements = document.querySelectorAll('[data-source-id]')
+      const elements = document.querySelectorAll('[data-source-start]')
       return Array.from(elements).map((el) => ({
-        id: el.getAttribute('data-source-id') || '',
+        id: el.getAttribute('data-source-start') || '',
         tagName: el.tagName.toLowerCase()
       }))
     })

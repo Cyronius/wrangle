@@ -1,13 +1,23 @@
 import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
-import { Streamdown, defaultRehypePlugins, defaultRemarkPlugins } from 'streamdown'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import rehypeRaw from 'rehype-raw'
+import rehypeHighlight from 'rehype-highlight'
 import { remarkSourcePositions } from '../../utils/remark-source-positions'
 import { rehypeSourcePositions } from '../../utils/rehype-source-positions'
 import { extractFrontMatter, renderFrontMatter } from '../../utils/markdown-renderer'
 import { SourceMap, SourceRange, buildSourceMapFromDOM } from '../../utils/source-map'
+import {
+  ParagraphRenderer,
+  H1Renderer, H2Renderer, H3Renderer, H4Renderer, H5Renderer, H6Renderer,
+  StrongRenderer, EmRenderer, DelRenderer,
+  UlRenderer, OlRenderer, LiRenderer,
+  BlockquoteRenderer, PreRenderer, CodeRenderer,
+  createImageRenderer
+} from './renderers'
 import './preview.css'
-
-// No-op plugin to replace sanitize and harden (they strip our data-source-* attributes)
-const noopPlugin = () => (tree: unknown) => tree
 
 // Re-export SourceMap for consumers
 export { SourceMap }
@@ -131,45 +141,6 @@ function getTextBeforeNode(
   return count
 }
 
-/**
- * Custom image component for Streamdown that transforms relative paths.
- * This replicates the image path transformation that was done post-rendering with marked.
- */
-function createImageComponent(baseDir: string | null) {
-  return function ImageComponent(props: React.ImgHTMLAttributes<HTMLImageElement>) {
-    const { src, alt, ...rest } = props
-    const [imageSrc, setImageSrc] = useState<string | undefined>(src)
-
-    useEffect(() => {
-      async function loadImage() {
-        if (!src || !baseDir || !src.startsWith('./')) {
-          setImageSrc(src)
-          return
-        }
-
-        try {
-          // Remove leading ./
-          const relativePath = src.substring(2)
-          // Combine with base directory (use platform-specific path separator)
-          const absolutePath = `${baseDir}\\${relativePath.replace(/\//g, '\\')}`
-
-          // Read image as data URL through IPC
-          const dataURL = await window.electron.file.readImageAsDataURL(absolutePath)
-          if (dataURL) {
-            setImageSrc(dataURL)
-          }
-        } catch (error) {
-          console.error('[ImageComponent] Error loading image:', error)
-        }
-      }
-
-      loadImage()
-    }, [src])
-
-    return <img src={imageSrc} alt={alt || ''} {...rest} />
-  }
-}
-
 interface MarkdownPreviewProps {
   content: string
   baseDir?: string | null
@@ -180,10 +151,10 @@ interface MarkdownPreviewProps {
   onSourceMapReady?: (sourceMap: SourceMap) => void
   highlightSourceId?: string | null
   zoomLevel?: number
-  // Pseudo-cursor and selection props
-  cursorOffset?: number | null  // Editor cursor offset for pseudo-cursor display
-  selectionRange?: { start: number; end: number } | null  // Editor selection range
-  showPseudoCursor?: boolean  // Whether to show pseudo-cursor (linked mode in split view)
+  // Cursor props (for scroll sync parent tracking)
+  cursorOffset?: number | null
+  selectionRange?: { start: number; end: number } | null
+  showPseudoCursor?: boolean  // Legacy prop - now we use native contentEditable cursor
 }
 
 export interface MarkdownPreviewHandle {
@@ -201,9 +172,9 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
   onSourceMapReady,
   highlightSourceId,
   zoomLevel = 0,
-  cursorOffset = null,
-  selectionRange: _selectionRange = null,  // TODO: implement pseudo-selection with Streamdown
-  showPseudoCursor = false
+  cursorOffset: _cursorOffset = null,
+  selectionRange: _selectionRange = null,
+  showPseudoCursor: _showPseudoCursor = false
 }, ref) {
   // Calculate zoom scale (10% per level)
   const zoomScale = Math.pow(1.1, zoomLevel)
@@ -212,37 +183,53 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
   const isScrollingRef = useRef(false)
   const [sourceMap, setSourceMap] = useState<SourceMap | null>(null)
 
-  // Extract front matter before passing to Streamdown
+  // Extract front matter before passing to ReactMarkdown
   const { content: markdownContent, data: frontMatterData, hasFrontMatter } = useMemo(
     () => extractFrontMatter(content),
     [content]
   )
 
   // Create image component with current baseDir
-  const ImageComponent = useMemo(() => createImageComponent(baseDir), [baseDir])
+  const ImageRenderer = useMemo(() => createImageRenderer(baseDir), [baseDir])
 
-  // Memoize plugin arrays to avoid breaking Streamdown's caching
-  const remarkPluginsArray = useMemo(() => [
-    // Default remark plugins (gfm, math, etc.)
-    ...Object.values(defaultRemarkPlugins),
-    // Our plugin to add source position data via hProperties
+  // Memoize components object to avoid recreating on every render
+  const components = useMemo(() => ({
+    p: ParagraphRenderer,
+    h1: H1Renderer,
+    h2: H2Renderer,
+    h3: H3Renderer,
+    h4: H4Renderer,
+    h5: H5Renderer,
+    h6: H6Renderer,
+    strong: StrongRenderer,
+    em: EmRenderer,
+    del: DelRenderer,
+    ul: UlRenderer,
+    ol: OlRenderer,
+    li: LiRenderer,
+    blockquote: BlockquoteRenderer,
+    pre: PreRenderer,
+    code: CodeRenderer,
+    img: ImageRenderer
+  }), [ImageRenderer])
+
+  // Memoize plugin arrays
+  const remarkPlugins = useMemo(() => [
+    remarkGfm,
+    remarkMath,
     remarkSourcePositions
   ], [])
 
-  const rehypePluginsArray = useMemo(() => [
-    // Keep default plugins but override sanitize/harden with no-ops
-    // (they strip our data-source-* attributes needed for cursor positioning)
-    defaultRehypePlugins.raw,
-    noopPlugin, // was: sanitize
-    defaultRehypePlugins.katex,
-    noopPlugin, // was: harden
-    // Add our rehype source positions plugin as fallback
+  const rehypePlugins = useMemo(() => [
+    rehypeRaw,
+    rehypeKatex,
+    rehypeHighlight,
     rehypeSourcePositions
   ], [])
 
-  // Build source map from DOM after Streamdown renders
+  // Build source map from DOM after ReactMarkdown renders
   useEffect(() => {
-    // Small delay to ensure Streamdown has rendered
+    // Small delay to ensure ReactMarkdown has rendered
     const timer = setTimeout(() => {
       if (contentRef.current) {
         const map = buildSourceMapFromDOM(contentRef.current)
@@ -258,7 +245,21 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
   const handlePreviewClick = useCallback((e: React.MouseEvent) => {
     if (!onSourceClick || !contentRef.current) return
 
-    // Prevent default behavior (e.g., anchor navigation, text selection)
+    // Check if the click is inside a contentEditable element (for native cursor support)
+    const target = e.target as HTMLElement
+    const editableElement = target.isContentEditable ? target : target.closest('[contenteditable]')
+
+    if (editableElement) {
+      // Let native cursor handle it, but still report source offset for editor sync
+      const element = findInnermostPositionedElement(contentRef.current, e.clientX, e.clientY)
+      if (element) {
+        const sourceOffset = calculateSourceOffset(element, e.clientX, e.clientY)
+        onSourceClick(sourceOffset)
+      }
+      return
+    }
+
+    // Prevent default behavior for non-editable elements
     e.preventDefault()
 
     // Find the innermost element with position data at the click point
@@ -380,149 +381,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
     }
   }, [syncScroll, onScroll])
 
-  // Render pseudo-cursor in preview based on editor cursor position
-  const [cursorPosition, setCursorPosition] = useState<{ top: number; left: number; height: number } | null>(null)
-
-  // Store cursor target info for recalculation on scroll
-  const cursorTargetRef = useRef<{
-    startOffset: number
-    localOffset: number
-    element: Element | null
-  } | null>(null)
-
-  // Function to calculate cursor position from stored target info
-  const calculateCursorPosition = useCallback(() => {
-    const target = cursorTargetRef.current
-    if (!target || !previewRef.current || !target.element) {
-      setCursorPosition(null)
-      return
-    }
-
-    const { localOffset, element } = target
-    const containerRect = previewRef.current.getBoundingClientRect()
-    const tagName = element.tagName.toLowerCase()
-
-    // For block-level only elements (tables, code blocks, etc.), show block cursor at element start
-    if (tagName === 'table' || tagName === 'pre') {
-      const rect = element.getBoundingClientRect()
-      setCursorPosition({
-        top: rect.top - containerRect.top + previewRef.current.scrollTop,
-        left: rect.left - containerRect.left - 8,
-        height: rect.height
-      })
-      return
-    }
-
-    // For text elements, find the exact character position using Range API
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null)
-    let charCount = 0
-    let targetNode: Text | null = null
-    let targetOffset = 0
-
-    while (walker.nextNode()) {
-      const textNode = walker.currentNode as Text
-      const content = textNode.textContent || ''
-
-      // Skip whitespace-only nodes
-      if (content.trim() === '') continue
-
-      const nodeLength = content.length
-
-      if (charCount + nodeLength >= localOffset) {
-        targetNode = textNode
-        targetOffset = Math.min(localOffset - charCount, nodeLength)
-        break
-      }
-      charCount += nodeLength
-    }
-
-    if (targetNode) {
-      // Use Range API to get exact cursor position without modifying DOM
-      const range = document.createRange()
-      range.setStart(targetNode, targetOffset)
-      range.setEnd(targetNode, targetOffset)
-      const rect = range.getBoundingClientRect()
-
-      if (rect.width === 0 && rect.height === 0) {
-        // Range returned no dimensions, fall back to element position
-        const elemRect = element.getBoundingClientRect()
-        setCursorPosition({
-          top: elemRect.top - containerRect.top + previewRef.current.scrollTop,
-          left: elemRect.left - containerRect.left,
-          height: parseFloat(getComputedStyle(element).lineHeight) || 20
-        })
-      } else {
-        setCursorPosition({
-          top: rect.top - containerRect.top + previewRef.current.scrollTop,
-          left: rect.left - containerRect.left,
-          height: rect.height || parseFloat(getComputedStyle(element).lineHeight) || 20
-        })
-      }
-    } else {
-      // Fallback: position at element start
-      const rect = element.getBoundingClientRect()
-      setCursorPosition({
-        top: rect.top - containerRect.top + previewRef.current.scrollTop,
-        left: rect.left - containerRect.left,
-        height: parseFloat(getComputedStyle(element).lineHeight) || 20
-      })
-    }
-  }, [])
-
-  // Update cursor target when cursor offset changes
-  useEffect(() => {
-    if (!showPseudoCursor || cursorOffset === null || !contentRef.current) {
-      cursorTargetRef.current = null
-      setCursorPosition(null)
-      return
-    }
-
-    // Find the element containing this cursor offset
-    const elements = contentRef.current.querySelectorAll('[data-source-start]')
-    let targetElement: Element | null = null
-    let localOffset = 0
-
-    for (const el of elements) {
-      const startAttr = el.getAttribute('data-source-start')
-      const endAttr = el.getAttribute('data-source-end')
-      if (startAttr === null || endAttr === null) continue
-
-      const start = parseInt(startAttr, 10)
-      const end = parseInt(endAttr, 10)
-
-      if (cursorOffset >= start && cursorOffset < end) {
-        targetElement = el
-        localOffset = cursorOffset - start
-        break
-      }
-    }
-
-    if (!targetElement) {
-      cursorTargetRef.current = null
-      setCursorPosition(null)
-      return
-    }
-
-    // Store target for recalculation
-    cursorTargetRef.current = {
-      startOffset: parseInt(targetElement.getAttribute('data-source-start') || '0', 10),
-      localOffset,
-      element: targetElement
-    }
-
-    // Calculate initial position
-    calculateCursorPosition()
-  }, [showPseudoCursor, cursorOffset, calculateCursorPosition, markdownContent])
-
-  // Recalculate cursor position on scroll
-  useEffect(() => {
-    if (!previewRef.current || !showPseudoCursor) return
-
-    const container = previewRef.current
-    container.addEventListener('scroll', calculateCursorPosition)
-    return () => container.removeEventListener('scroll', calculateCursorPosition)
-  }, [showPseudoCursor, calculateCursorPosition])
-
   // Expose scroll methods via ref
   useImperativeHandle(ref, () => ({
     scrollToRatio: (ratio: number) => {
@@ -538,16 +396,11 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       }, 100)
     },
     scrollToSourceId: (sourceId: string) => {
-      console.log('[MarkdownPreview] scrollToSourceId called with:', sourceId)
       const container = previewRef.current
-      if (!container) {
-        console.log('[MarkdownPreview] no container ref')
-        return
-      }
+      if (!container) return
 
       // sourceId is now the start offset - find element by data-source-start
       const targetElement = container.querySelector(`[data-source-start="${sourceId}"]`) as HTMLElement | null
-      console.log('[MarkdownPreview] targetElement found:', !!targetElement)
       if (!targetElement) return
 
       isScrollingRef.current = true
@@ -556,7 +409,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       const containerRect = container.getBoundingClientRect()
       const elementRect = targetElement.getBoundingClientRect()
       const relativeTop = elementRect.top - containerRect.top + container.scrollTop
-      console.log('[MarkdownPreview] scrolling to:', relativeTop)
 
       container.scrollTop = relativeTop
 
@@ -581,34 +433,15 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         {hasFrontMatter && (
           <div dangerouslySetInnerHTML={{ __html: renderFrontMatter(frontMatterData) }} />
         )}
-        {/* Streamdown renders the markdown */}
-        <Streamdown
-          remarkPlugins={remarkPluginsArray}
-          rehypePlugins={rehypePluginsArray}
-          parseIncompleteMarkdown={false}
-          components={{
-            img: ImageComponent
-          }}
+        {/* ReactMarkdown renders the markdown */}
+        <ReactMarkdown
+          remarkPlugins={remarkPlugins}
+          rehypePlugins={rehypePlugins}
+          components={components}
         >
           {markdownContent}
-        </Streamdown>
+        </ReactMarkdown>
       </div>
-      {/* Pseudo-cursor overlay - absolutely positioned to avoid React DOM conflicts */}
-      {showPseudoCursor && cursorPosition && (
-        <div
-          className="pseudo-cursor-overlay"
-          style={{
-            position: 'absolute',
-            top: cursorPosition.top,
-            left: cursorPosition.left,
-            width: 2,
-            height: cursorPosition.height,
-            backgroundColor: 'var(--pseudo-cursor-color, #4daafc)',
-            pointerEvents: 'none',
-            animation: 'pseudo-cursor-blink 1s step-end infinite'
-          }}
-        />
-      )}
     </div>
   )
 })

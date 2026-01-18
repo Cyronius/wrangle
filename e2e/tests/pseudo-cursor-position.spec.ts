@@ -3,8 +3,8 @@ import { PreviewHelpers } from '../helpers/preview-helpers'
 import { EditorHelpers } from '../helpers/editor-helpers'
 
 /**
- * E2E tests for pseudo-cursor positioning in preview.
- * Tests that the visual cursor in the preview matches the editor cursor position.
+ * E2E tests for cursor positioning in preview using native contentEditable.
+ * Tests that clicking in the preview places the cursor and syncs to editor.
  */
 
 const TEST_CONTENT = `# Tangle
@@ -26,12 +26,12 @@ Tangle is a powerful desktop Markdown editor that combines the Monaco Editor wit
 - **Smart Image Handling** - Drag-and-drop images with automatic asset management
 - **Dark/Light Themes** - Choose your preferred visual style`
 
-test.describe('Pseudo-Cursor Position in Preview', () => {
+test.describe('Native Cursor Position in Preview', () => {
   test.beforeEach(async ({ window }) => {
     await waitForAppReady(window)
   })
 
-  test('pseudo-cursor in H1 matches click position', async ({ window }) => {
+  test('clicking in H1 positions cursor and syncs to editor', async ({ window }) => {
     const preview = new PreviewHelpers(window)
     const editor = new EditorHelpers(window)
 
@@ -40,8 +40,7 @@ test.describe('Pseudo-Cursor Position in Preview', () => {
 
     // Click between 'n' and 'g' in "Tangle" (offset 4 in "Tangle")
     // Raw: "# Tangle" -> click at column 6 (after "# Tang")
-    // Rendered: "Tangle" -> pseudo-cursor should be at offset 4 (between 'n' and 'g')
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 4) // Click after 'n', before 'g'
+    await preview.clickOnTextAtOffset('h1', 'Tangle', 4)
     await window.waitForTimeout(500)
 
     // Get editor cursor position to verify click worked
@@ -50,53 +49,29 @@ test.describe('Pseudo-Cursor Position in Preview', () => {
     expect(editorPos.line).toBe(1)
     expect(editorPos.column).toBe(7) // "# Tang" = 6 chars, so column 7 is between 'n' and 'g'
 
-    // Now verify pseudo-cursor position matches the clicked text position
-    // Get the bounding rect of the text at the click position
-    const textRect = await window.evaluate(() => {
-      const h1 = document.querySelector('.markdown-preview h1')
-      if (!h1) return null
-
-      // Find the text node
-      const walker = document.createTreeWalker(h1, NodeFilter.SHOW_TEXT, null)
-      const textNode = walker.nextNode() as Text
-      if (!textNode) return null
-
-      // Get the rect for the position between 'n' and 'g' (offset 4)
-      const range = document.createRange()
-      range.setStart(textNode, 4)
-      range.setEnd(textNode, 4)
-      const rect = range.getBoundingClientRect()
-
-      return { left: rect.left, top: rect.top }
+    // Verify the native browser selection is in the preview
+    const selectionInfo = await window.evaluate(() => {
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return null
+      const range = sel.getRangeAt(0)
+      const container = range.startContainer
+      const element = container.nodeType === Node.TEXT_NODE
+        ? container.parentElement
+        : container as Element
+      return {
+        isCollapsed: sel.isCollapsed,
+        offset: sel.anchorOffset,
+        isInPreview: !!element?.closest('.markdown-preview'),
+        isInH1: !!element?.closest('h1')
+      }
     })
 
-    // Get pseudo-cursor position
-    const cursorPos = await preview.getPseudoCursorPosition()
-    console.log('[TEST] Text rect:', textRect)
-    console.log('[TEST] Pseudo-cursor position:', cursorPos)
-
-    expect(cursorPos).not.toBeNull()
-    expect(textRect).not.toBeNull()
-
-    if (cursorPos && textRect) {
-      // The pseudo-cursor left position should be close to the text position
-      // Allow 10px tolerance for rendering differences
-      const previewRect = await window.evaluate(() => {
-        const preview = document.querySelector('.markdown-preview')
-        if (!preview) return null
-        const rect = preview.getBoundingClientRect()
-        return { left: rect.left, scrollTop: (preview as HTMLElement).scrollTop }
-      })
-
-      if (previewRect) {
-        const expectedLeft = textRect.left - previewRect.left
-        console.log('[TEST] Expected left:', expectedLeft, 'Actual left:', cursorPos.left)
-        expect(Math.abs(cursorPos.left - expectedLeft)).toBeLessThan(10)
-      }
-    }
+    console.log('[TEST] Selection info:', selectionInfo)
+    // The cursor should be in the preview area
+    expect(selectionInfo?.isInPreview).toBe(true)
   })
 
-  test('pseudo-cursor in H2 matches click position', async ({ window }) => {
+  test('clicking in H2 positions cursor correctly', async ({ window }) => {
     const preview = new PreviewHelpers(window)
     const editor = new EditorHelpers(window)
 
@@ -105,8 +80,7 @@ test.describe('Pseudo-Cursor Position in Preview', () => {
 
     // Click on 'a' in "Features" (offset 2 in "Features")
     // Raw: "## Key Features" -> 'a' is at column 10
-    // Rendered: "Key Features" -> 'a' is at offset 6 (K-e-y- -F-e-a)
-    await preview.clickOnTextAtOffset('h2', 'Features', 2) // Click on 'a'
+    await preview.clickOnTextAtOffset('h2', 'Features', 2)
     await window.waitForTimeout(500)
 
     const editorPos = await editor.getCursorLineColumn()
@@ -114,13 +88,20 @@ test.describe('Pseudo-Cursor Position in Preview', () => {
     expect(editorPos.line).toBe(10)
     expect(editorPos.column).toBe(11) // "## Key Fea" = 10 chars, so column 11 is after 'a'
 
-    // Verify pseudo-cursor is visible
-    const cursorPos = await preview.getPseudoCursorPosition()
-    console.log('[TEST H2] Pseudo-cursor position:', cursorPos)
-    expect(cursorPos).not.toBeNull()
+    // Verify native cursor is placed
+    const isInPreview = await window.evaluate(() => {
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return false
+      const container = sel.getRangeAt(0).startContainer
+      const element = container.nodeType === Node.TEXT_NODE
+        ? container.parentElement
+        : container as Element
+      return !!element?.closest('.markdown-preview')
+    })
+    expect(isInPreview).toBe(true)
   })
 
-  test('pseudo-cursor in list item with bold matches click position', async ({ window }) => {
+  test('clicking in list item with bold syncs to editor', async ({ window }) => {
     const preview = new PreviewHelpers(window)
     const editor = new EditorHelpers(window)
 
@@ -129,8 +110,7 @@ test.describe('Pseudo-Cursor Position in Preview', () => {
 
     // Click on 'n' in "Monaco" inside bold (offset 2 in "Monaco")
     // Raw: "- **Monaco Editor**..." -> 'n' is at column 7
-    // Rendered list item contains "Monaco Editor - ..."
-    await preview.clickOnTextAtOffset('li strong', 'Monaco', 2) // Click on 'n'
+    await preview.clickOnTextAtOffset('li strong', 'Monaco', 2)
     await window.waitForTimeout(500)
 
     const editorPos = await editor.getCursorLineColumn()
@@ -138,13 +118,20 @@ test.describe('Pseudo-Cursor Position in Preview', () => {
     expect(editorPos.line).toBe(12)
     expect(editorPos.column).toBe(7) // "- **Mo" = 6 chars, so 'n' is at column 7
 
-    // Verify pseudo-cursor is visible
-    const cursorPos = await preview.getPseudoCursorPosition()
-    console.log('[TEST List] Pseudo-cursor position:', cursorPos)
-    expect(cursorPos).not.toBeNull()
+    // Verify native cursor is placed
+    const isInPreview = await window.evaluate(() => {
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return false
+      const container = sel.getRangeAt(0).startContainer
+      const element = container.nodeType === Node.TEXT_NODE
+        ? container.parentElement
+        : container as Element
+      return !!element?.closest('.markdown-preview')
+    })
+    expect(isInPreview).toBe(true)
   })
 
-  test('pseudo-cursor in blockquote matches click position', async ({ window }) => {
+  test('clicking in blockquote syncs to editor', async ({ window }) => {
     const preview = new PreviewHelpers(window)
     const editor = new EditorHelpers(window)
 
@@ -153,7 +140,7 @@ test.describe('Pseudo-Cursor Position in Preview', () => {
 
     // Click on 'e' in "modern" (offset 3 in "modern")
     // Raw: "> A modern..." -> 'e' is at column 8
-    await preview.clickOnTextAtOffset('blockquote', 'modern', 3) // Click on 'e'
+    await preview.clickOnTextAtOffset('blockquote', 'modern', 3)
     await window.waitForTimeout(500)
 
     const editorPos = await editor.getCursorLineColumn()
@@ -161,9 +148,16 @@ test.describe('Pseudo-Cursor Position in Preview', () => {
     expect(editorPos.line).toBe(3)
     expect(editorPos.column).toBe(8) // "> A mod" = 7 chars, so 'e' is at column 8
 
-    // Verify pseudo-cursor is visible
-    const cursorPos = await preview.getPseudoCursorPosition()
-    console.log('[TEST Blockquote] Pseudo-cursor position:', cursorPos)
-    expect(cursorPos).not.toBeNull()
+    // Verify native cursor is placed
+    const isInPreview = await window.evaluate(() => {
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return false
+      const container = sel.getRangeAt(0).startContainer
+      const element = container.nodeType === Node.TEXT_NODE
+        ? container.parentElement
+        : container as Element
+      return !!element?.closest('.markdown-preview')
+    })
+    expect(isInPreview).toBe(true)
   })
 })

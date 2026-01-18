@@ -127,6 +127,9 @@ function AppContent() {
     return () => window.removeEventListener('wheel', handleWheel, { capture: true })
   }, [dispatch])
 
+  // Get viewMode for auto-focus decision
+  const viewMode = useSelector((state: RootState) => state.layout.viewMode)
+
   // File operations
   const handleNewFile = useCallback(() => {
     const newTabId = `tab-${Date.now()}`
@@ -137,7 +140,14 @@ function AppContent() {
       isDirty: false
     }))
     dispatch(setActiveTab(newTabId))
-  }, [dispatch])
+
+    // Auto-focus editor for new documents (in editor or split view)
+    if (viewMode !== 'preview-only') {
+      requestAnimationFrame(() => {
+        editorRef.current?.focus()
+      })
+    }
+  }, [dispatch, viewMode])
 
   // Close tab handler
   const handleCloseTab = useCallback(async () => {

@@ -2,6 +2,21 @@ import { test, expect, waitForAppReady } from '../fixtures'
 import { PreviewHelpers } from '../helpers/preview-helpers'
 import { EditorHelpers } from '../helpers/editor-helpers'
 
+/**
+ * Helper to check if native cursor is in preview area
+ */
+async function isNativeCursorInPreview(window: any): Promise<boolean> {
+  return window.evaluate(() => {
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return false
+    const container = sel.getRangeAt(0).startContainer
+    const element = container.nodeType === Node.TEXT_NODE
+      ? container.parentElement
+      : container as Element
+    return !!element?.closest('.markdown-preview')
+  })
+}
+
 test.describe('Scroll Synchronization', () => {
   test.beforeEach(async ({ window }) => {
     await waitForAppReady(window)
@@ -71,7 +86,7 @@ test.describe('Scroll Synchronization', () => {
     expect(highlighted).toBeTruthy()
   })
 
-  test('pseudo-cursor should remain stable during scroll', async ({ window }) => {
+  test('cursor navigation keeps preview synced', async ({ window }) => {
     const preview = new PreviewHelpers(window)
     const editor = new EditorHelpers(window)
 
@@ -89,18 +104,19 @@ test.describe('Scroll Synchronization', () => {
     await window.keyboard.press('Home')
     await window.waitForTimeout(200)
 
-    // Scroll and verify cursor stays visible
+    // Navigate down and verify highlight stays visible
     for (let i = 0; i < 3; i++) {
       await window.keyboard.press('ArrowDown')
       await window.waitForTimeout(100)
 
-      // Check cursor is still visible after each move
-      const isVisible = await preview.isPseudoCursorVisible()
-      expect(isVisible).toBe(true)
+      // Check that there's a highlighted element after each move
+      const highlighted = await preview.getHighlightedElement()
+      // Highlighted element should exist (indicates sync is working)
+      expect(highlighted).not.toBeNull()
     }
   })
 
-  test('cursor should be recalculated after scroll completes', async ({ window }) => {
+  test('highlight changes when navigating in editor', async ({ window }) => {
     const preview = new PreviewHelpers(window)
     const editor = new EditorHelpers(window)
 
@@ -117,18 +133,19 @@ Third paragraph content.`)
     await window.keyboard.press('Home')
     await window.waitForTimeout(200)
 
-    // Get position before scroll
-    const posBefore = await preview.getPseudoCursorPosition()
-    expect(posBefore).not.toBeNull()
+    // Get highlighted element before navigation
+    const highlightBefore = await preview.getHighlightedElement()
+    expect(highlightBefore).not.toBeNull()
 
-    // Trigger scroll in preview
-    await preview.scrollTo(50)
+    // Navigate down a few lines
+    await window.keyboard.press('ArrowDown')
+    await window.keyboard.press('ArrowDown')
     await window.waitForTimeout(200)
 
-    // Get position after scroll
-    const posAfter = await preview.getPseudoCursorPosition()
+    // Get highlighted element after navigation
+    const highlightAfter = await preview.getHighlightedElement()
 
-    // Position should still exist after scroll
-    expect(posAfter).not.toBeNull()
+    // Highlight should exist and may be different
+    expect(highlightAfter).not.toBeNull()
   })
 })

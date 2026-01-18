@@ -216,6 +216,8 @@ export function EditorLayout({
   }
 
   // Handle preview click - position cursor at clicked location (no selection)
+  // Note: We DON'T focus the editor here to allow native cursor in preview
+  // The preview owns focus when clicked, with the editor cursor synced in background
   const handlePreviewSourceClick = (offset: number) => {
     if (!editorRef?.current) return
 
@@ -230,13 +232,11 @@ export function EditorLayout({
     // Convert character offset to Monaco position
     const pos = model.getPositionAt(crlfOffset)
 
-    // Set cursor position (collapsed selection)
+    // Set cursor position (collapsed selection) - but don't focus editor
+    // This keeps focus in preview for native cursor/selection support
     editor.setPosition(pos)
 
-    // Only focus editor in split/editor-only mode
-    if (viewMode !== 'preview-only') {
-      editor.focus()
-    }
+    // Don't call editor.focus() - let preview keep focus for native cursor support
   }
 
   // Render based on view mode
