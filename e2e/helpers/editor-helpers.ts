@@ -1,40 +1,40 @@
 import { Page } from '@playwright/test'
 
 /**
- * Helper class for Monaco editor interactions
+ * Helper class for CodeMirror editor interactions
  */
 export class EditorHelpers {
   constructor(private page: Page) {}
 
   /**
-   * Set content in the Monaco editor using clipboard paste (fast)
+   * Set content in the CodeMirror editor
    */
   async setContent(content: string): Promise<void> {
-    // Click on the editor to focus it
-    await this.page.click('.monaco-editor .view-lines')
+    // Focus the editor
+    await this.page.click('.cm-editor .cm-content')
 
-    // Select all existing content
-    await this.page.keyboard.press('Control+a')
-
-    // Use evaluate to set content directly through Monaco's API
+    // Use CodeMirror's dispatch to replace content
     await this.page.evaluate((text) => {
-      // Find Monaco editor instances in the window
-      // @ts-ignore - Monaco exposes this globally
-      const editors = (window as any).monaco?.editor?.getEditors?.()
-      if (editors && editors.length > 0) {
-        const editor = editors[0]
-        editor.setValue(text)
-        return true
-      }
-      return false
+      const view = (window as any).__codeMirrorView
+      if (!view) return false
+
+      const currentLength = view.state.doc.length
+      view.dispatch({
+        changes: { from: 0, to: currentLength, insert: text }
+      })
+      return true
     }, content)
 
     // Wait for content to settle and preview to render
     await this.page.waitForTimeout(500)
 
-    // Click again and press Home to set cursor position and trigger cursor change event
-    await this.page.click('.monaco-editor .view-lines')
-    await this.page.keyboard.press('Control+Home')
+    // Move cursor to start
+    await this.page.evaluate(() => {
+      const view = (window as any).__codeMirrorView
+      if (view) {
+        view.dispatch({ selection: { anchor: 0, head: 0 } })
+      }
+    })
     await this.page.waitForTimeout(200)
   }
 
@@ -42,41 +42,35 @@ export class EditorHelpers {
    * Get the current editor content
    */
   async getContent(): Promise<string> {
-    return this.page.evaluate(() => {
-      // Access Monaco editor instance through the DOM
-      const editorElement = document.querySelector('.monaco-editor')
-      if (!editorElement) return ''
-
-      // Monaco stores content in view lines
-      const lines = document.querySelectorAll('.monaco-editor .view-lines .view-line')
-      return Array.from(lines)
-        .map((line) => line.textContent || '')
-        .join('\n')
-    })
+    return this.getFullContent()
   }
 
   /**
    * Move cursor to a specific line and column
    */
   async setCursorPosition(line: number, column: number): Promise<void> {
-    // Use Ctrl+G to open "Go to Line" dialog
-    await this.page.keyboard.press('Control+g')
-    await this.page.waitForSelector('.quick-input-widget', { state: 'visible' })
+    await this.page.evaluate(
+      ({ targetLine, targetColumn }) => {
+        const view = (window as any).__codeMirrorView
+        if (!view) return
 
-    // Type line number
-    await this.page.keyboard.type(`${line}:${column}`)
-    await this.page.keyboard.press('Enter')
+        const lineInfo = view.state.doc.line(targetLine)
+        const offset = lineInfo.from + targetColumn - 1 // Convert to 0-indexed
 
-    // Wait for dialog to close
-    await this.page.waitForSelector('.quick-input-widget', { state: 'hidden' })
+        view.dispatch({
+          selection: { anchor: offset, head: offset }
+        })
+      },
+      { targetLine: line, targetColumn: column }
+    )
   }
 
   /**
    * Click at a specific position in the editor
    */
   async clickAtLine(lineNumber: number): Promise<void> {
-    const lineSelector = `.monaco-editor .view-lines .view-line:nth-child(${lineNumber})`
-    await this.page.click(lineSelector)
+    // Use setCursorPosition as a fallback since CodeMirror doesn't have simple line selectors
+    await this.setCursorPosition(lineNumber, 1)
   }
 
   /**
@@ -84,18 +78,9 @@ export class EditorHelpers {
    */
   async getCursorOffset(): Promise<number | null> {
     return this.page.evaluate(() => {
-      // This relies on Monaco's internal state
-      // We can approximate by finding the cursor element position
-      const cursor = document.querySelector('.monaco-editor .cursor')
-      if (!cursor) return null
-
-      const cursorRect = cursor.getBoundingClientRect()
-      const editorRect = document.querySelector('.monaco-editor')?.getBoundingClientRect()
-
-      if (!editorRect) return null
-
-      // Return approximate position
-      return Math.round((cursorRect.top - editorRect.top) / 20) // Approximate line height
+      const view = (window as any).__codeMirrorView
+      if (!view) return null
+      return view.state.selection.main.head
     })
   }
 
@@ -104,11 +89,14 @@ export class EditorHelpers {
    */
   async scrollToLine(lineNumber: number): Promise<void> {
     await this.page.evaluate((line) => {
-      const viewLines = document.querySelector('.monaco-editor .view-lines')
-      if (viewLines) {
-        const lineHeight = 20 // Approximate line height
-        ;(viewLines as HTMLElement).scrollTop = (line - 1) * lineHeight
-      }
+      const view = (window as any).__codeMirrorView
+      if (!view) return
+
+      const lineInfo = view.state.doc.line(line)
+      // Import EditorView.scrollIntoView effect
+      view.dispatch({
+        effects: view.constructor.scrollIntoView(lineInfo.from, { y: 'start' })
+      })
     }, lineNumber)
   }
 
@@ -116,7 +104,7 @@ export class EditorHelpers {
    * Insert text at current cursor position
    */
   async typeText(text: string): Promise<void> {
-    await this.page.click('.monaco-editor')
+    await this.page.click('.cm-editor .cm-content')
     await this.page.keyboard.type(text)
   }
 
@@ -126,11 +114,9 @@ export class EditorHelpers {
   async waitForContent(expectedContent: string, timeout = 5000): Promise<void> {
     await this.page.waitForFunction(
       (content) => {
-        const lines = document.querySelectorAll('.monaco-editor .view-lines .view-line')
-        const text = Array.from(lines)
-          .map((l) => l.textContent || '')
-          .join('\n')
-        return text.includes(content)
+        const view = (window as any).__codeMirrorView
+        if (!view) return false
+        return view.state.doc.toString().includes(content)
       },
       expectedContent,
       { timeout }
@@ -138,16 +124,20 @@ export class EditorHelpers {
   }
 
   /**
-   * Get cursor line and column position using Monaco API
+   * Get cursor line and column position using CodeMirror API
    */
   async getCursorLineColumn(): Promise<{ line: number; column: number }> {
     return this.page.evaluate(() => {
-      const editors = (window as any).monaco?.editor?.getEditors?.()
-      if (editors?.[0]) {
-        const pos = editors[0].getPosition()
-        return { line: pos.lineNumber, column: pos.column }
+      const view = (window as any).__codeMirrorView
+      if (!view) return { line: 0, column: 0 }
+
+      const offset = view.state.selection.main.head
+      const line = view.state.doc.lineAt(offset)
+
+      return {
+        line: line.number, // 1-indexed line number
+        column: offset - line.from + 1 // 1-indexed column
       }
-      return { line: 0, column: 0 }
     })
   }
 
@@ -156,31 +146,22 @@ export class EditorHelpers {
    */
   async getSelection(): Promise<string> {
     return this.page.evaluate(() => {
-      const editors = (window as any).monaco?.editor?.getEditors?.()
-      if (editors?.[0]) {
-        const model = editors[0].getModel()
-        const selection = editors[0].getSelection()
-        if (model && selection) {
-          return model.getValueInRange(selection)
-        }
-      }
-      return ''
+      const view = (window as any).__codeMirrorView
+      if (!view) return ''
+
+      const { from, to } = view.state.selection.main
+      return view.state.sliceDoc(from, to)
     })
   }
 
   /**
-   * Get the full editor content using Monaco API
+   * Get the full editor content using CodeMirror API
    */
   async getFullContent(): Promise<string> {
     return this.page.evaluate(() => {
-      const editors = (window as any).monaco?.editor?.getEditors?.()
-      if (editors?.[0]) {
-        const model = editors[0].getModel()
-        if (model) {
-          return model.getValue()
-        }
-      }
-      return ''
+      const view = (window as any).__codeMirrorView
+      if (!view) return ''
+      return view.state.doc.toString()
     })
   }
 }

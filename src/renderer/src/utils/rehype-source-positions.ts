@@ -17,25 +17,39 @@ export function rehypeSourcePositions() {
     visit(tree, 'element', (node: Element) => {
       if (node.position) {
         node.properties = node.properties || {}
-        node.properties['data-source-start'] = node.position.start.offset
-        node.properties['data-source-end'] = node.position.end.offset
 
-        // For elements with children, find where text content starts/ends
-        if (node.children && node.children.length > 0) {
-          // Find first child with position
-          for (const child of node.children) {
-            if (child.position) {
-              node.properties['data-text-start'] = child.position.start.offset
-              break
+        // Only set source positions if not already set (from remark plugin via hProperties)
+        if (!node.properties['data-source-start']) {
+          node.properties['data-source-start'] = node.position.start.offset
+        }
+        if (!node.properties['data-source-end']) {
+          node.properties['data-source-end'] = node.position.end.offset
+        }
+
+        // Only set text positions if not already set
+        // (remark plugin handles inline code and other special cases)
+        if (!node.properties['data-text-start'] || !node.properties['data-text-end']) {
+          // For elements with children, find where text content starts/ends
+          if (node.children && node.children.length > 0) {
+            if (!node.properties['data-text-start']) {
+              // Find first child with position
+              for (const child of node.children) {
+                if (child.position) {
+                  node.properties['data-text-start'] = child.position.start.offset
+                  break
+                }
+              }
             }
-          }
 
-          // Find last child with position
-          for (let i = node.children.length - 1; i >= 0; i--) {
-            const child = node.children[i]
-            if (child.position) {
-              node.properties['data-text-end'] = child.position.end.offset
-              break
+            if (!node.properties['data-text-end']) {
+              // Find last child with position
+              for (let i = node.children.length - 1; i >= 0; i--) {
+                const child = node.children[i]
+                if (child.position) {
+                  node.properties['data-text-end'] = child.position.end.offset
+                  break
+                }
+              }
             }
           }
         }

@@ -51,9 +51,16 @@ export function remarkSourcePositions() {
       }
 
       // For text nodes (literals), text-start equals source-start
+      // Special handling for inline code which has backticks
       if ('value' in node && typeof node.value === 'string') {
-        node.data.hProperties['data-text-start'] = node.position.start.offset
-        node.data.hProperties['data-text-end'] = node.position.end.offset
+        if (node.type === 'inlineCode') {
+          // Inline code: `code` - text starts after ` and ends before `
+          node.data.hProperties['data-text-start'] = node.position.start.offset! + 1
+          node.data.hProperties['data-text-end'] = node.position.end.offset! - 1
+        } else {
+          node.data.hProperties['data-text-start'] = node.position.start.offset
+          node.data.hProperties['data-text-end'] = node.position.end.offset
+        }
       }
     })
   }

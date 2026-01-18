@@ -45,9 +45,9 @@ function findInnermostPositionedElement(
 /**
  * Calculate the source offset for a click within a positioned element.
  *
- * Uses data-text-start and data-text-end attributes to know where the actual
- * text content begins and ends within the source range. This handles markdown
- * syntax correctly (e.g., **bold** has syntax before and after the text).
+ * This function walks through the DOM tree, tracking both rendered text position
+ * and source position. When we encounter formatted elements (like <strong>),
+ * we use their data-text-start/end to correctly map rendered position to source.
  */
 function calculateSourceOffset(
   element: Element,
@@ -64,49 +64,146 @@ function calculateSourceOffset(
   const clickContainer = range.startContainer
   const clickOffset = range.startOffset
 
-  // If the click is in a text node, find the best positioned element
+  // If the click is in a text node, we need to calculate the source offset
   if (clickContainer.nodeType === Node.TEXT_NODE) {
-    // Walk up to find the closest element with position data
-    let targetElement: Element | null = clickContainer.parentElement
-    while (targetElement && !targetElement.hasAttribute('data-source-start')) {
-      targetElement = targetElement.parentElement
+    // First, find the immediate parent with position data
+    let immediateParent: Element | null = clickContainer.parentElement
+    while (immediateParent && !immediateParent.hasAttribute('data-source-start')) {
+      immediateParent = immediateParent.parentElement
     }
 
-    if (!targetElement) {
-      targetElement = element
+    // If the immediate parent is a formatted element (not block-level),
+    // use its text-start position directly
+    if (immediateParent) {
+      const tagName = immediateParent.tagName.toLowerCase()
+      const isInlineFormatted = ['strong', 'em', 'code', 'span', 'a', 'del', 's'].includes(tagName)
+
+      if (isInlineFormatted) {
+        let textStart = immediateParent.getAttribute('data-text-start')
+        let textEnd = immediateParent.getAttribute('data-text-end')
+        const sourceStart = immediateParent.getAttribute('data-source-start')
+        const sourceEnd = immediateParent.getAttribute('data-source-end')
+
+        // For inline code, the text starts after the opening backtick and ends before the closing one
+        // The source positions include the backticks, so we need to adjust
+        if (tagName === 'code' && sourceStart !== null && sourceEnd !== null) {
+          const sourceStartVal = parseInt(sourceStart, 10)
+          const sourceEndVal = parseInt(sourceEnd, 10)
+          // Check if textStart equals sourceStart - means backticks aren't accounted for
+          if (textStart !== null && parseInt(textStart, 10) === sourceStartVal) {
+            textStart = String(sourceStartVal + 1) // After opening `
+            textEnd = String(sourceEndVal - 1)     // Before closing `
+          }
+        }
+
+        if (textStart !== null && textEnd !== null) {
+          const textStartOffset = parseInt(textStart, 10)
+          const textEndOffset = parseInt(textEnd, 10)
+          const charOffset = getTextBeforeNode(immediateParent, clickContainer, clickOffset)
+          return Math.min(textStartOffset + charOffset, textEndOffset)
+        }
+      }
     }
 
-    // Get the text range - where actual text content is in the source
-    const textStart = targetElement.getAttribute('data-text-start')
-    const textEnd = targetElement.getAttribute('data-text-end')
-    const sourceStart = targetElement.getAttribute('data-source-start')
-    const sourceEnd = targetElement.getAttribute('data-source-end')
-
-    if (textStart !== null && textEnd !== null) {
-      // We have precise text position data
-      const textStartOffset = parseInt(textStart, 10)
-      const textEndOffset = parseInt(textEnd, 10)
-
-      // Calculate character offset within this element's text content
-      const charOffset = getTextBeforeNode(targetElement, clickContainer, clickOffset)
-
-      // Map to source position: textStart + charOffset
-      const sourcePos = textStartOffset + charOffset
-      return Math.min(sourcePos, textEndOffset)
+    // For text directly in a block element (like <p>), we need to walk through
+    // all children and sum up source positions, accounting for formatted elements
+    let blockParent: Element | null = clickContainer.parentElement
+    while (blockParent && !['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote', 'pre', 'div'].includes(blockParent.tagName.toLowerCase())) {
+      blockParent = blockParent.parentElement
     }
 
-    // Fallback: use source positions (less accurate for formatted elements)
-    if (sourceStart !== null && sourceEnd !== null) {
-      const start = parseInt(sourceStart, 10)
-      const end = parseInt(sourceEnd, 10)
-      const charOffset = getTextBeforeNode(targetElement, clickContainer, clickOffset)
-      return Math.min(start + charOffset, end - 1)
+    if (!blockParent) {
+      blockParent = element
+    }
+
+    // Walk through the block and calculate source offset
+    const sourceOffset = calculateSourceOffsetInBlock(blockParent, clickContainer, clickOffset)
+    if (sourceOffset !== null) {
+      return sourceOffset
     }
   }
 
   // Ultimate fallback: element start
   const start = element.getAttribute('data-source-start')
   return start ? parseInt(start, 10) : 0
+}
+
+/**
+ * Calculate source offset by walking through a block element,
+ * accounting for formatted elements with different source lengths.
+ */
+function calculateSourceOffsetInBlock(
+  blockElement: Element,
+  targetNode: Node,
+  targetOffset: number
+): number | null {
+  const blockSourceStart = blockElement.getAttribute('data-source-start')
+  if (blockSourceStart === null) return null
+
+  // Check if the block element has text-start (for elements like headings
+  // where text starts after syntax like "# ")
+  const blockTextStart = blockElement.getAttribute('data-text-start')
+  const blockTextEnd = blockElement.getAttribute('data-text-end')
+
+  // If the block has only direct text children (no formatted children),
+  // use text-start directly
+  const hasFormattedChildren = blockElement.querySelector('[data-source-start]') !== null
+  if (!hasFormattedChildren && blockTextStart !== null && blockTextEnd !== null) {
+    const textStartOffset = parseInt(blockTextStart, 10)
+    const textEndOffset = parseInt(blockTextEnd, 10)
+    const charOffset = getTextBeforeNode(blockElement, targetNode, targetOffset)
+    return Math.min(textStartOffset + charOffset, textEndOffset)
+  }
+
+  let sourcePos = parseInt(blockSourceStart, 10)
+  const walker = document.createTreeWalker(blockElement, NodeFilter.SHOW_TEXT, null)
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode as Text
+    const textContent = textNode.textContent || ''
+
+    // Check if this is the target node
+    if (textNode === targetNode) {
+      // Find the positioned parent of this text node
+      let parent: Element | null = textNode.parentElement
+      while (parent && parent !== blockElement && !parent.hasAttribute('data-source-start')) {
+        parent = parent.parentElement
+      }
+
+      if (parent && parent !== blockElement && parent.hasAttribute('data-text-start')) {
+        // This text is inside a formatted element
+        const textStart = parseInt(parent.getAttribute('data-text-start')!, 10)
+        return textStart + targetOffset
+      } else {
+        // This text is directly in the block element
+        return sourcePos + targetOffset
+      }
+    }
+
+    // Move source position past this text node
+    let parent: Element | null = textNode.parentElement
+    while (parent && parent !== blockElement && !parent.hasAttribute('data-source-start')) {
+      parent = parent.parentElement
+    }
+
+    if (parent && parent !== blockElement) {
+      // This text is inside a positioned child element
+      // We need to advance by the SOURCE length, not the rendered text length
+      const sourceStart = parseInt(parent.getAttribute('data-source-start')!, 10)
+      const sourceEnd = parseInt(parent.getAttribute('data-source-end')!, 10)
+
+      // Check if we've already accounted for this element
+      // (a positioned element may contain multiple text nodes)
+      if (sourcePos < sourceEnd) {
+        sourcePos = sourceEnd
+      }
+    } else {
+      // Direct text in block - rendered length equals source length
+      sourcePos += textContent.length
+    }
+  }
+
+  return null
 }
 
 /**

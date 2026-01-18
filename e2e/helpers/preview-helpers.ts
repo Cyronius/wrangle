@@ -194,6 +194,7 @@ export class PreviewHelpers {
    * Searches across ALL matching elements (not just the first one).
    *
    * @param elementSelector - CSS selector for the containing element (e.g., 'p', 'h1')
+   *                         Use '*' to search anywhere in the preview
    * @param searchText - The text to find within the element
    * @param offsetInText - Character offset within the found text to click (0 = before first char)
    */
@@ -205,7 +206,8 @@ export class PreviewHelpers {
     const position = await this.page.evaluate(
       ({ selector, text, offset }) => {
         // Search across ALL matching elements
-        const elements = document.querySelectorAll(`.markdown-preview ${selector}`)
+        const baseSelector = selector === '*' ? '.markdown-preview' : `.markdown-preview ${selector}`
+        const elements = document.querySelectorAll(baseSelector)
         if (elements.length === 0) return null
 
         for (const element of elements) {

@@ -1,23 +1,31 @@
 import { Page } from '@playwright/test'
 
 /**
- * Wait for Monaco editor to be fully initialized and ready
+ * Wait for CodeMirror editor to be fully initialized and ready
  */
-export async function waitForMonacoReady(page: Page, timeout = 30000): Promise<void> {
-  // Wait for Monaco editor container to be visible
-  await page.waitForSelector('.monaco-editor', { state: 'visible', timeout })
+export async function waitForCodeMirrorReady(page: Page, timeout = 30000): Promise<void> {
+  // Wait for CodeMirror editor container to be visible
+  await page.waitForSelector('.cm-editor', { state: 'visible', timeout })
 
-  // Wait for the editor to be interactive (has lines)
-  await page.waitForSelector('.monaco-editor .view-lines', { state: 'visible', timeout })
+  // Wait for the content area to be visible
+  await page.waitForSelector('.cm-editor .cm-content', { state: 'visible', timeout })
 
-  // Additional wait for editor to be fully initialized
+  // Additional wait for editor to be fully initialized (contenteditable = true)
   await page.waitForFunction(
     () => {
-      const editor = document.querySelector('.monaco-editor')
-      return editor && !editor.classList.contains('loading')
+      const editor = document.querySelector('.cm-editor')
+      const content = document.querySelector('.cm-content')
+      return editor && content && content.getAttribute('contenteditable') === 'true'
     },
     { timeout }
   )
+}
+
+/**
+ * @deprecated Use waitForCodeMirrorReady instead - Monaco has been replaced with CodeMirror
+ */
+export async function waitForMonacoReady(page: Page, timeout = 30000): Promise<void> {
+  return waitForCodeMirrorReady(page, timeout)
 }
 
 /**
@@ -33,8 +41,8 @@ export async function waitForPreviewReady(page: Page, timeout = 10000): Promise<
  * Wait for the entire app to be ready (editor + preview in split mode)
  */
 export async function waitForAppReady(page: Page, timeout = 30000): Promise<void> {
-  // Wait for Monaco editor
-  await waitForMonacoReady(page, timeout)
+  // Wait for CodeMirror editor
+  await waitForCodeMirrorReady(page, timeout)
 
   // Wait for preview (if in split mode)
   const preview = await page.$('.markdown-preview')

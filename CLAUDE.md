@@ -141,3 +141,7 @@ Menu clicks send commands to renderer via IPC, which dispatch Redux actions or t
 - `@reduxjs/toolkit` + `react-redux` - State management
 - `gray-matter` - YAML front matter parsing
 - `electron-updater` - Auto-update functionality
+
+## Plans
+
+Store implementation plans in `.claude/plans/` within the project directory.

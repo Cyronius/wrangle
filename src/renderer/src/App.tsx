@@ -7,23 +7,26 @@ import { addTab, updateTab, setActiveTab, closeTab, nextTab, previousTab } from 
 import { loadSettings } from './store/settingsSlice'
 import { EditorLayout } from './components/Layout/EditorLayout'
 import { TabBar } from './components/Tabs/TabBar'
-import { MarkdownToolbar } from './components/UI/MarkdownToolbar'
+// POC: Commenting out Monaco-dependent components
+// import { MarkdownToolbar } from './components/UI/MarkdownToolbar'
 import { TitleBar } from './components/TitleBar/TitleBar'
 import { ThemeProvider } from './components/ThemeProvider'
-import { OutlineSidebar } from './components/Outline/OutlineSidebar'
+// import { OutlineSidebar } from './components/Outline/OutlineSidebar'
 import { PreferencesDialog } from './components/Preferences/PreferencesDialog'
-import { useImageDrop } from './hooks/useImageDrop'
-import * as monaco from 'monaco-editor'
+// import { useImageDrop } from './hooks/useImageDrop'
+import { CodeMirrorEditorHandle } from './components/Editor/CodeMirrorEditor'
 
 function AppContent() {
   const dispatch = useDispatch<AppDispatch>()
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
+  // POC: Using CodeMirror handle instead of Monaco
+  const editorRef = useRef<CodeMirrorEditorHandle | null>(null)
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Redux state
   const { tabs, activeTabId } = useSelector((state: RootState) => state.tabs)
   const theme = useSelector((state: RootState) => state.theme.currentTheme)
-  const showOutline = useSelector((state: RootState) => state.layout.showOutline)
+  // POC: Outline disabled for now
+  // const showOutline = useSelector((state: RootState) => state.layout.showOutline)
 
   // Preferences dialog state
   const [preferencesOpen, setPreferencesOpen] = useState(false)
@@ -113,13 +116,12 @@ function AppContent() {
     }
   }, [])
 
-  // Ctrl+Scroll wheel zoom - use capture phase to intercept before Monaco
+  // Ctrl+Scroll wheel zoom
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey) {
         e.preventDefault()
         e.stopPropagation()
-        // deltaY > 0 means scrolling down (zoom out), < 0 means scrolling up (zoom in)
         dispatch(e.deltaY > 0 ? zoomOut() : zoomIn())
       }
     }
@@ -302,28 +304,9 @@ function AppContent() {
         e.preventDefault()
         window.electron.window.print()
       }
-      // Ctrl+Z: Undo (when editor not focused, Monaco handles its own)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        if (!document.activeElement?.closest('.monaco-editor')) {
-          e.preventDefault()
-          editorRef.current?.trigger('keyboard', 'undo', null)
-          editorRef.current?.focus()
-        }
-      }
-      // Ctrl+Y: Redo (when editor not focused)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
-        if (!document.activeElement?.closest('.monaco-editor')) {
-          e.preventDefault()
-          editorRef.current?.trigger('keyboard', 'redo', null)
-          editorRef.current?.focus()
-        }
-      }
-      // Ctrl+Shift+O: Toggle outline
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'o') {
-        e.preventDefault()
-        dispatch(toggleOutline())
-      }
-      // F12: Toggle DevTools (fallback for when global shortcut fails)
+      // POC: Undo/Redo disabled - CodeMirror handles natively
+      // Ctrl+Shift+O: Toggle outline (disabled for POC)
+      // F12: Toggle DevTools
       if (e.key === 'F12') {
         e.preventDefault()
         window.electron.window.toggleDevTools()
@@ -375,31 +358,16 @@ function AppContent() {
     return unsubscribe
   }, [activeTab, content, dispatch])
 
-  // Image drop support
-  const { isDragging } = useImageDrop({
-    editorRef,
-    tabId: activeTab?.id,
-    currentFilePath,
-    onImageInsert: (imagePath) => {
-      // Mark tab as dirty when image is inserted
-      if (activeTab) {
-        dispatch(updateTab({
-          id: activeTab.id,
-          isDirty: true
-        }))
-      }
-    }
-  })
+  // POC: Image drop disabled
+  // const { isDragging } = useImageDrop({...})
 
-  // Undo/Redo handlers for Monaco editor
+  // POC: Undo/Redo handlers disabled - CodeMirror has native undo/redo
   const handleUndo = useCallback(() => {
-    editorRef.current?.trigger('keyboard', 'undo', null)
-    editorRef.current?.focus()
+    // CodeMirror handles undo natively
   }, [])
 
   const handleRedo = useCallback(() => {
-    editorRef.current?.trigger('keyboard', 'redo', null)
-    editorRef.current?.focus()
+    // CodeMirror handles redo natively
   }, [])
 
   // Copy as Rich Text - copies preview HTML to clipboard
@@ -420,7 +388,7 @@ function AppContent() {
     }
   }, [])
 
-  // Export as HTML - creates a standalone HTML file
+  // Export as HTML
   const handleExportHtml = useCallback(async () => {
     const previewElement = document.querySelector('.markdown-body')
     if (!previewElement) return
@@ -428,7 +396,6 @@ function AppContent() {
     const html = previewElement.innerHTML
     const title = activeTab?.filename?.replace(/\.md$/, '') || 'Document'
 
-    // Create standalone HTML document with embedded styles
     const htmlDoc = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -470,7 +437,6 @@ function AppContent() {
 </body>
 </html>`
 
-    // Use file save dialog to save as HTML
     await window.electron.file.saveAs(htmlDoc, title)
   }, [activeTab?.filename])
 
@@ -479,7 +445,7 @@ function AppContent() {
     await window.electron.window.exportPdf()
   }, [])
 
-  // Monaco theme based on app theme
+  // Theme for editor (POC: not yet applied to CodeMirror)
   const monacoTheme = theme === 'light' ? 'vs' : 'vs-dark'
 
   return (
@@ -499,7 +465,6 @@ function AppContent() {
       >
         <TabBar
           onCloseTab={async (tabId) => {
-            // Clean up temp directory if tab was never saved
             const tabToClose = tabs.find((t) => t.id === tabId)
             if (tabToClose && !tabToClose.path) {
               await window.electron.file.cleanupTemp(tabId)
@@ -507,34 +472,15 @@ function AppContent() {
           }}
         />
       </TitleBar>
-      <MarkdownToolbar editorRef={editorRef} />
+      {/* POC: MarkdownToolbar disabled - requires Monaco integration */}
+      {/* <MarkdownToolbar editorRef={editorRef} /> */}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
-        {showOutline && (
+        {/* POC: OutlineSidebar disabled - requires Monaco integration */}
+        {/* {showOutline && (
           <OutlineSidebar content={content} editorRef={editorRef} />
-        )}
+        )} */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          {isDragging && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: 'rgba(77, 170, 252, 0.1)',
-                border: '2px dashed var(--accent-color)',
-                zIndex: 1000,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '24px',
-                color: 'var(--accent-color)',
-                pointerEvents: 'none'
-              }}
-            >
-              Drop images here
-            </div>
-          )}
+          {/* POC: Image drop overlay disabled */}
           <EditorLayout
             content={content}
             onChange={handleChange}
