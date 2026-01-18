@@ -342,39 +342,22 @@
   border-radius: 1px;
 }
 
-/* ContentEditable cursor support */
-.markdown-body [contenteditable] {
+/* ContentEditable cursor support - container is now contentEditable */
+.markdown-body[contenteditable] {
   outline: none;
   caret-color: var(--preview-cursor-color, #4daafc);
   cursor: text;
 }
 
-.markdown-body [contenteditable]:focus {
+.markdown-body[contenteditable]:focus {
   outline: none;
 }
 
-/* Selection styling in contentEditable elements */
-.markdown-body [contenteditable]::selection {
+/* Selection styling in contentEditable container */
+.markdown-body[contenteditable]::selection {
   background-color: var(--preview-selection-bg, rgba(77, 170, 252, 0.3));
 }
 
-.markdown-body [contenteditable] *::selection {
+.markdown-body[contenteditable] *::selection {
   background-color: var(--preview-selection-bg, rgba(77, 170, 252, 0.3));
-}
-
-/* Ensure cursor is visible in all text elements */
-.markdown-body p [contenteditable],
-.markdown-body h1 [contenteditable],
-.markdown-body h2 [contenteditable],
-.markdown-body h3 [contenteditable],
-.markdown-body h4 [contenteditable],
-.markdown-body h5 [contenteditable],
-.markdown-body h6 [contenteditable],
-.markdown-body li [contenteditable],
-.markdown-body blockquote [contenteditable],
-.markdown-body strong [contenteditable],
-.markdown-body em [contenteditable],
-.markdown-body del [contenteditable],
-.markdown-body code [contenteditable] {
-  display: inline;
 }

@@ -1,5 +1,4 @@
 import React from 'react'
-import { TextWrapper } from './TextWrapper'
 import { RendererProps, getSourceAttrs } from './types'
 
 export function ParagraphRenderer({ node, children, ...props }: RendererProps<'p'>) {
@@ -7,7 +6,7 @@ export function ParagraphRenderer({ node, children, ...props }: RendererProps<'p
 
   return (
     <p {...sourceAttrs} {...props}>
-      <TextWrapper>{children}</TextWrapper>
+      {children}
     </p>
   )
 }

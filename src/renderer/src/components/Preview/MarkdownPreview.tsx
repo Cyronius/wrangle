@@ -231,9 +231,39 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       <div
         ref={contentRef}
         className="markdown-body"
+        contentEditable
+        suppressContentEditableWarning
+        onBeforeInput={(e) => e.preventDefault()}
+        onInput={(e) => e.preventDefault()}
+        onPaste={(e) => e.preventDefault()}
+        onCut={(e) => e.preventDefault()}
+        onDrop={(e) => e.preventDefault()}
+        onKeyDown={(e) => {
+          // Block Backspace and Delete explicitly
+          if (e.key === 'Backspace' || e.key === 'Delete') {
+            e.preventDefault()
+            return
+          }
+          // Allow navigation keys
+          const allowedKeys = [
+            'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+            'Home', 'End', 'PageUp', 'PageDown',
+            'Shift', 'Control', 'Alt', 'Meta',
+            'Tab', 'Escape', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'
+          ]
+          // Block all other keys except navigation and modifiers
+          if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault()
+            return
+          }
+        }}
+        onKeyPress={(e) => e.preventDefault()}
         style={{
           fontSize: `${zoomScale}em`,
-          lineHeight: 1.6
+          lineHeight: 1.6,
+          outline: 'none',
+          caretColor: 'var(--preview-cursor-color, #4daafc)',
+          cursor: 'text'
         }}
       >
         {/* Front matter rendered separately */}

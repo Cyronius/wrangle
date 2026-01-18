@@ -1,4 +1,3 @@
-export { TextWrapper } from './TextWrapper'
 export { ParagraphRenderer } from './ParagraphRenderer'
 export { H1Renderer, H2Renderer, H3Renderer, H4Renderer, H5Renderer, H6Renderer } from './HeadingRenderer'
 export { StrongRenderer, EmRenderer, DelRenderer, InlineCodeRenderer } from './InlineRenderers'

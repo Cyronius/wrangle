@@ -1,5 +1,4 @@
 import React from 'react'
-import { TextWrapper } from './TextWrapper'
 import { RendererProps, getSourceAttrs } from './types'
 
 function createHeadingRenderer(level: 1 | 2 | 3 | 4 | 5 | 6) {
@@ -11,7 +10,7 @@ function createHeadingRenderer(level: 1 | 2 | 3 | 4 | 5 | 6) {
     return React.createElement(
       Tag,
       { ...sourceAttrs, ...props },
-      <TextWrapper>{children}</TextWrapper>
+      children
     )
   }
 }

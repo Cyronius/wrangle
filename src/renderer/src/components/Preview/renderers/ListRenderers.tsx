@@ -1,5 +1,4 @@
 import React from 'react'
-import { TextWrapper } from './TextWrapper'
 import { RendererProps, getSourceAttrs } from './types'
 
 export function UlRenderer({ node, children, ...props }: RendererProps<'ul'>) {
@@ -27,7 +26,7 @@ export function LiRenderer({ node, children, ...props }: RendererProps<'li'>) {
 
   return (
     <li {...sourceAttrs} {...props}>
-      <TextWrapper>{children}</TextWrapper>
+      {children}
     </li>
   )
 }

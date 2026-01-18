@@ -1,5 +1,4 @@
 import React from 'react'
-import { TextWrapper } from './TextWrapper'
 import { RendererProps, getSourceAttrs } from './types'
 
 export function StrongRenderer({ node, children, ...props }: RendererProps<'strong'>) {
@@ -7,7 +6,7 @@ export function StrongRenderer({ node, children, ...props }: RendererProps<'stro
 
   return (
     <strong {...sourceAttrs} {...props}>
-      <TextWrapper>{children}</TextWrapper>
+      {children}
     </strong>
   )
 }
@@ -17,7 +16,7 @@ export function EmRenderer({ node, children, ...props }: RendererProps<'em'>) {
 
   return (
     <em {...sourceAttrs} {...props}>
-      <TextWrapper>{children}</TextWrapper>
+      {children}
     </em>
   )
 }
@@ -27,7 +26,7 @@ export function DelRenderer({ node, children, ...props }: RendererProps<'del'>) 
 
   return (
     <del {...sourceAttrs} {...props}>
-      <TextWrapper>{children}</TextWrapper>
+      {children}
     </del>
   )
 }
@@ -35,11 +34,9 @@ export function DelRenderer({ node, children, ...props }: RendererProps<'del'>) 
 export function InlineCodeRenderer({ node, children, ...props }: RendererProps<'code'>) {
   const sourceAttrs = getSourceAttrs({ node, ...props })
 
-  // Check if this is inside a <pre> (code block) - if so, don't wrap
-  // The parent check happens at the component level via the 'pre' renderer
   return (
     <code {...sourceAttrs} {...props}>
-      <TextWrapper>{children}</TextWrapper>
+      {children}
     </code>
   )
 }
