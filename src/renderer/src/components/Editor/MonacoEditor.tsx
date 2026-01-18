@@ -13,21 +13,28 @@ interface MonacoEditorProps {
   fontSize?: number
   onCursorChange?: (offset: number) => void
   onScroll?: (offset: number) => void  // Character offset of first visible line
+  onSelectionChange?: (selection: { start: number; end: number } | null) => void  // Selection range in character offsets
 }
 
 export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | null, MonacoEditorProps>(
-  ({ value, onChange, theme = 'vs-dark', fontSize = 14, onCursorChange, onScroll }, ref) => {
+  ({ value, onChange, theme = 'vs-dark', fontSize = 14, onCursorChange, onScroll, onSelectionChange }, ref) => {
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
     const disposablesRef = useRef<monaco.IDisposable[]>([])
     const cursorDisposableRef = useRef<monaco.IDisposable | null>(null)
     const scrollDisposableRef = useRef<monaco.IDisposable | null>(null)
+    const selectionDisposableRef = useRef<monaco.IDisposable | null>(null)
     const onScrollRef = useRef(onScroll)
+    const onSelectionChangeRef = useRef(onSelectionChange)
     const bindings = useSelector(selectCurrentBindings)
 
-    // Keep onScrollRef up to date
+    // Keep refs up to date
     useEffect(() => {
       onScrollRef.current = onScroll
     }, [onScroll])
+
+    useEffect(() => {
+      onSelectionChangeRef.current = onSelectionChange
+    }, [onSelectionChange])
 
     // Register editor actions based on current bindings
     const registerEditorActions = useCallback(
@@ -133,6 +140,25 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
         console.log('[MonacoEditor] calling onScroll with offset:', offset)
         onScrollRef.current(offset)
       })
+
+      // Set up selection change listener
+      selectionDisposableRef.current = editor.onDidChangeCursorSelection((e) => {
+        if (!onSelectionChangeRef.current) return
+
+        const model = editor.getModel()
+        if (!model) return
+
+        const selection = e.selection
+        if (selection.isEmpty()) {
+          // No selection, just cursor position
+          onSelectionChangeRef.current(null)
+        } else {
+          // Convert selection to character offsets
+          const start = model.getOffsetAt(selection.getStartPosition())
+          const end = model.getOffsetAt(selection.getEndPosition())
+          onSelectionChangeRef.current({ start, end })
+        }
+      })
     }
 
     // Re-register actions when bindings change
@@ -173,6 +199,8 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
         cursorDisposableRef.current = null
         scrollDisposableRef.current?.dispose()
         scrollDisposableRef.current = null
+        selectionDisposableRef.current?.dispose()
+        selectionDisposableRef.current = null
       }
     }, [])
 

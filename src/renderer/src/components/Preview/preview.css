@@ -4,6 +4,7 @@
   padding: 20px;
   background-color: var(--preview-bg);
   color: var(--preview-text);
+  position: relative;
 }
 
 .markdown-body {
@@ -311,4 +312,57 @@
   outline-offset: 2px;
   background: rgba(100, 149, 237, 0.05);
   border-radius: 2px;
+}
+
+/* Pseudo-cursor - blinking caret in preview that mirrors editor cursor */
+.markdown-body .pseudo-cursor {
+  display: inline-block;
+  width: 0;
+  height: 1.2em;
+  border-left: 2px solid var(--pseudo-cursor-color, #4daafc);
+  margin-left: -1px;
+  margin-right: -1px;
+  vertical-align: text-bottom;
+  animation: pseudo-cursor-blink 1s step-end infinite;
+  pointer-events: none;
+}
+
+@keyframes pseudo-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Block-level cursor indicator - vertical line at left edge */
+.markdown-body [data-source-id].pseudo-cursor-block {
+  position: relative;
+}
+
+.markdown-body [data-source-id].pseudo-cursor-block::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background-color: var(--pseudo-cursor-color, #4daafc);
+  animation: pseudo-cursor-blink 1s step-end infinite;
+  border-radius: 1px;
+}
+
+/* Pseudo-selection highlight in preview */
+.markdown-body .pseudo-selection {
+  background-color: var(--pseudo-selection-bg, rgba(77, 170, 252, 0.3));
+  border-radius: 2px;
+}
+
+/* Block-level selection highlight */
+.markdown-body [data-source-id].pseudo-selection-block {
+  background-color: var(--pseudo-selection-bg, rgba(77, 170, 252, 0.15));
+  border-radius: 4px;
+}
+
+/* Pseudo-cursor overlay - positioned absolutely outside React-managed content */
+.pseudo-cursor-overlay {
+  z-index: 10;
+  border-radius: 1px;
 }

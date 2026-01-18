@@ -27,6 +27,13 @@ export class SourceMap {
   }
 
   /**
+   * Get the full entry for an element ID
+   */
+  getEntry(elementId: string): SourceMapEntry | null {
+    return this.entries.get(elementId) ?? null
+  }
+
+  /**
    * Get source range for an element ID
    */
   getRange(elementId: string): SourceRange | null {
@@ -44,6 +51,45 @@ export class SourceMap {
       }
     }
     return null
+  }
+
+  /**
+   * Find all entries that overlap with a given range.
+   * Used for selection highlighting.
+   */
+  findEntriesInRange(start: number, end: number): Array<{
+    elementId: string
+    entry: SourceMapEntry
+    overlapStart: number  // Local offset where overlap starts
+    overlapEnd: number    // Local offset where overlap ends
+  }> {
+    const results: Array<{
+      elementId: string
+      entry: SourceMapEntry
+      overlapStart: number
+      overlapEnd: number
+    }> = []
+
+    for (const [id, entry] of this.entries) {
+      const entryStart = entry.sourceRange.start
+      const entryEnd = entry.sourceRange.end
+
+      // Check if ranges overlap
+      if (start < entryEnd && end > entryStart) {
+        // Calculate the overlap within this entry's local coordinates
+        const overlapStart = Math.max(0, start - entryStart)
+        const overlapEnd = Math.min(entryEnd - entryStart, end - entryStart)
+
+        results.push({
+          elementId: id,
+          entry,
+          overlapStart,
+          overlapEnd
+        })
+      }
+    }
+
+    return results
   }
 
   /**
@@ -70,54 +116,28 @@ export class SourceMap {
 }
 
 /**
- * Parse markdown and build source map by finding raw text positions
+ * Build a source map by walking the rendered DOM and extracting
+ * data-source-start and data-source-end attributes.
+ *
+ * This is used after Streamdown renders the markdown to HTML,
+ * since the position data is injected by our remarkSourcePositions plugin.
  */
-export function buildSourceMapFromTokens(
-  markdown: string,
-  tokens: any[]
-): SourceMap {
+export function buildSourceMapFromDOM(container: HTMLElement): SourceMap {
   const sourceMap = new SourceMap()
-  let currentOffset = 0
+  const elements = container.querySelectorAll('[data-source-start]')
 
-  function processToken(token: any): void {
-    // Find where this token's raw content appears in the source
-    if (token.raw) {
-      const index = markdown.indexOf(token.raw, currentOffset)
-      if (index !== -1) {
-        const id = sourceMap.addEntry(token.type, {
-          start: index,
-          end: index + token.raw.length
-        })
-        // Store the ID on the token for later use
-        token._sourceId = id
+  elements.forEach((el) => {
+    const startAttr = el.getAttribute('data-source-start')
+    const endAttr = el.getAttribute('data-source-end')
 
-        // Process child tokens if present
-        if (token.tokens) {
-          token.tokens.forEach((child: any) => processToken(child))
-        }
+    if (startAttr !== null && endAttr !== null) {
+      const start = parseInt(startAttr, 10)
+      const end = parseInt(endAttr, 10)
+      const type = el.tagName.toLowerCase()
 
-        // For certain types, also process inline content
-        if (token.items) {
-          token.items.forEach((item: any) => {
-            if (item.raw) {
-              const itemIndex = markdown.indexOf(item.raw, currentOffset)
-              if (itemIndex !== -1) {
-                const itemId = sourceMap.addEntry('list_item', {
-                  start: itemIndex,
-                  end: itemIndex + item.raw.length
-                })
-                item._sourceId = itemId
-              }
-            }
-            if (item.tokens) {
-              item.tokens.forEach((child: any) => processToken(child))
-            }
-          })
-        }
-      }
+      sourceMap.addEntry(type, { start, end })
     }
-  }
+  })
 
-  tokens.forEach(token => processToken(token))
   return sourceMap
 }

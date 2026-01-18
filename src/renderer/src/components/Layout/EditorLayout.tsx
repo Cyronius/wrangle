@@ -23,6 +23,42 @@ function getZoomedFontSize(zoomLevel: number): number {
   return Math.round(14 * Math.pow(1.1, zoomLevel))
 }
 
+/**
+ * Convert an offset from CRLF content to LF-normalized content.
+ * Since CRLF (\r\n) becomes LF (\n), we need to subtract the number of \r characters
+ * that appear before the given offset.
+ */
+function normalizeOffset(content: string, offset: number): number {
+  // Count \r characters before the offset
+  let crCount = 0
+  for (let i = 0; i < offset && i < content.length; i++) {
+    if (content[i] === '\r') {
+      crCount++
+    }
+  }
+  return offset - crCount
+}
+
+/**
+ * Convert an LF-normalized offset back to CRLF offset.
+ * Used when we have an offset from the source map (LF) and need to position
+ * the cursor in Monaco (which may use CRLF).
+ */
+function denormalizeOffset(content: string, lfOffset: number): number {
+  // Walk through content, counting characters without \r
+  let lfCount = 0
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] !== '\r') {
+      if (lfCount === lfOffset) {
+        return i
+      }
+      lfCount++
+    }
+  }
+  // If we reach the end, return content length
+  return content.length
+}
+
 export function EditorLayout({
   content,
   onChange,
@@ -36,6 +72,8 @@ export function EditorLayout({
   // State for bidirectional sync
   const [sourceMap, setSourceMap] = useState<SourceMap | null>(null)
   const [highlightSourceId, setHighlightSourceId] = useState<string | null>(null)
+  const [cursorOffset, setCursorOffset] = useState<number | null>(null)
+  const [editorSelection, setEditorSelection] = useState<{ start: number; end: number } | null>(null)
 
   // Refs for scroll synchronization
   const previewRef = useRef<MarkdownPreviewHandle>(null)
@@ -43,53 +81,65 @@ export function EditorLayout({
   const isPreviewScrollingRef = useRef(false)
   const sourceMapRef = useRef<SourceMap | null>(null)
   const previewSyncRef = useRef(previewSync)
+  const contentRef = useRef(content)
 
   // Keep refs in sync with state (avoids stale closures in callbacks captured by Monaco)
   sourceMapRef.current = sourceMap
   previewSyncRef.current = previewSync
+  contentRef.current = content
 
   // Calculate zoomed font size for editor
   const fontSize = getZoomedFontSize(zoomLevel)
 
   // Handle cursor position changes in editor - highlight corresponding preview element
   const handleCursorChange = useCallback((offset: number) => {
+    // Normalize offset from editor (which may have CRLF) to match source map (which uses LF)
+    const normalizedOffset = normalizeOffset(content, offset)
+    setCursorOffset(normalizedOffset)
     if (!sourceMap) {
       setHighlightSourceId(null)
       return
     }
-    const elementId = sourceMap.findElementByOffset(offset)
+    const elementId = sourceMap.findElementByOffset(normalizedOffset)
     setHighlightSourceId(elementId)
-  }, [sourceMap])
+  }, [sourceMap, content])
+
+  // Handle selection changes in editor - for pseudo-selection in preview
+  const handleSelectionChange = useCallback((selection: { start: number; end: number } | null) => {
+    if (selection) {
+      // Normalize offsets from editor to match source map
+      setEditorSelection({
+        start: normalizeOffset(content, selection.start),
+        end: normalizeOffset(content, selection.end)
+      })
+    } else {
+      setEditorSelection(null)
+    }
+  }, [content])
 
   // Store sourceMap when preview renders
   const handleSourceMapReady = useCallback((map: SourceMap) => {
-    console.log('[EditorLayout] sourceMap ready, size:', map.size)
     setSourceMap(map)
   }, [])
 
   // Handle editor scroll - sync to preview using source map
   // Use refs to avoid stale closure issues - this callback is captured by Monaco on mount
   const handleEditorScroll = useCallback((offset: number) => {
-    console.log('[EditorLayout] handleEditorScroll called with offset:', offset)
-    console.log('[EditorLayout] previewSyncRef:', previewSyncRef.current, 'isPreviewScrolling:', isPreviewScrollingRef.current, 'sourceMap:', !!sourceMapRef.current, 'sourceMapSize:', sourceMapRef.current?.size)
+    // Normalize offset from editor (which may have CRLF) to match source map (which uses LF)
+    const normalizedOffset = normalizeOffset(contentRef.current, offset)
     if (!previewSyncRef.current || isPreviewScrollingRef.current || !sourceMapRef.current) return
 
     // Find the element corresponding to this source offset
-    const elementId = sourceMapRef.current.findElementByOffset(offset)
-    console.log('[EditorLayout] found elementId:', elementId, 'for offset:', offset)
-
-    // Debug: show all entries to see what offsets exist
-    if (!elementId && sourceMapRef.current.size > 0) {
-      console.log('[EditorLayout] DEBUG: sourceMap entries:')
-      sourceMapRef.current.getAllEntries().forEach((entry, id) => {
-        console.log(`  ${id}: ${entry.type} [${entry.sourceRange.start}-${entry.sourceRange.end}]`)
-      })
-    }
+    const elementId = sourceMapRef.current.findElementByOffset(normalizedOffset)
     if (!elementId) return
 
+    // Get the entry to find its start offset (used as the scroll target)
+    const entry = sourceMapRef.current.getEntry(elementId)
+    if (!entry) return
+
     isEditorScrollingRef.current = true
-    console.log('[EditorLayout] calling scrollToSourceId with:', elementId)
-    previewRef.current?.scrollToSourceId(elementId)
+    // Pass the start offset as string - this matches the data-source-start attribute
+    previewRef.current?.scrollToSourceId(String(entry.sourceRange.start))
 
     setTimeout(() => {
       isEditorScrollingRef.current = false
@@ -97,27 +147,30 @@ export function EditorLayout({
   }, [])
 
   // Handle preview scroll - sync to editor using source map
+  // Note: sourceId is now a start offset string (e.g., "0", "45") from data-source-start attribute
   const handlePreviewScroll = useCallback((sourceId: string | null) => {
     if (!previewSync || isEditorScrollingRef.current) return
-    if (!editorRef?.current || !sourceMap || !sourceId) return
+    if (!editorRef?.current || !sourceId) return
 
-    // Get the source range for this element
-    const range = sourceMap.getRange(sourceId)
-    if (!range) return
+    // sourceId is now the start offset directly
+    const startOffset = parseInt(sourceId, 10)
+    if (isNaN(startOffset)) return
 
     isPreviewScrollingRef.current = true
     const editor = editorRef.current
     const model = editor.getModel()
     if (model) {
+      // Denormalize offset from LF to CRLF if needed
+      const crlfOffset = denormalizeOffset(content, startOffset)
       // Convert character offset to line number
-      const position = model.getPositionAt(range.start)
+      const position = model.getPositionAt(crlfOffset)
       editor.revealLineInCenter(position.lineNumber)
     }
 
     setTimeout(() => {
       isPreviewScrollingRef.current = false
     }, 100)
-  }, [previewSync, sourceMap, editorRef])
+  }, [previewSync, content, editorRef])
 
   const handleSplitChange = (sizes: number[]) => {
     if (sizes.length === 2) {
@@ -138,9 +191,14 @@ export function EditorLayout({
     const model = editor.getModel()
     if (!model) return
 
+    // The range from source map is LF-normalized, but Monaco may use CRLF
+    // Convert back to CRLF offsets for Monaco
+    const crlfStart = denormalizeOffset(content, range.start)
+    const crlfEnd = denormalizeOffset(content, range.end)
+
     // Convert character offsets to Monaco positions
-    const startPos = model.getPositionAt(range.start)
-    const endPos = model.getPositionAt(range.end)
+    const startPos = model.getPositionAt(crlfStart)
+    const endPos = model.getPositionAt(crlfEnd)
 
     // Set selection in editor
     editor.setSelection(new monaco.Selection(
@@ -152,6 +210,30 @@ export function EditorLayout({
 
     // Only focus editor in split/editor-only mode, not preview-only
     // This allows WYSIWYG editing: select in preview, use toolbar, stay in preview
+    if (viewMode !== 'preview-only') {
+      editor.focus()
+    }
+  }
+
+  // Handle preview click - position cursor at clicked location (no selection)
+  const handlePreviewSourceClick = (offset: number) => {
+    if (!editorRef?.current) return
+
+    const editor = editorRef.current
+    const model = editor.getModel()
+    if (!model) return
+
+    // The offset from source map is LF-normalized, but Monaco may use CRLF
+    // Convert back to CRLF offset for Monaco
+    const crlfOffset = denormalizeOffset(content, offset)
+
+    // Convert character offset to Monaco position
+    const pos = model.getPositionAt(crlfOffset)
+
+    // Set cursor position (collapsed selection)
+    editor.setPosition(pos)
+
+    // Only focus editor in split/editor-only mode
     if (viewMode !== 'preview-only') {
       editor.focus()
     }
@@ -178,6 +260,7 @@ export function EditorLayout({
           baseDir={baseDir}
           syncScroll={false}
           onSourceSelect={handlePreviewSourceSelect}
+          onSourceClick={handlePreviewSourceClick}
           zoomLevel={zoomLevel}
         />
       </div>
@@ -203,6 +286,7 @@ export function EditorLayout({
             fontSize={fontSize}
             onCursorChange={handleCursorChange}
             onScroll={handleEditorScroll}
+            onSelectionChange={handleSelectionChange}
           />
         </Allotment.Pane>
         <Allotment.Pane minSize={200}>
@@ -213,9 +297,13 @@ export function EditorLayout({
             syncScroll={previewSync}
             onScroll={handlePreviewScroll}
             onSourceSelect={handlePreviewSourceSelect}
+            onSourceClick={handlePreviewSourceClick}
             onSourceMapReady={handleSourceMapReady}
             highlightSourceId={highlightSourceId}
             zoomLevel={zoomLevel}
+            cursorOffset={previewSync ? cursorOffset : null}
+            selectionRange={previewSync ? editorSelection : null}
+            showPseudoCursor={previewSync}
           />
         </Allotment.Pane>
       </Allotment>
