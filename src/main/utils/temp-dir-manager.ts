@@ -3,7 +3,7 @@ import { join } from 'path'
 import { mkdir, rm, readdir, stat, cp } from 'fs/promises'
 import { existsSync } from 'fs'
 
-const TEMP_ROOT_DIR = join(homedir(), '.tangle')
+const TEMP_ROOT_DIR = join(homedir(), '.wrangle')
 const DRAFTS_DIR = join(TEMP_ROOT_DIR, 'drafts')
 
 /**

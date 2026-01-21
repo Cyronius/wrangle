@@ -4,11 +4,11 @@ import { PreviewHelpers } from '../helpers/preview-helpers'
 import { waitForAppReady } from '../fixtures/test-utils'
 
 // Sample markdown content for testing selection
-const sampleMarkdown = `# Tangle
+const sampleMarkdown = `# Wrangle
 
 > A modern, feature-rich desktop Markdown editor built with Electron, React, and TypeScript
 
-Tangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support.
+Wrangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support.
 
 ## Key Features
 
@@ -383,8 +383,8 @@ test.describe('Preview Selection', () => {
       return
     }
 
-    // The selection should contain "Tangle" (the heading text)
-    expect(selection.text).toBe('Tangle')
+    // The selection should contain "Wrangle" (the heading text)
+    expect(selection.text).toBe('Wrangle')
 
     // Note: Testing actual clipboard copy requires system permissions
     // Just verify we can select the text
@@ -433,7 +433,7 @@ test.describe('Preview Selection', () => {
       }
     })
 
-    expect(selection.text).toBe('Tangle')
+    expect(selection.text).toBe('Wrangle')
   })
 
   test.skip('Shift+Home selects to start of line', async ({ window }) => {
@@ -485,6 +485,6 @@ test.describe('Preview Selection', () => {
 
     expect(selection.hasSelection).toBe(true)
     // Should have selected the full heading
-    expect(selection.text).toBe('Tangle')
+    expect(selection.text).toBe('Wrangle')
   })
 })

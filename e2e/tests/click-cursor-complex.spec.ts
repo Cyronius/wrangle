@@ -7,14 +7,14 @@ import { EditorHelpers } from '../helpers/editor-helpers'
  * This test file uses the short.md content which has multiple failure points.
  */
 
-const TEST_CONTENT = `# Tangle
+const TEST_CONTENT = `# Wrangle
 
 > A modern, feature-rich desktop Markdown editor built with Electron, React, and TypeScript
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
 
-Tangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support. Whether you're writing documentation, taking notes, or creating content, Tangle provides a seamless editing experience with professional-grade features.
+Wrangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support. Whether you're writing documentation, taking notes, or creating content, Wrangle provides a seamless editing experience with professional-grade features.
 
 ## Key Features
 
@@ -35,17 +35,17 @@ test.describe.skip('Click-to-Cursor Complex Content', () => {
     await waitForAppReady(window)
   })
 
-  test('clicking in heading "Tangle" positions cursor correctly', async ({ window }) => {
+  test('clicking in heading "Wrangle" positions cursor correctly', async ({ window }) => {
     const preview = new PreviewHelpers(window)
     const editor = new EditorHelpers(window)
 
     await editor.setContent(TEST_CONTENT)
     await window.waitForTimeout(1000) // Wait for rendering
 
-    // Click on "ang" in "Tangle" - should be around column 4
-    // Raw line 1: "# Tangle"
+    // Click on "ang" in "Wrangle" - should be around column 4
+    // Raw line 1: "# Wrangle"
     // "a" is at index 3 (after "# T")
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 1) // Click on 'a'
+    await preview.clickOnTextAtOffset('h1', 'Wrangle', 1) // Click on 'a'
     await window.waitForTimeout(300)
 
     const pos = await editor.getCursorLineColumn()
@@ -86,7 +86,7 @@ test.describe.skip('Click-to-Cursor Complex Content', () => {
     await window.waitForTimeout(1000)
 
     // Click on "Monaco" in the long paragraph (line 8)
-    // "Monaco" appears after "Tangle is a powerful desktop Markdown editor that combines the "
+    // "Monaco" appears after "Wrangle is a powerful desktop Markdown editor that combines the "
     await preview.clickOnTextAtOffset('p', 'Monaco', 0)
     await window.waitForTimeout(300)
 
@@ -94,7 +94,7 @@ test.describe.skip('Click-to-Cursor Complex Content', () => {
     console.log('[TEST] Paragraph click - cursor position:', pos)
 
     expect(pos.line).toBe(8)
-    // "Tangle is a powerful desktop Markdown editor that combines the " = 64 chars
+    // "Wrangle is a powerful desktop Markdown editor that combines the " = 64 chars
     // Clicking on "M" places cursor BEFORE it, at column 64
     expect(pos.column).toBe(64)
   })

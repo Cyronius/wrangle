@@ -348,20 +348,20 @@ test.describe('Click-to-Cursor with short.md', () => {
     await waitForAppReady(window)
   })
 
-  test('clicking in Tangle heading positions correctly', async ({ window }) => {
+  test('clicking in Wrangle heading positions correctly', async ({ window }) => {
     const preview = new PreviewHelpers(window)
     const editor = new EditorHelpers(window)
 
     // Use content similar to short.md
-    await editor.setContent(`# Tangle
+    await editor.setContent(`# Wrangle
 
 > A modern, feature-rich desktop Markdown editor
 
-Tangle is a powerful desktop Markdown editor.`)
+Wrangle is a powerful desktop Markdown editor.`)
     await window.waitForTimeout(500)
 
-    // Click on "Tangle" in the heading
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 3) // Click on 'g'
+    // Click on "Wrangle" in the heading
+    await preview.clickOnTextAtOffset('h1', 'Wrangle', 3) // Click on 'g'
     await window.waitForTimeout(200)
 
     const pos = await editor.getCursorLineColumn()
@@ -374,11 +374,11 @@ Tangle is a powerful desktop Markdown editor.`)
     const preview = new PreviewHelpers(window)
     const editor = new EditorHelpers(window)
 
-    await editor.setContent(`# Tangle
+    await editor.setContent(`# Wrangle
 
 > A modern, feature-rich desktop Markdown editor
 
-Tangle is a powerful desktop Markdown editor.`)
+Wrangle is a powerful desktop Markdown editor.`)
     await window.waitForTimeout(500)
 
     // Click on "modern" in the blockquote
@@ -396,11 +396,11 @@ Tangle is a powerful desktop Markdown editor.`)
     const preview = new PreviewHelpers(window)
     const editor = new EditorHelpers(window)
 
-    await editor.setContent(`# Tangle
+    await editor.setContent(`# Wrangle
 
 > A modern, feature-rich desktop Markdown editor
 
-Tangle is a powerful desktop Markdown editor.`)
+Wrangle is a powerful desktop Markdown editor.`)
     await window.waitForTimeout(500)
 
     // Click on "powerful" in the paragraph
@@ -410,7 +410,7 @@ Tangle is a powerful desktop Markdown editor.`)
     const pos = await editor.getCursorLineColumn()
     // Should be on line 5
     expect(pos.line).toBe(5)
-    // "powerful" starts after "Tangle is a " (12 chars)
+    // "powerful" starts after "Wrangle is a " (12 chars)
     expect(pos.column).toBeGreaterThanOrEqual(12)
   })
 })

@@ -4,14 +4,14 @@ import { PreviewHelpers } from '../helpers/preview-helpers'
 import { waitForAppReady } from '../fixtures/test-utils'
 
 // Sample markdown content for testing cursor positioning
-const sampleMarkdown = `# Tangle
+const sampleMarkdown = `# Wrangle
 
 > A modern, feature-rich desktop Markdown editor built with Electron, React, and TypeScript
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
 
-Tangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support.
+Wrangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support.
 
 ## Key Features
 
@@ -36,8 +36,8 @@ test.describe('Preview Cursor Positioning (Native ContentEditable)', () => {
   test('can click and place cursor in h1 heading', async ({ window }) => {
     const preview = new PreviewHelpers(window)
 
-    // Click on the word "Tangle" in the h1
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 2)
+    // Click on the word "Wrangle" in the h1
+    await preview.clickOnTextAtOffset('h1', 'Wrangle', 2)
 
     // Wait for cursor to be positioned
     await window.waitForTimeout(200)
@@ -147,8 +147,8 @@ test.describe('Preview Cursor Positioning (Native ContentEditable)', () => {
   test('positions cursor before word on click', async ({ window }) => {
     const preview = new PreviewHelpers(window)
 
-    // Click at the start of "Tangle" (offset 0)
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 0)
+    // Click at the start of "Wrangle" (offset 0)
+    await preview.clickOnTextAtOffset('h1', 'Wrangle', 0)
 
     await window.waitForTimeout(200)
 
@@ -169,8 +169,8 @@ test.describe('Preview Cursor Positioning (Native ContentEditable)', () => {
   test('positions cursor at end of word on click', async ({ window }) => {
     const preview = new PreviewHelpers(window)
 
-    // Click at the end of "Tangle" (offset 6)
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 6)
+    // Click at the end of "Wrangle" (offset 6)
+    await preview.clickOnTextAtOffset('h1', 'Wrangle', 6)
 
     await window.waitForTimeout(200)
 
@@ -197,8 +197,8 @@ test.describe('Preview Cursor Positioning (Native ContentEditable)', () => {
   test('positions cursor in middle of word on click', async ({ window }) => {
     const preview = new PreviewHelpers(window)
 
-    // Click in the middle of "Tangle" (offset 3)
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 3)
+    // Click in the middle of "Wrangle" (offset 3)
+    await preview.clickOnTextAtOffset('h1', 'Wrangle', 3)
 
     await window.waitForTimeout(200)
 
@@ -250,7 +250,7 @@ test.describe('Preview Cursor Positioning (Native ContentEditable)', () => {
     const initialContent = await editor.getFullContent()
 
     // Click to place cursor in preview
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 3)
+    await preview.clickOnTextAtOffset('h1', 'Wrangle', 3)
     await window.waitForTimeout(200)
 
     // First verify we're in the preview
@@ -281,7 +281,7 @@ test.describe('Preview Cursor Positioning (Native ContentEditable)', () => {
     const preview = new PreviewHelpers(window)
 
     // Click to place cursor in h1
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 0)
+    await preview.clickOnTextAtOffset('h1', 'Wrangle', 0)
     await window.waitForTimeout(200)
 
     // Check we're in the preview
@@ -327,7 +327,7 @@ test.describe('Preview Cursor Positioning (Native ContentEditable)', () => {
     const preview = new PreviewHelpers(window)
 
     // Click on h1
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 2)
+    await preview.clickOnTextAtOffset('h1', 'Wrangle', 2)
     await window.waitForTimeout(200)
 
     let selectionInfo1 = await window.evaluate(() => {

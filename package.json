@@ -1,7 +1,7 @@
 {
-  "name": "tangle",
+  "name": "wrangle",
   "version": "1.0.0",
-  "description": "Tangle - A modern markdown editor with Monaco editor, built with Electron and React",
+  "description": "Wrangle - A modern markdown editor with Monaco editor, built with Electron and React",
   "main": "./out/main/index.js",
   "author": "",
   "license": "MIT",

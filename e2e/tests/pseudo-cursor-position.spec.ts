@@ -7,14 +7,14 @@ import { EditorHelpers } from '../helpers/editor-helpers'
  * Tests that clicking in the preview places the cursor and syncs to editor.
  */
 
-const TEST_CONTENT = `# Tangle
+const TEST_CONTENT = `# Wrangle
 
 > A modern, feature-rich desktop Markdown editor built with Electron, React, and TypeScript
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
 
-Tangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support. Whether you're writing documentation, taking notes, or creating content, Tangle provides a seamless editing experience with professional-grade features.
+Wrangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support. Whether you're writing documentation, taking notes, or creating content, Wrangle provides a seamless editing experience with professional-grade features.
 
 ## Key Features
 
@@ -38,9 +38,9 @@ test.describe('Native Cursor Position in Preview', () => {
     await editor.setContent(TEST_CONTENT)
     await window.waitForTimeout(1000)
 
-    // Click between 'n' and 'g' in "Tangle" (offset 4 in "Tangle")
-    // Raw: "# Tangle" -> click at column 6 (after "# Tang")
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 4)
+    // Click between 'n' and 'g' in "Wrangle" (offset 4 in "Wrangle")
+    // Raw: "# Wrangle" -> click at column 6 (after "# Tang")
+    await preview.clickOnTextAtOffset('h1', 'Wrangle', 4)
     await window.waitForTimeout(500)
 
     // Get editor cursor position to verify click worked

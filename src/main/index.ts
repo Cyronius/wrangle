@@ -11,7 +11,7 @@ function createWindow(): void {
     show: false,
     frame: false,
     titleBarStyle: 'hidden',
-    icon: join(__dirname, '../../src/assets/tangle.png'),
+    icon: join(__dirname, '../../src/assets/w.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -45,7 +45,7 @@ function createWindow(): void {
 app.whenReady().then(async () => {
   // Set app user model id for windows
   if (process.platform === 'win32') {
-    app.setAppUserModelId('com.electron.tangle')
+    app.setAppUserModelId('com.electron.wrangle')
   }
 
   // Initialize temp directory system

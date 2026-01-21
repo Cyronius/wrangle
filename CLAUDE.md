@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Tangle is a desktop Markdown editor built with Electron, React, and TypeScript. Features Monaco Editor for editing, live preview with syntax highlighting, math rendering (KaTeX), diagram support (Mermaid), and multi-tab file management.
+Wrangle is a desktop Markdown editor built with Electron, React, and TypeScript. Features Monaco Editor for editing, live preview with syntax highlighting, math rendering (KaTeX), diagram support (Mermaid), and multi-tab file management.
 
 ## Development Commands
 

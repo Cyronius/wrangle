@@ -9,7 +9,7 @@ export function EmptyState({ onNewFile, onOpenFile }: EmptyStateProps) {
   return (
     <div className="empty-state">
       <div className="empty-state-content">
-        <h1>Tangle</h1>
+        <h1>Wrangle</h1>
         <p>Create a new document or open an existing one</p>
         <div className="empty-state-actions">
           <button onClick={onNewFile}>

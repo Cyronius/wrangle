@@ -7,14 +7,14 @@ import { EditorHelpers } from '../helpers/editor-helpers'
  * These tests log detailed information about the source mapping.
  */
 
-const TEST_CONTENT = `# Tangle
+const TEST_CONTENT = `# Wrangle
 
 > A modern, feature-rich desktop Markdown editor built with Electron, React, and TypeScript
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
 
-Tangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support. Whether you're writing documentation, taking notes, or creating content, Tangle provides a seamless editing experience with professional-grade features.
+Wrangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support. Whether you're writing documentation, taking notes, or creating content, Wrangle provides a seamless editing experience with professional-grade features.
 
 ## Key Features
 
@@ -70,14 +70,14 @@ test.describe.skip('Click-to-Cursor Debug Detailed', () => {
 
     console.log('[TEST] H1 element info:', JSON.stringify(h1Info, null, 2))
 
-    // Click on 'a' in "Tangle" and check position
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 1) // 'a'
+    // Click on 'a' in "Wrangle" and check position
+    await preview.clickOnTextAtOffset('h1', 'Wrangle', 1) // 'a'
     await window.waitForTimeout(300)
 
     const pos = await editor.getCursorLineColumn()
-    console.log('[TEST] Cursor after clicking "a" in Tangle:', pos)
+    console.log('[TEST] Cursor after clicking "a" in Wrangle:', pos)
 
-    // The source is "# Tangle"
+    // The source is "# Wrangle"
     // Position 0: '#'
     // Position 1: ' '
     // Position 2: 'T'
@@ -132,21 +132,21 @@ test.describe.skip('Click-to-Cursor Debug Detailed', () => {
     await editor.setContent(TEST_CONTENT)
     await window.waitForTimeout(1000)
 
-    // Click at start of "Tangle" and select the whole word
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 0)
+    // Click at start of "Wrangle" and select the whole word
+    await preview.clickOnTextAtOffset('h1', 'Wrangle', 0)
     await window.waitForTimeout(200)
 
-    // Select "Tangle" by shift+arrow right 6 times
+    // Select "Wrangle" by shift+arrow right 6 times
     for (let i = 0; i < 6; i++) {
       await window.keyboard.press('Shift+ArrowRight')
     }
     await window.waitForTimeout(100)
 
     const selection = await editor.getSelection()
-    console.log('[TEST] Selection after clicking start of "Tangle" and selecting 6 chars:', selection)
+    console.log('[TEST] Selection after clicking start of "Wrangle" and selecting 6 chars:', selection)
 
-    // Should select exactly "Tangle"
-    expect(selection).toBe('Tangle')
+    // Should select exactly "Wrangle"
+    expect(selection).toBe('Wrangle')
   })
 
   test('verify list item cursor selection', async ({ window }) => {

@@ -1,11 +1,11 @@
-# Tangle
+# Wrangle
 
 > A modern, feature-rich desktop Markdown editor built with Electron, React, and TypeScript
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
 
-Tangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support. Whether you're writing documentation, taking notes, or creating content, Tangle provides a seamless editing experience with professional-grade features.
+Wrangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support. Whether you're writing documentation, taking notes, or creating content, Wrangle provides a seamless editing experience with professional-grade features.
 
 ## Key Features
 
@@ -89,8 +89,8 @@ Tangle is a powerful desktop Markdown editor that combines the Monaco Editor wit
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/tangle.git
-cd tangle
+git clone https://github.com/yourusername/wrangle.git
+cd wrangle
 ```
 
 2. Install dependencies:
@@ -170,7 +170,7 @@ npm start
 ### Project Structure
 
 ```
-tangle/
+wrangle/
 ├── src/
 │   ├── main/                    # Main process (Node.js)
 │   │   ├── index.ts            # Application entry point
@@ -213,7 +213,7 @@ tangle/
 
 ### Architecture
 
-Tangle follows the standard Electron multi-process architecture:
+Wrangle follows the standard Electron multi-process architecture:
 
 #### Three-Process Model
 

@@ -7,14 +7,14 @@ import { EditorHelpers } from '../helpers/editor-helpers'
  * Tests specific elements: headers, blockquotes, list items with bold text.
  */
 
-const TEST_CONTENT = `# Tangle
+const TEST_CONTENT = `# Wrangle
 
 > A modern, feature-rich desktop Markdown editor built with Electron, React, and TypeScript
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
 
-Tangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support. Whether you're writing documentation, taking notes, or creating content, Tangle provides a seamless editing experience with professional-grade features.
+Wrangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support. Whether you're writing documentation, taking notes, or creating content, Wrangle provides a seamless editing experience with professional-grade features.
 
 ## Key Features
 
@@ -31,17 +31,17 @@ test.describe('Click-to-Cursor README Content', () => {
     await waitForAppReady(window)
   })
 
-  test('H1: clicking on "a" in "Tangle" positions cursor at column 4', async ({ window }) => {
+  test('H1: clicking on "a" in "Wrangle" positions cursor at column 4', async ({ window }) => {
     const preview = new PreviewHelpers(window)
     const editor = new EditorHelpers(window)
 
     await editor.setContent(TEST_CONTENT)
     await window.waitForTimeout(1000)
 
-    // Line 1: "# Tangle"
-    // Click on 'a' (offset 1 in "Tangle")
+    // Line 1: "# Wrangle"
+    // Click on 'a' (offset 1 in "Wrangle")
     // Position should be: "# T" = 3 chars, so 'a' is at column 4
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 1)
+    await preview.clickOnTextAtOffset('h1', 'Wrangle', 1)
     await window.waitForTimeout(300)
 
     const pos = await editor.getCursorLineColumn()
@@ -51,16 +51,16 @@ test.describe('Click-to-Cursor README Content', () => {
     expect(pos.column).toBe(4)
   })
 
-  test('H1: clicking on "T" in "Tangle" positions cursor at column 3', async ({ window }) => {
+  test('H1: clicking on "T" in "Wrangle" positions cursor at column 3', async ({ window }) => {
     const preview = new PreviewHelpers(window)
     const editor = new EditorHelpers(window)
 
     await editor.setContent(TEST_CONTENT)
     await window.waitForTimeout(1000)
 
-    // Click on 'T' (offset 0 in "Tangle")
+    // Click on 'T' (offset 0 in "Wrangle")
     // Position should be: "# " = 2 chars, so 'T' is at column 3
-    await preview.clickOnTextAtOffset('h1', 'Tangle', 0)
+    await preview.clickOnTextAtOffset('h1', 'Wrangle', 0)
     await window.waitForTimeout(300)
 
     const pos = await editor.getCursorLineColumn()

@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import { setViewMode } from '../../store/layoutSlice'
 import { setTheme } from '../../store/themeSlice'
-import tangleIcon from '../../../../assets/tangle.png'
+import wrangleIcon from '../../../../assets/wrangle.png'
 import './TitleBar.css'
 
 interface MenuItem {
@@ -78,7 +78,7 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
   }
 
   const menus: Record<string, MenuItem[]> = {
-    Tangle: [
+    Wrangle: [
       { label: 'New', shortcut: 'Ctrl+N', action: onFileNew },
       { label: 'Open', shortcut: 'Ctrl+O', action: onFileOpen },
       { label: 'Save', shortcut: 'Ctrl+S', action: onFileSave },
@@ -151,7 +151,7 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
                 onMouseEnter={() => openMenu && setOpenMenu(menuName)}
               >
                 {index === 0 ? (
-                  <img src={tangleIcon} alt="Menu" className="menu-icon" />
+                  <img src={wrangleIcon} alt="Menu" className="menu-icon" />
                 ) : (
                   menuName
                 )}
