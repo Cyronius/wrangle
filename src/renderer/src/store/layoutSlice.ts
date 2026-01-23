@@ -8,6 +8,7 @@ interface LayoutState {
   previewSync: boolean
   zoomLevel: number // 0 = 100%, positive = zoom in, negative = zoom out
   showOutline: boolean
+  showWorkspaceSidebar: boolean
 }
 
 const initialState: LayoutState = {
@@ -15,7 +16,8 @@ const initialState: LayoutState = {
   splitRatio: 0.5,
   previewSync: true,
   zoomLevel: 0,
-  showOutline: false
+  showOutline: false,
+  showWorkspaceSidebar: false
 }
 
 const layoutSlice = createSlice({
@@ -44,9 +46,15 @@ const layoutSlice = createSlice({
     },
     toggleOutline(state) {
       state.showOutline = !state.showOutline
+    },
+    toggleWorkspaceSidebar(state) {
+      state.showWorkspaceSidebar = !state.showWorkspaceSidebar
+    },
+    setWorkspaceSidebar(state, action: PayloadAction<boolean>) {
+      state.showWorkspaceSidebar = action.payload
     }
   }
 })
 
-export const { setViewMode, setSplitRatio, togglePreviewSync, zoomIn, zoomOut, resetZoom, toggleOutline } = layoutSlice.actions
+export const { setViewMode, setSplitRatio, togglePreviewSync, zoomIn, zoomOut, resetZoom, toggleOutline, toggleWorkspaceSidebar, setWorkspaceSidebar } = layoutSlice.actions
 export default layoutSlice.reducer

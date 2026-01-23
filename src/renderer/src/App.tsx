@@ -1,10 +1,23 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState, AppDispatch } from './store/store'
-import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline } from './store/layoutSlice'
+import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, setWorkspaceSidebar } from './store/layoutSlice'
 import { setTheme } from './store/themeSlice'
-import { addTab, updateTab, setActiveTab, closeTab, nextTab, previousTab } from './store/tabsSlice'
+import {
+  addTab,
+  updateTab,
+  setActiveTab,
+  closeTab,
+  nextTab,
+  previousTab,
+  selectAllTabs,
+  selectActiveTab,
+  selectActiveTabId,
+  selectTabByPath
+} from './store/tabsSlice'
+import { selectActiveWorkspaceId, selectAllWorkspaces, addWorkspace, expandWorkspaceExclusive } from './store/workspacesSlice'
 import { loadSettings } from './store/settingsSlice'
+import { DEFAULT_WORKSPACE_ID } from '../../shared/workspace-types'
 import { EditorLayout } from './components/Layout/EditorLayout'
 import { TabBar } from './components/Tabs/TabBar'
 import { MarkdownToolbar } from './components/UI/MarkdownToolbar'
@@ -13,6 +26,8 @@ import { ThemeProvider } from './components/ThemeProvider'
 import { OutlineSidebar } from './components/Outline/OutlineSidebar'
 import { PreferencesDialog } from './components/Preferences/PreferencesDialog'
 import { EmptyState } from './components/EmptyState'
+import { WorkspaceBar } from './components/Workspace/WorkspaceBar'
+import { WorkspaceSidebar } from './components/Workspace/WorkspaceSidebar'
 import { useImageDrop } from './hooks/useImageDrop'
 import { extractH1 } from './utils/extractH1'
 import * as monaco from 'monaco-editor'
@@ -23,9 +38,15 @@ function AppContent() {
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Redux state
-  const { tabs, activeTabId } = useSelector((state: RootState) => state.tabs)
+  const tabs = useSelector(selectAllTabs)
+  const activeTab = useSelector(selectActiveTab)
+  const activeTabId = useSelector(selectActiveTabId)
+  const activeWorkspaceId = useSelector(selectActiveWorkspaceId)
   const theme = useSelector((state: RootState) => state.theme.currentTheme)
   const showOutline = useSelector((state: RootState) => state.layout.showOutline)
+  const showWorkspaceSidebar = useSelector((state: RootState) => state.layout.showWorkspaceSidebar)
+  const workspaces = useSelector(selectAllWorkspaces)
+  const expandedWorkspace = workspaces.find((w) => w.isExpanded)
 
   // Preferences dialog state
   const [preferencesOpen, setPreferencesOpen] = useState(false)
@@ -34,9 +55,6 @@ function AppContent() {
   useEffect(() => {
     dispatch(loadSettings())
   }, [dispatch])
-
-  // Get active tab
-  const activeTab = tabs.find(t => t.id === activeTabId)
 
   // Local state for current content
   const [content, setContent] = useState(activeTab?.content || '')
@@ -137,6 +155,7 @@ function AppContent() {
     const newTabId = `tab-${Date.now()}`
     dispatch(addTab({
       id: newTabId,
+      workspaceId: activeWorkspaceId,
       filename: 'Untitled',
       content: '',
       isDirty: false
@@ -149,7 +168,7 @@ function AppContent() {
         editorRef.current?.focus()
       })
     }
-  }, [dispatch, viewMode])
+  }, [dispatch, viewMode, activeWorkspaceId])
 
   // Close tab handler
   const handleCloseTab = useCallback(async () => {
@@ -162,6 +181,21 @@ function AppContent() {
     dispatch(closeTab(activeTab.id))
   }, [activeTab, dispatch])
 
+  // Detect workspace for a file path
+  const detectWorkspaceForPath = useCallback((filePath: string) => {
+    // Check non-default workspaces first (they have rootPath)
+    const normalizedFilePath = filePath.replace(/\\/g, '/')
+    for (const workspace of workspaces) {
+      if (workspace.rootPath) {
+        const normalizedRootPath = workspace.rootPath.replace(/\\/g, '/')
+        if (normalizedFilePath.startsWith(normalizedRootPath + '/')) {
+          return workspace.id
+        }
+      }
+    }
+    return activeWorkspaceId
+  }, [workspaces, activeWorkspaceId])
+
   const handleOpen = useCallback(async () => {
     const fileData = await window.electron.file.open()
     if (fileData) {
@@ -172,11 +206,15 @@ function AppContent() {
         return
       }
 
+      // Detect workspace based on file path
+      const workspaceId = detectWorkspaceForPath(fileData.path)
+
       // Create new tab
       const filename = fileData.path.split(/[\\/]/).pop() || 'Untitled'
       const newTabId = `tab-${Date.now()}`
       dispatch(addTab({
         id: newTabId,
+        workspaceId,
         filename,
         content: fileData.content,
         path: fileData.path,
@@ -184,7 +222,59 @@ function AppContent() {
       }))
       dispatch(setActiveTab(newTabId))
     }
-  }, [tabs, dispatch])
+  }, [tabs, dispatch, detectWorkspaceForPath])
+
+  // Handle opening a file from the workspace file tree
+  const handleFileOpenFromTree = useCallback(async (filePath: string) => {
+    // Check if file is already open
+    const existingTab = tabs.find(t => t.path === filePath)
+    if (existingTab) {
+      dispatch(setActiveTab(existingTab.id))
+      return
+    }
+
+    try {
+      // Read the file content
+      const fileData = await window.electron.file.readByPath(filePath)
+      if (!fileData) return
+
+      // Use the expanded workspace's ID for the file
+      const workspaceId = expandedWorkspace?.id || activeWorkspaceId
+
+      // Create new tab
+      const filename = filePath.split(/[\\/]/).pop() || 'Untitled'
+      const newTabId = `tab-${Date.now()}`
+      dispatch(addTab({
+        id: newTabId,
+        workspaceId,
+        filename,
+        content: fileData.content,
+        path: filePath,
+        isDirty: false
+      }))
+      dispatch(setActiveTab(newTabId))
+    } catch (error) {
+      console.error('Failed to open file:', error)
+    }
+  }, [tabs, dispatch, expandedWorkspace, activeWorkspaceId])
+
+  // Handle adding a new workspace from folder
+  const handleAddWorkspace = useCallback(async () => {
+    const usedColors = workspaces.map((w) => w.color)
+    const result = await window.electron.workspace.openFolder(usedColors)
+    if (!result) return
+
+    dispatch(
+      addWorkspace({
+        id: result.config.id,
+        name: result.config.name,
+        color: result.config.color,
+        rootPath: result.path,
+        isExpanded: true
+      })
+    )
+    dispatch(setWorkspaceSidebar(true))
+  }, [workspaces, dispatch])
 
   const handleSaveAs = useCallback(async () => {
     if (!activeTab) return
@@ -282,12 +372,12 @@ function AppContent() {
       // Ctrl+PageDown: Next tab
       if ((e.ctrlKey || e.metaKey) && e.key === 'PageDown') {
         e.preventDefault()
-        dispatch(nextTab())
+        dispatch(nextTab(activeWorkspaceId))
       }
       // Ctrl+PageUp: Previous tab
       if ((e.ctrlKey || e.metaKey) && e.key === 'PageUp') {
         e.preventDefault()
-        dispatch(previousTab())
+        dispatch(previousTab(activeWorkspaceId))
       }
       // Ctrl+0: Reset zoom
       if ((e.ctrlKey || e.metaKey) && e.key === '0') {
@@ -343,7 +433,7 @@ function AppContent() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleNewFile, handleCloseTab, handleOpen, handleSave, handleSaveAs, dispatch])
+  }, [handleNewFile, handleCloseTab, handleOpen, handleSave, handleSaveAs, dispatch, activeWorkspaceId])
 
   // Menu command handler
   useEffect(() => {
@@ -376,11 +466,14 @@ function AppContent() {
         case 'theme:dark':
           dispatch(setTheme('dark'))
           break
+        case 'workspace:openFolder':
+          handleAddWorkspace()
+          break
       }
     })
 
     return unsubscribe
-  }, [activeTab, content, dispatch])
+  }, [activeTab, content, dispatch, handleAddWorkspace])
 
   // Image drop support
   const { isDragging } = useImageDrop({
@@ -516,6 +609,14 @@ function AppContent() {
       </TitleBar>
       {tabs.length > 0 && <MarkdownToolbar editorRef={editorRef} />}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
+        {/* Workspace bar - always visible */}
+        <WorkspaceBar />
+
+        {/* Workspace sidebar - shown when a workspace is expanded */}
+        {showWorkspaceSidebar && expandedWorkspace && (
+          <WorkspaceSidebar onFileOpen={handleFileOpenFromTree} />
+        )}
+
         {tabs.length === 0 ? (
           <EmptyState onNewFile={handleNewFile} onOpenFile={handleOpen} />
         ) : (

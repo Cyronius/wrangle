@@ -38,6 +38,8 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const iconMouseDownPos = useRef<{ x: number; y: number } | null>(null)
+  const wasIconDragged = useRef(false)
 
   // Check maximized state
   useEffect(() => {
@@ -67,6 +69,32 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
   const handleMenuClick = (menuName: string) => {
     setOpenMenu(openMenu === menuName ? null : menuName)
     setOpenSubmenu(null)
+  }
+
+  // Icon drag detection - allows dragging window via icon without opening menu
+  const DRAG_THRESHOLD = 5
+
+  const handleIconMouseDown = (e: React.MouseEvent) => {
+    iconMouseDownPos.current = { x: e.clientX, y: e.clientY }
+    wasIconDragged.current = false
+  }
+
+  const handleIconMouseUp = (e: React.MouseEvent) => {
+    if (iconMouseDownPos.current) {
+      const dx = e.clientX - iconMouseDownPos.current.x
+      const dy = e.clientY - iconMouseDownPos.current.y
+      if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+        wasIconDragged.current = true
+      }
+    }
+    iconMouseDownPos.current = null
+  }
+
+  const handleIconClick = () => {
+    if (!wasIconDragged.current) {
+      handleMenuClick('Wrangle')
+    }
+    wasIconDragged.current = false
   }
 
   const handleMenuItemClick = (action?: () => void) => {
@@ -145,17 +173,25 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
         <div className="menu-bar">
           {Object.entries(menus).map(([menuName, items], index) => (
             <div key={menuName} className={`menu-item ${openMenu === menuName ? 'open' : ''}`}>
-              <button
-                className={`menu-button ${index === 0 ? 'menu-button-icon' : ''}`}
-                onClick={() => handleMenuClick(menuName)}
-                onMouseEnter={() => openMenu && setOpenMenu(menuName)}
-              >
-                {index === 0 ? (
+              {index === 0 ? (
+                <button
+                  className="menu-button menu-button-icon"
+                  onMouseDown={handleIconMouseDown}
+                  onMouseUp={handleIconMouseUp}
+                  onClick={handleIconClick}
+                  onMouseEnter={() => openMenu && setOpenMenu(menuName)}
+                >
                   <img src={wrangleIcon} alt="Menu" className="menu-icon" />
-                ) : (
-                  menuName
-                )}
-              </button>
+                </button>
+              ) : (
+                <button
+                  className="menu-button"
+                  onClick={() => handleMenuClick(menuName)}
+                  onMouseEnter={() => openMenu && setOpenMenu(menuName)}
+                >
+                  {menuName}
+                </button>
+              )}
 
               {openMenu === menuName && (
                 <div className="menu-dropdown">

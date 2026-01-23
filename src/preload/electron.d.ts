@@ -1,4 +1,20 @@
 import { FileData, SaveResult } from '../shared/types'
+import {
+  WorkspaceConfig,
+  WorkspaceSession,
+  FileTreeNode,
+  FolderChange
+} from '../shared/workspace-types'
+
+// Re-export for convenience
+export type { WorkspaceConfig, WorkspaceSession, FileTreeNode, FolderChange }
+
+// App-level session for restoring workspaces across app restarts
+export interface AppSession {
+  openWorkspaces: string[] // Array of workspace root paths
+  activeWorkspacePath: string | null
+  lastSavedAt: number
+}
 
 export interface SettingsSchema {
   theme: {
@@ -18,6 +34,7 @@ export interface SettingsSchema {
 export interface ElectronAPI {
   file: {
     open: () => Promise<FileData | null>
+    readByPath: (filePath: string) => Promise<FileData | null>
     save: (path: string, content: string) => Promise<boolean>
     saveAs: (content: string, suggestedName?: string) => Promise<string | null>
     copyImage: (
@@ -50,6 +67,40 @@ export interface ElectronAPI {
     setMultiple: (data: Partial<SettingsSchema>) => Promise<boolean>
     reset: () => Promise<SettingsSchema>
     getPath: () => Promise<string>
+  }
+  workspace: {
+    // Open folder dialog and return workspace info
+    openFolder: (usedColors?: string[]) => Promise<{ path: string; config: WorkspaceConfig } | null>
+    // Load workspace config from path
+    loadConfig: (folderPath: string) => Promise<WorkspaceConfig | null>
+    // Save workspace config
+    saveConfig: (folderPath: string, config: WorkspaceConfig) => Promise<boolean>
+    // Load workspace session (tabs, scroll positions, etc.)
+    loadSession: (folderPath: string) => Promise<WorkspaceSession | null>
+    // Save workspace session
+    saveSession: (folderPath: string, session: WorkspaceSession) => Promise<boolean>
+    // List files in directory (non-recursive)
+    listFiles: (folderPath: string) => Promise<FileTreeNode[]>
+    // List files recursively
+    listFilesRecursive: (folderPath: string, maxDepth?: number) => Promise<FileTreeNode[]>
+    // Start watching a folder for changes
+    watchFolder: (folderPath: string) => Promise<boolean>
+    // Stop watching a folder
+    unwatchFolder: (folderPath: string) => Promise<boolean>
+    // Create .wrangle directory
+    createWorkspaceDir: (folderPath: string) => Promise<boolean>
+    // Check if file is inside workspace
+    isPathInWorkspace: (filePath: string, workspacePath: string) => Promise<boolean>
+    // Check if folder has .wrangle directory
+    hasWorkspaceDir: (folderPath: string) => Promise<boolean>
+    // Load app-level session
+    loadAppSession: () => Promise<AppSession | null>
+    // Save app-level session
+    saveAppSession: (session: AppSession) => Promise<boolean>
+    // Listen for folder changes
+    onFolderChanged: (
+      callback: (folderPath: string, changes: FolderChange[]) => void
+    ) => () => void
   }
   onMenuCommand: (callback: (command: string) => void) => () => void
 }

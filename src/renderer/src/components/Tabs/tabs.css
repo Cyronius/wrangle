@@ -1,6 +1,6 @@
 .tab-bar {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   background-color: var(--tab-bar-bg);
   border-bottom: 1px solid var(--border-color);
   overflow-x: auto;
@@ -13,7 +13,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 0 12px;
+  margin: 4px 0;
   background-color: var(--tab-bg);
   border-right: 1px solid var(--border-color);
   cursor: pointer;
@@ -22,6 +23,7 @@
   min-width: 100px;
   max-width: 200px;
   transition: background-color 0.15s ease;
+  border-radius: 4px 4px 0 0;
 }
 
 .tab:hover {
@@ -96,3 +98,40 @@
 .tab-bar::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
 }
+
+/* Tab Group Styles */
+.tab-group {
+  display: flex;
+  align-items: stretch;
+}
+
+.tab-group + .tab-group {
+  margin-left: 8px;
+  border-left: 1px solid var(--border-color);
+}
+
+/* Tab Group Header - Colored bar with collapse icon */
+.tab-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  width: 16px;
+  align-self: stretch;
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 4px 0 0 4px;
+  margin: 4px 0;
+}
+
+.tab-group-header:hover {
+  opacity: 0.85;
+}
+
+
+/* Tab Group Tabs Container */
+.tab-group-tabs {
+  display: flex;
+  align-items: stretch;
+}
+

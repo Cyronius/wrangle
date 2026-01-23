@@ -43,6 +43,20 @@ export function registerFileHandlers(): void {
     }
   })
 
+  // Handle reading a file by path (for workspace file tree)
+  ipcMain.handle('file:readByPath', async (_event, filePath: string) => {
+    try {
+      const content = await readFile(filePath, 'utf-8')
+      return {
+        path: filePath,
+        content
+      } as FileData
+    } catch (error) {
+      console.error('Error reading file by path:', error)
+      return null
+    }
+  })
+
   // Handle file save
   ipcMain.handle('file:save', async (_event, path: string, content: string) => {
     try {
