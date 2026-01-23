@@ -105,6 +105,14 @@ export function createApplicationMenu(mainWindow: BrowserWindow): void {
           ]
         },
         { type: 'separator' },
+        {
+          label: 'Multi-Pane Mode',
+          accelerator: 'CmdOrCtrl+Alt+M',
+          click: () => {
+            mainWindow.webContents.send('menu:command', 'view:toggle-multi-pane')
+          }
+        },
+        { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },
         { role: 'toggleDevTools', accelerator: 'F12' },

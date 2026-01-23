@@ -2,6 +2,8 @@ import { app, shell, BrowserWindow, Menu, globalShortcut } from 'electron'
 import { join } from 'path'
 import { registerAllHandlers } from './ipc'
 import { initTempRoot } from './utils/temp-dir-manager'
+import { didCrashLastSession, createRunningMarker, clearRunningMarker, findOrphanedDrafts } from './utils/crash-recovery'
+import { setCrashRecoveryInfo } from './ipc/crash-recovery-handler'
 
 function createWindow(): void {
   // Create the browser window
@@ -48,9 +50,22 @@ app.whenReady().then(async () => {
     app.setAppUserModelId('com.electron.wrangle')
   }
 
-  // Initialize temp directory system
+  // Check for crash from previous session
+  const crashed = didCrashLastSession()
+  let hasOrphanedDrafts = false
+
+  if (crashed) {
+    const orphanedDrafts = await findOrphanedDrafts()
+    hasOrphanedDrafts = orphanedDrafts.length > 0
+    setCrashRecoveryInfo({ didCrash: true, orphanedDrafts })
+  }
+
+  // Create running marker for this session
+  await createRunningMarker()
+
+  // Initialize temp directory system (skip cleanup if we have orphaned drafts to recover)
   try {
-    await initTempRoot()
+    await initTempRoot(hasOrphanedDrafts)
   } catch (error) {
     console.error('Failed to initialize temp directory:', error)
   }
@@ -91,9 +106,10 @@ app.whenReady().then(async () => {
   })
 })
 
-// Unregister global shortcuts when quitting
+// Unregister global shortcuts and clear crash marker when quitting
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
+  clearRunningMarker().catch(() => {})
 })
 
 // Quit when all windows are closed, except on macOS

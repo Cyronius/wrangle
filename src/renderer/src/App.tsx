@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState, AppDispatch } from './store/store'
-import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, setWorkspaceSidebar } from './store/layoutSlice'
+import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, setWorkspaceSidebar, toggleMultiPane, setFocusedPane, addVisiblePane } from './store/layoutSlice'
 import { setTheme } from './store/themeSlice'
 import {
   addTab,
@@ -10,14 +10,9 @@ import {
   closeTab,
   nextTab,
   previousTab,
-  updateTabPosition,
-  updateTabScroll,
-  selectAllTabs,
-  selectActiveTab,
-  selectActiveTabId,
-  selectTabByPath
+  selectAllTabs
 } from './store/tabsSlice'
-import { selectActiveWorkspaceId, selectAllWorkspaces, addWorkspace, setActiveWorkspace, expandWorkspaceExclusive } from './store/workspacesSlice'
+import { selectActiveWorkspaceId, selectAllWorkspaces, addWorkspace, setActiveWorkspace } from './store/workspacesSlice'
 import { loadSettings } from './store/settingsSlice'
 import { DEFAULT_WORKSPACE_ID } from '../../shared/workspace-types'
 import { EditorLayout } from './components/Layout/EditorLayout'
@@ -30,26 +25,37 @@ import { PreferencesDialog } from './components/Preferences/PreferencesDialog'
 import { EmptyState } from './components/EmptyState'
 import { WorkspaceBar } from './components/Workspace/WorkspaceBar'
 import { WorkspaceSidebar } from './components/Workspace/WorkspaceSidebar'
+import { MultiPaneContainer } from './components/Layout/MultiPaneContainer'
 import { useImageDrop } from './hooks/useImageDrop'
+import { useEditorPane } from './hooks/useEditorPane'
 import { useSessionPersistence } from './hooks/useSessionPersistence'
-import { extractH1 } from './utils/extractH1'
-import * as monaco from 'monaco-editor'
 
 function AppContent() {
   const dispatch = useDispatch<AppDispatch>()
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Redux state
   const tabs = useSelector(selectAllTabs)
-  const activeTab = useSelector(selectActiveTab)
-  const activeTabId = useSelector(selectActiveTabId)
   const activeWorkspaceId = useSelector(selectActiveWorkspaceId)
   const theme = useSelector((state: RootState) => state.theme.currentTheme)
   const showOutline = useSelector((state: RootState) => state.layout.showOutline)
   const showWorkspaceSidebar = useSelector((state: RootState) => state.layout.showWorkspaceSidebar)
+  const multiPaneEnabled = useSelector((state: RootState) => state.layout.multiPaneEnabled)
+  const focusedPaneId = useSelector((state: RootState) => state.layout.focusedPaneId)
   const workspaces = useSelector(selectAllWorkspaces)
   const expandedWorkspace = workspaces.find((w) => w.isExpanded)
+
+  // Editor pane hook - manages content, cursor/scroll tracking, auto-save
+  const {
+    editorRef,
+    content,
+    baseDir,
+    currentFilePath,
+    activeTab,
+    handleChange,
+    handleCursorPositionChange,
+    handleScrollTopChange
+  } = useEditorPane(activeWorkspaceId)
+
 
   // Preferences dialog state
   const [preferencesOpen, setPreferencesOpen] = useState(false)
@@ -160,6 +166,66 @@ function AppContent() {
               dispatch(setActiveWorkspace(activeConfig.id))
             }
           }
+
+          // Restore multi-pane mode
+          if (appSession.multiPaneEnabled && appSession.visiblePaneWorkspacePaths) {
+            for (const panePath of appSession.visiblePaneWorkspacePaths) {
+              const paneConfig = await window.electron.workspace.loadConfig(panePath)
+              if (paneConfig) {
+                dispatch(addVisiblePane(paneConfig.id))
+              }
+            }
+            // Set focused pane
+            if (appSession.focusedPaneWorkspacePath) {
+              const focusedConfig = await window.electron.workspace.loadConfig(appSession.focusedPaneWorkspacePath)
+              if (focusedConfig) {
+                dispatch(setFocusedPane(focusedConfig.id))
+              }
+            }
+            // Enable multi-pane (visiblePanes already populated)
+            const paneIds = store.getState().layout.visiblePanes
+            if (paneIds.length > 0) {
+              dispatch(toggleMultiPane(paneIds))
+            }
+          }
+        }
+        // After session restore, check for crash recovery
+        try {
+          const crashInfo = await window.electron.crashRecovery.check()
+          if (crashInfo.didCrash && crashInfo.orphanedDrafts.length > 0) {
+            // Get currently restored tab IDs to avoid duplicates
+            const currentTabs = store.getState().tabs.tabs
+            const openTabIds = new Set(currentTabs.map((t: { id: string }) => t.id))
+
+            let firstRecoveredId: string | null = null
+            for (const draft of crashInfo.orphanedDrafts) {
+              if (openTabIds.has(draft.tabId)) continue
+
+              // Extract title from first H1 heading or first non-empty line
+              const h1Match = draft.content.match(/^#\s+(.+)$/m)
+              const firstLine = draft.content.split('\n').find((l: string) => l.trim())
+              const displayTitle = h1Match
+                ? h1Match[1].trim()
+                : firstLine?.replace(/^#+\s*/, '').substring(0, 50) || undefined
+
+              dispatch(addTab({
+                id: draft.tabId,
+                workspaceId: DEFAULT_WORKSPACE_ID,
+                filename: displayTitle || 'Recovered',
+                content: draft.content,
+                isDirty: true,
+                displayTitle
+              }))
+
+              if (!firstRecoveredId) firstRecoveredId = draft.tabId
+            }
+
+            if (firstRecoveredId) {
+              dispatch(setActiveTab(firstRecoveredId))
+            }
+          }
+        } catch (error) {
+          console.error('Crash recovery check failed:', error)
         }
       } catch (error) {
         console.error('Failed to restore session:', error)
@@ -172,126 +238,6 @@ function AppContent() {
   // Auto-save session state
   useSessionPersistence()
 
-  // Local state for current content
-  const [content, setContent] = useState(activeTab?.content || '')
-  const [currentFilePath, setCurrentFilePath] = useState<string | undefined>(activeTab?.path)
-  const [baseDir, setBaseDir] = useState<string | null>(null)
-
-  // Update local state when active tab changes
-  useEffect(() => {
-    if (activeTab) {
-      setContent(activeTab.content)
-      setCurrentFilePath(activeTab.path)
-
-      // Calculate base directory for image preview
-      if (activeTab.path) {
-        // Extract directory from file path
-        const lastSlash = Math.max(activeTab.path.lastIndexOf('/'), activeTab.path.lastIndexOf('\\'))
-        if (lastSlash !== -1) {
-          setBaseDir(activeTab.path.substring(0, lastSlash))
-        }
-      } else {
-        // For unsaved files, use temp directory
-        window.electron.file.getTempDir(activeTab.id).then((tempDir) => {
-          setBaseDir(tempDir)
-        })
-      }
-
-      // Restore cursor and scroll position after editor has rendered the new content
-      requestAnimationFrame(() => {
-        const editor = editorRef.current
-        if (!editor) return
-
-        if (activeTab.cursorPosition) {
-          editor.setPosition(activeTab.cursorPosition)
-          editor.revealPositionInCenter(activeTab.cursorPosition)
-        }
-        if (activeTab.scrollTop != null) {
-          editor.setScrollTop(activeTab.scrollTop)
-        }
-      })
-    } else {
-      // No active tab - show empty state
-      setContent('')
-      setCurrentFilePath(undefined)
-      setBaseDir(null)
-    }
-  }, [activeTabId, activeTab])
-
-  // Auto-save function
-  const performAutoSave = async () => {
-    if (!activeTab) return
-
-    try {
-      await window.electron.file.autoSave(activeTab.id, content, activeTab.path || null)
-    } catch (error) {
-      console.error('Auto-save failed:', error)
-    }
-  }
-
-  // Debounced cursor/scroll position tracking
-  const positionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  const handleCursorPositionChange = useCallback((position: { lineNumber: number; column: number }) => {
-    if (!activeTab) return
-    if (positionTimeoutRef.current) {
-      clearTimeout(positionTimeoutRef.current)
-    }
-    positionTimeoutRef.current = setTimeout(() => {
-      dispatch(updateTabPosition({ id: activeTab.id, cursorPosition: position }))
-    }, 300)
-  }, [activeTab, dispatch])
-
-  const handleScrollTopChange = useCallback((scrollTop: number) => {
-    if (!activeTab) return
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current)
-    }
-    scrollTimeoutRef.current = setTimeout(() => {
-      dispatch(updateTabScroll({ id: activeTab.id, scrollTop }))
-    }, 300)
-  }, [activeTab, dispatch])
-
-  // Handle content change
-  const handleChange = (value: string | undefined) => {
-    const newContent = value || ''
-    setContent(newContent)
-
-    // Mark tab as dirty if content changed
-    if (activeTab && newContent !== activeTab.content) {
-      // Extract H1 for unsaved files to use as display title
-      const displayTitle = !activeTab.path ? extractH1(newContent) || undefined : undefined
-
-      dispatch(updateTab({
-        id: activeTab.id,
-        content: newContent,
-        isDirty: true,
-        displayTitle
-      }))
-
-      // Trigger auto-save with debouncing (2.5 seconds)
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current)
-      }
-      autoSaveTimeoutRef.current = setTimeout(performAutoSave, 2500)
-    }
-  }
-
-  // Clean up timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current)
-      }
-      if (positionTimeoutRef.current) {
-        clearTimeout(positionTimeoutRef.current)
-      }
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current)
-      }
-    }
-  }, [])
 
   // Ctrl+Scroll wheel zoom - use capture phase to intercept before Monaco
   useEffect(() => {
@@ -462,18 +408,6 @@ function AppContent() {
         path: filePath,
         isDirty: false
       }))
-      setCurrentFilePath(filePath)
-
-      // Update base directory for preview
-      const lastSlash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'))
-      if (lastSlash !== -1) {
-        setBaseDir(filePath.substring(0, lastSlash))
-      }
-
-      // Clear auto-save timeout since we just saved
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current)
-      }
     }
   }, [activeTab, content, dispatch])
 
@@ -489,11 +423,6 @@ function AppContent() {
           content,
           isDirty: false
         }))
-
-        // Clear auto-save timeout since we just saved
-        if (autoSaveTimeoutRef.current) {
-          clearTimeout(autoSaveTimeoutRef.current)
-        }
       }
     } else {
       // No path, do save as
@@ -528,6 +457,34 @@ function AppContent() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
         e.preventDefault()
         handleCloseTab()
+      }
+      // Ctrl+Shift+PageDown: Next pane (multi-pane mode)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'PageDown') {
+        e.preventDefault()
+        if (multiPaneEnabled) {
+          const visiblePanes = store.getState().layout.visiblePanes
+          const currentIndex = visiblePanes.indexOf(focusedPaneId || '')
+          const nextIndex = (currentIndex + 1) % visiblePanes.length
+          if (visiblePanes[nextIndex]) {
+            dispatch(setFocusedPane(visiblePanes[nextIndex]))
+            dispatch(setActiveWorkspace(visiblePanes[nextIndex]))
+          }
+        }
+        return
+      }
+      // Ctrl+Shift+PageUp: Previous pane (multi-pane mode)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'PageUp') {
+        e.preventDefault()
+        if (multiPaneEnabled) {
+          const visiblePanes = store.getState().layout.visiblePanes
+          const currentIndex = visiblePanes.indexOf(focusedPaneId || '')
+          const prevIndex = currentIndex <= 0 ? visiblePanes.length - 1 : currentIndex - 1
+          if (visiblePanes[prevIndex]) {
+            dispatch(setFocusedPane(visiblePanes[prevIndex]))
+            dispatch(setActiveWorkspace(visiblePanes[prevIndex]))
+          }
+        }
+        return
       }
       // Ctrl+PageDown: Next tab
       if ((e.ctrlKey || e.metaKey) && e.key === 'PageDown') {
@@ -593,7 +550,7 @@ function AppContent() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleNewFile, handleCloseTab, handleOpen, handleSave, handleSaveAs, dispatch, activeWorkspaceId])
+  }, [handleNewFile, handleCloseTab, handleOpen, handleSave, handleSaveAs, dispatch, activeWorkspaceId, multiPaneEnabled, focusedPaneId])
 
   // Menu command handler
   useEffect(() => {
@@ -629,6 +586,11 @@ function AppContent() {
         case 'workspace:openFolder':
           handleAddWorkspace()
           break
+        case 'view:toggle-multi-pane': {
+          const workspaceIds = workspaces.map(w => w.id)
+          dispatch(toggleMultiPane(workspaceIds))
+          break
+        }
       }
     })
 
@@ -640,7 +602,7 @@ function AppContent() {
     editorRef,
     tabId: activeTab?.id,
     currentFilePath,
-    onImageInsert: (imagePath) => {
+    onImageInsert: () => {
       // Mark tab as dirty when image is inserted
       if (activeTab) {
         dispatch(updateTab({
@@ -757,17 +719,19 @@ function AppContent() {
         onExportPdf={handleExportPdf}
         onOpenPreferences={() => setPreferencesOpen(true)}
       >
-        <TabBar
-          onCloseTab={async (tabId) => {
-            // Clean up temp directory if tab was never saved
-            const tabToClose = tabs.find((t) => t.id === tabId)
-            if (tabToClose && !tabToClose.path) {
-              await window.electron.file.cleanupTemp(tabId)
-            }
-          }}
-        />
+        {!multiPaneEnabled && (
+          <TabBar
+            onCloseTab={async (tabId) => {
+              // Clean up temp directory if tab was never saved
+              const tabToClose = tabs.find((t) => t.id === tabId)
+              if (tabToClose && !tabToClose.path) {
+                await window.electron.file.cleanupTemp(tabId)
+              }
+            }}
+          />
+        )}
       </TitleBar>
-      {tabs.length > 0 && <MarkdownToolbar editorRef={editorRef} />}
+      {tabs.length > 0 && !multiPaneEnabled && <MarkdownToolbar editorRef={editorRef} />}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
         {/* Workspace bar - always visible */}
         <WorkspaceBar />
@@ -779,6 +743,13 @@ function AppContent() {
 
         {tabs.length === 0 ? (
           <EmptyState onNewFile={handleNewFile} onOpenFile={handleOpen} />
+        ) : multiPaneEnabled ? (
+          <>
+            {showOutline && (
+              <OutlineSidebar content={content} editorRef={editorRef} />
+            )}
+            <MultiPaneContainer />
+          </>
         ) : (
           <>
             {showOutline && (

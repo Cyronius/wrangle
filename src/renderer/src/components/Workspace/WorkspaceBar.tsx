@@ -7,7 +7,7 @@ import {
   expandWorkspaceExclusive,
   setActiveWorkspace
 } from '../../store/workspacesSlice'
-import { setWorkspaceSidebar } from '../../store/layoutSlice'
+import { setWorkspaceSidebar, setFocusedPane, addVisiblePane } from '../../store/layoutSlice'
 import { WorkspaceState } from '../../../../shared/workspace-types'
 import './workspace.css'
 
@@ -44,16 +44,28 @@ export function WorkspaceBar() {
   const workspaces = useSelector(selectAllWorkspaces)
   const activeWorkspaceId = useSelector(selectActiveWorkspaceId)
   const showWorkspaceSidebar = useSelector((state: RootState) => state.layout.showWorkspaceSidebar)
+  const multiPaneEnabled = useSelector((state: RootState) => state.layout.multiPaneEnabled)
+  const visiblePanes = useSelector((state: RootState) => state.layout.visiblePanes)
 
   const handleWorkspaceClick = (workspace: WorkspaceState) => {
-    if (workspace.isExpanded && showWorkspaceSidebar) {
-      // Already expanded - collapse it
-      dispatch(setWorkspaceSidebar(false))
+    if (multiPaneEnabled) {
+      // In multi-pane mode: focus existing pane or add as new pane
+      if (visiblePanes.includes(workspace.id)) {
+        dispatch(setFocusedPane(workspace.id))
+        dispatch(setActiveWorkspace(workspace.id))
+      } else {
+        dispatch(addVisiblePane(workspace.id))
+        dispatch(setActiveWorkspace(workspace.id))
+      }
     } else {
-      // Expand this workspace
-      dispatch(setActiveWorkspace(workspace.id))
-      dispatch(expandWorkspaceExclusive(workspace.id))
-      dispatch(setWorkspaceSidebar(true))
+      // Single-pane mode: toggle sidebar
+      if (workspace.isExpanded && showWorkspaceSidebar) {
+        dispatch(setWorkspaceSidebar(false))
+      } else {
+        dispatch(setActiveWorkspace(workspace.id))
+        dispatch(expandWorkspaceExclusive(workspace.id))
+        dispatch(setWorkspaceSidebar(true))
+      }
     }
   }
 
@@ -76,8 +88,13 @@ export function WorkspaceBar() {
       })
     )
 
-    // Show sidebar for new workspace
-    dispatch(setWorkspaceSidebar(true))
+    if (multiPaneEnabled) {
+      // Add as new pane in multi-pane mode
+      dispatch(addVisiblePane(result.config.id))
+    } else {
+      // Show sidebar for new workspace in single-pane mode
+      dispatch(setWorkspaceSidebar(true))
+    }
   }
 
   return (

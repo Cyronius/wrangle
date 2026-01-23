@@ -18,6 +18,10 @@ interface EditorLayoutProps {
   editorRef?: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>
   onCursorPositionChange?: (position: { lineNumber: number; column: number }) => void
   onScrollTopChange?: (scrollTop: number) => void
+  // Optional overrides for multi-pane mode
+  viewModeOverride?: 'split' | 'editor-only' | 'preview-only'
+  splitRatioOverride?: number
+  onSplitRatioChange?: (ratio: number) => void
 }
 
 // Calculate font size based on zoom level (base 14px, 10% per level)
@@ -68,10 +72,18 @@ export function EditorLayout({
   theme = 'vs-dark',
   editorRef,
   onCursorPositionChange,
-  onScrollTopChange
+  onScrollTopChange,
+  viewModeOverride,
+  splitRatioOverride,
+  onSplitRatioChange
 }: EditorLayoutProps) {
   const dispatch = useDispatch()
-  const { viewMode, splitRatio, previewSync, zoomLevel } = useSelector((state: RootState) => state.layout)
+  const layoutState = useSelector((state: RootState) => state.layout)
+
+  // Use overrides if provided (multi-pane mode), otherwise use global state
+  const viewMode = viewModeOverride ?? layoutState.viewMode
+  const splitRatio = splitRatioOverride ?? layoutState.splitRatio
+  const { previewSync, zoomLevel } = layoutState
 
   // State for scroll sync
   const [sourceMap, setSourceMap] = useState<SourceMap | null>(null)
@@ -149,12 +161,14 @@ export function EditorLayout({
 
   const handleSplitChange = (sizes: number[]) => {
     if (sizes.length === 2) {
-      // Convert pixel sizes to ratio (0-1)
       const total = sizes[0] + sizes[1]
       const ratio = sizes[0] / total
-      // Clamp ratio between 0.2 and 0.8
       const clampedRatio = Math.max(0.2, Math.min(0.8, ratio))
-      dispatch(setSplitRatio(clampedRatio))
+      if (onSplitRatioChange) {
+        onSplitRatioChange(clampedRatio)
+      } else {
+        dispatch(setSplitRatio(clampedRatio))
+      }
     }
   }
 

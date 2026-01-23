@@ -274,6 +274,10 @@ export interface AppSession {
   openWorkspaces: string[] // Array of workspace root paths
   activeWorkspacePath: string | null
   lastSavedAt: number
+  // Multi-pane mode state
+  multiPaneEnabled?: boolean
+  visiblePaneWorkspacePaths?: string[] // Workspace paths for visible panes
+  focusedPaneWorkspacePath?: string | null
 }
 
 /**

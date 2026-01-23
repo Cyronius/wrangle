@@ -14,6 +14,21 @@ export interface AppSession {
   openWorkspaces: string[] // Array of workspace root paths
   activeWorkspacePath: string | null
   lastSavedAt: number
+  // Multi-pane mode state
+  multiPaneEnabled?: boolean
+  visiblePaneWorkspacePaths?: string[] // Workspace paths for visible panes
+  focusedPaneWorkspacePath?: string | null
+}
+
+export interface OrphanedDraft {
+  tabId: string
+  content: string
+  lastModified: number
+}
+
+export interface CrashRecoveryInfo {
+  didCrash: boolean
+  orphanedDrafts: OrphanedDraft[]
 }
 
 export interface SettingsSchema {
@@ -105,6 +120,9 @@ export interface ElectronAPI {
     onFolderChanged: (
       callback: (folderPath: string, changes: FolderChange[]) => void
     ) => () => void
+  }
+  crashRecovery: {
+    check: () => Promise<CrashRecoveryInfo>
   }
   onMenuCommand: (callback: (command: string) => void) => () => void
 }

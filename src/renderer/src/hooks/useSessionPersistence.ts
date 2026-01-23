@@ -43,6 +43,9 @@ export function useSessionPersistence() {
   const activeWorkspaceId = useSelector((state: RootState) => state.workspaces.activeWorkspaceId)
   const viewMode = useSelector((state: RootState) => state.layout.viewMode)
   const splitRatio = useSelector((state: RootState) => state.layout.splitRatio)
+  const multiPaneEnabled = useSelector((state: RootState) => state.layout.multiPaneEnabled)
+  const visiblePanes = useSelector((state: RootState) => state.layout.visiblePanes)
+  const focusedPaneId = useSelector((state: RootState) => state.layout.focusedPaneId)
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -53,6 +56,9 @@ export function useSessionPersistence() {
   const activeWorkspaceIdRef = useRef(activeWorkspaceId)
   const viewModeRef = useRef(viewMode)
   const splitRatioRef = useRef(splitRatio)
+  const multiPaneEnabledRef = useRef(multiPaneEnabled)
+  const visiblePanesRef = useRef(visiblePanes)
+  const focusedPaneIdRef = useRef(focusedPaneId)
 
   tabsRef.current = tabs
   activeTabIdByWorkspaceRef.current = activeTabIdByWorkspace
@@ -60,6 +66,9 @@ export function useSessionPersistence() {
   activeWorkspaceIdRef.current = activeWorkspaceId
   viewModeRef.current = viewMode
   splitRatioRef.current = splitRatio
+  multiPaneEnabledRef.current = multiPaneEnabled
+  visiblePanesRef.current = visiblePanes
+  focusedPaneIdRef.current = focusedPaneId
 
   const saveAllSessions = useCallback(async () => {
     const currentTabs = tabsRef.current
@@ -68,6 +77,9 @@ export function useSessionPersistence() {
     const currentActiveWorkspaceId = activeWorkspaceIdRef.current
     const currentViewMode = viewModeRef.current
     const currentSplitRatio = splitRatioRef.current
+    const currentMultiPaneEnabled = multiPaneEnabledRef.current
+    const currentVisiblePanes = visiblePanesRef.current
+    const currentFocusedPaneId = focusedPaneIdRef.current
 
     // Save session for each workspace
     for (const workspace of currentWorkspaces) {
@@ -77,25 +89,35 @@ export function useSessionPersistence() {
       const session = buildWorkspaceSession(workspaceTabs, activeTabId, currentViewMode, currentSplitRatio)
 
       if (workspace.id === DEFAULT_WORKSPACE_ID) {
-        // Default workspace uses a special session file
         await window.electron.workspace.saveDefaultSession(session)
       } else if (workspace.rootPath) {
-        // Named workspaces save to their .wrangle directory
         await window.electron.workspace.saveSession(workspace.rootPath, session)
       }
     }
 
-    // Save app-level session (which workspaces are open)
+    // Save app-level session (which workspaces are open + multi-pane state)
     const openWorkspaces = currentWorkspaces
       .filter(w => w.id !== DEFAULT_WORKSPACE_ID && w.rootPath)
       .map(w => w.rootPath!)
 
     const activeWorkspace = currentWorkspaces.find(w => w.id === currentActiveWorkspaceId)
 
+    // Resolve workspace IDs to paths for multi-pane persistence
+    const visiblePaneWorkspacePaths = currentVisiblePanes
+      .map(id => currentWorkspaces.find(w => w.id === id)?.rootPath)
+      .filter((p): p is string => p != null)
+
+    const focusedPaneWorkspace = currentFocusedPaneId
+      ? currentWorkspaces.find(w => w.id === currentFocusedPaneId)
+      : null
+
     await window.electron.workspace.saveAppSession({
       openWorkspaces,
       activeWorkspacePath: activeWorkspace?.rootPath || null,
-      lastSavedAt: Date.now()
+      lastSavedAt: Date.now(),
+      multiPaneEnabled: currentMultiPaneEnabled,
+      visiblePaneWorkspacePaths,
+      focusedPaneWorkspacePath: focusedPaneWorkspace?.rootPath || null
     })
   }, [])
 
@@ -112,7 +134,7 @@ export function useSessionPersistence() {
   // Watch for relevant state changes and schedule saves
   useEffect(() => {
     scheduleSave()
-  }, [tabs, activeTabIdByWorkspace, workspaces, activeWorkspaceId, viewMode, splitRatio, scheduleSave])
+  }, [tabs, activeTabIdByWorkspace, workspaces, activeWorkspaceId, viewMode, splitRatio, multiPaneEnabled, visiblePanes, focusedPaneId, scheduleSave])
 
   // Save immediately before window close
   useEffect(() => {

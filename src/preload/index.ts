@@ -5,7 +5,8 @@ import {
   WorkspaceConfig,
   WorkspaceSession,
   AppSession,
-  FolderChange
+  FolderChange,
+  CrashRecoveryInfo
 } from './electron'
 
 const electronAPI: ElectronAPI = {
@@ -92,6 +93,9 @@ const electronAPI: ElectronAPI = {
         ipcRenderer.removeListener('workspace:folderChanged', subscription)
       }
     }
+  },
+  crashRecovery: {
+    check: (): Promise<CrashRecoveryInfo> => ipcRenderer.invoke('crashRecovery:check')
   },
   onMenuCommand: (callback: (command: string) => void) => {
     const subscription = (_event: Electron.IpcRendererEvent, command: string) => callback(command)
