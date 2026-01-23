@@ -23,7 +23,7 @@ export function WorkspacePane({ workspaceId, isFocused, onFocus }: WorkspacePane
   const paneSplitRatio = useSelector((state: RootState) => state.layout.paneSplitRatios[workspaceId])
   const globalViewMode = useSelector((state: RootState) => state.layout.viewMode)
   const globalSplitRatio = useSelector((state: RootState) => state.layout.splitRatio)
-  const theme = useSelector((state: RootState) => state.theme.currentTheme)
+  const theme = useSelector((state: RootState) => state.settings.theme.current)
 
   const {
     editorRef,

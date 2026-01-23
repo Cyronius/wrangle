@@ -112,6 +112,17 @@ app.on('will-quit', () => {
   clearRunningMarker().catch(() => {})
 })
 
+// Handle SIGINT/SIGTERM for graceful shutdown
+process.on('SIGINT', () => {
+  clearRunningMarker().catch(() => {})
+  app.quit()
+})
+
+process.on('SIGTERM', () => {
+  clearRunningMarker().catch(() => {})
+  app.quit()
+})
+
 // Quit when all windows are closed, except on macOS
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

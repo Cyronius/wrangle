@@ -1,5 +1,5 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron'
-import { readFile, writeFile, copyFile, mkdir } from 'fs/promises'
+import { ipcMain, dialog } from 'electron'
+import { readFile, writeFile, copyFile, mkdir, open } from 'fs/promises'
 import { FileData } from '../../shared/types'
 import * as path from 'path'
 import { existsSync } from 'fs'
@@ -12,6 +12,66 @@ import {
   moveTempToSaved,
   cleanupTempDir
 } from '../utils/temp-dir-manager'
+
+// Extensions known to be text files
+const TEXT_EXTENSIONS = new Set([
+  '.md', '.markdown', '.mdown', '.mkd', '.mdwn',
+  '.txt', '.text',
+  '.json', '.jsonc', '.json5',
+  '.yaml', '.yml',
+  '.toml', '.ini', '.cfg', '.conf',
+  '.xml', '.svg', '.html', '.htm', '.xhtml',
+  '.css', '.scss', '.sass', '.less',
+  '.js', '.mjs', '.cjs', '.jsx',
+  '.ts', '.mts', '.cts', '.tsx',
+  '.py', '.pyw', '.pyi',
+  '.rb', '.rake',
+  '.sh', '.bash', '.zsh', '.fish',
+  '.bat', '.cmd', '.ps1',
+  '.c', '.h', '.cpp', '.hpp', '.cc', '.cxx',
+  '.java', '.kt', '.kts', '.scala',
+  '.go', '.rs', '.swift',
+  '.lua', '.r', '.R', '.jl',
+  '.sql', '.graphql', '.gql',
+  '.env', '.gitignore', '.gitattributes', '.editorconfig',
+  '.log', '.csv', '.tsv',
+  '.tex', '.bib', '.sty',
+  '.dockerfile', '.makefile',
+  '.vim', '.el', '.clj', '.cljs',
+  '.dart', '.zig', '.nim', '.v',
+  '.astro', '.vue', '.svelte',
+  '.diff', '.patch',
+  '.properties', '.gradle',
+  '.lock', '.sum'
+])
+
+// Check if a file is likely binary by scanning first 8KB for null bytes
+async function isBinaryFile(filePath: string): Promise<boolean> {
+  const ext = path.extname(filePath).toLowerCase()
+
+  // Known text extensions - always treat as text
+  if (TEXT_EXTENSIONS.has(ext)) return false
+
+  // No extension - check content
+  // Also check content for unknown extensions
+  try {
+    const fd = await open(filePath, 'r')
+    try {
+      const buffer = Buffer.alloc(8192)
+      const { bytesRead } = await fd.read(buffer, 0, 8192, 0)
+
+      // Check for null bytes in the first 8KB
+      for (let i = 0; i < bytesRead; i++) {
+        if (buffer[i] === 0) return true
+      }
+      return false
+    } finally {
+      await fd.close()
+    }
+  } catch {
+    return false
+  }
+}
 
 export function registerFileHandlers(): void {
   // Handle file open
@@ -46,6 +106,11 @@ export function registerFileHandlers(): void {
   // Handle reading a file by path (for workspace file tree)
   ipcMain.handle('file:readByPath', async (_event, filePath: string) => {
     try {
+      // Check if file is binary
+      if (await isBinaryFile(filePath)) {
+        return { error: 'binary' }
+      }
+
       const content = await readFile(filePath, 'utf-8')
       return {
         path: filePath,

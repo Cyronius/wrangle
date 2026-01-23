@@ -136,6 +136,14 @@ export function useSessionPersistence() {
     scheduleSave()
   }, [tabs, activeTabIdByWorkspace, workspaces, activeWorkspaceId, viewMode, splitRatio, multiPaneEnabled, visiblePanes, focusedPaneId, scheduleSave])
 
+  // Periodic unconditional save every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      saveAllSessions()
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [saveAllSessions])
+
   // Save immediately before window close
   useEffect(() => {
     const handleBeforeUnload = () => {

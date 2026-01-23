@@ -105,6 +105,14 @@ const workspacesSlice = createSlice({
       } else {
         state.workspaces = [defaultWorkspace, ...action.payload]
       }
+    },
+
+    // Reorder workspaces by moving item from oldIndex to newIndex
+    reorderWorkspaces(state, action: PayloadAction<{ oldIndex: number; newIndex: number }>) {
+      const { oldIndex, newIndex } = action.payload
+      if (oldIndex === newIndex) return
+      const [moved] = state.workspaces.splice(oldIndex, 1)
+      state.workspaces.splice(newIndex, 0, moved)
     }
   }
 })
@@ -159,7 +167,8 @@ export const {
   setWorkspaceExpanded,
   expandWorkspaceExclusive,
   collapseAllWorkspaces,
-  loadWorkspaces
+  loadWorkspaces,
+  reorderWorkspaces
 } = workspacesSlice.actions
 
 export default workspacesSlice.reducer

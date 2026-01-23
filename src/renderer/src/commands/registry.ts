@@ -322,6 +322,27 @@ export const commands: CommandDefinition[] = [
     execute: () => window.electron.window.toggleDevTools()
   },
 
+  {
+    id: 'view.outline',
+    label: 'Toggle Outline',
+    category: 'view',
+    defaultBinding: 'Ctrl+Shift+O',
+    execute: (ctx) => {
+      const { toggleOutline } = require('../store/layoutSlice')
+      ctx.dispatch(toggleOutline())
+    }
+  },
+  {
+    id: 'view.workspaceSidebar',
+    label: 'Toggle Workspace Sidebar',
+    category: 'view',
+    defaultBinding: null,
+    execute: (ctx) => {
+      const { toggleWorkspaceSidebar } = require('../store/layoutSlice')
+      ctx.dispatch(toggleWorkspaceSidebar())
+    }
+  },
+
   // Navigation commands
   {
     id: 'nav.nextTab',
@@ -515,7 +536,50 @@ export const commands: CommandDefinition[] = [
     execute: (ctx) => insertText(ctx.editor, '\n---\n')
   },
 
+  // Theme commands
+  {
+    id: 'view.themeLight',
+    label: 'Light Theme',
+    category: 'view',
+    defaultBinding: null,
+    execute: (ctx) => {
+      const { setCurrentTheme } = require('../store/settingsSlice')
+      ctx.dispatch(setCurrentTheme('light'))
+    }
+  },
+  {
+    id: 'view.themeDark',
+    label: 'Dark Theme',
+    category: 'view',
+    defaultBinding: null,
+    execute: (ctx) => {
+      const { setCurrentTheme } = require('../store/settingsSlice')
+      ctx.dispatch(setCurrentTheme('dark'))
+    }
+  },
+  {
+    id: 'view.themeCycle',
+    label: 'Cycle Theme',
+    category: 'view',
+    defaultBinding: null,
+    execute: (ctx) => {
+      const { setCurrentTheme } = require('../store/settingsSlice')
+      const state = ctx.getState() as { settings: { theme: { current: string } } }
+      const current = state.settings.theme.current
+      ctx.dispatch(setCurrentTheme(current === 'dark' ? 'light' : 'dark'))
+    }
+  },
+
   // App commands
+  {
+    id: 'app.commandPalette',
+    label: 'Command Palette',
+    category: 'app',
+    defaultBinding: 'Ctrl+Shift+P',
+    execute: () => {
+      // Handled directly in App.tsx
+    }
+  },
   {
     id: 'app.preferences',
     label: 'Preferences',

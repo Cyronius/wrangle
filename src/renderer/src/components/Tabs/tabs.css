@@ -135,3 +135,9 @@
   align-items: stretch;
 }
 
+.sortable-tab-wrapper {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+

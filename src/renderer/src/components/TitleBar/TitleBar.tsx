@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { RootState } from '../../store/store'
+import { RootState, AppDispatch } from '../../store/store'
 import { setViewMode } from '../../store/layoutSlice'
-import { setTheme } from '../../store/themeSlice'
+import { setCurrentTheme, saveThemeSettings } from '../../store/settingsSlice'
 import wrangleIcon from '../../../../assets/wrangle.png'
 import './TitleBar.css'
 
@@ -30,16 +30,13 @@ interface TitleBarProps {
 }
 
 export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCloseTab, onEditUndo, onEditRedo, onCopyRichText, onExportHtml, onExportPdf, onOpenPreferences, children }: TitleBarProps) {
-  const dispatch = useDispatch()
-  const viewMode = useSelector((state: RootState) => state.layout.mode)
-  const theme = useSelector((state: RootState) => state.theme.currentTheme)
+  const dispatch = useDispatch<AppDispatch>()
+  const customThemes = useSelector((state: RootState) => state.settings.theme.customThemes)
 
   const [isMaximized, setIsMaximized] = useState(false)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const iconMouseDownPos = useRef<{ x: number; y: number } | null>(null)
-  const wasIconDragged = useRef(false)
 
   // Check maximized state
   useEffect(() => {
@@ -69,32 +66,6 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
   const handleMenuClick = (menuName: string) => {
     setOpenMenu(openMenu === menuName ? null : menuName)
     setOpenSubmenu(null)
-  }
-
-  // Icon drag detection - allows dragging window via icon without opening menu
-  const DRAG_THRESHOLD = 5
-
-  const handleIconMouseDown = (e: React.MouseEvent) => {
-    iconMouseDownPos.current = { x: e.clientX, y: e.clientY }
-    wasIconDragged.current = false
-  }
-
-  const handleIconMouseUp = (e: React.MouseEvent) => {
-    if (iconMouseDownPos.current) {
-      const dx = e.clientX - iconMouseDownPos.current.x
-      const dy = e.clientY - iconMouseDownPos.current.y
-      if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
-        wasIconDragged.current = true
-      }
-    }
-    iconMouseDownPos.current = null
-  }
-
-  const handleIconClick = () => {
-    if (!wasIconDragged.current) {
-      handleMenuClick('Wrangle')
-    }
-    wasIconDragged.current = false
   }
 
   const handleMenuItemClick = (action?: () => void) => {
@@ -143,8 +114,14 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
       {
         label: 'Theme',
         submenu: [
-          { label: 'Light', action: () => dispatch(setTheme('light')) },
-          { label: 'Dark', action: () => dispatch(setTheme('dark')) }
+          { label: 'Light', action: () => {
+            dispatch(setCurrentTheme('light'))
+            dispatch(saveThemeSettings({ current: 'light', customThemes }))
+          }},
+          { label: 'Dark', action: () => {
+            dispatch(setCurrentTheme('dark'))
+            dispatch(saveThemeSettings({ current: 'dark', customThemes }))
+          }}
         ]
       },
       { separator: true, label: '' },
@@ -176,9 +153,7 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
               {index === 0 ? (
                 <button
                   className="menu-button menu-button-icon"
-                  onMouseDown={handleIconMouseDown}
-                  onMouseUp={handleIconMouseUp}
-                  onClick={handleIconClick}
+                  onClick={() => handleMenuClick(menuName)}
                   onMouseEnter={() => openMenu && setOpenMenu(menuName)}
                 >
                   <img src={wrangleIcon} alt="Menu" className="menu-icon" />

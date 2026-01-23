@@ -9,7 +9,6 @@ import {
   deleteCustomTheme,
   saveThemeSettings
 } from '../../store/settingsSlice'
-import { setTheme } from '../../store/themeSlice'
 import { validateThemeCSS, generateThemeTemplate, extractThemeName } from '../../utils/css-validator'
 import { registerCustomMonacoTheme } from '../../utils/monaco-theme-generator'
 import { useDebounce } from '../../hooks/useKeyboardShortcuts'
@@ -97,7 +96,6 @@ export function ThemeEditorTab() {
   const handleThemeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const themeName = e.target.value
     dispatch(setCurrentTheme(themeName))
-    dispatch(setTheme(themeName as 'light' | 'dark'))
 
     // Save to persistent storage
     dispatch(
@@ -124,7 +122,6 @@ export function ThemeEditorTab() {
 
     dispatch(addCustomTheme({ name, css }))
     dispatch(setCurrentTheme(name))
-    dispatch(setTheme(baseTheme)) // Use base theme for app styling
 
     // Register Monaco theme
     registerCustomMonacoTheme(name, css)

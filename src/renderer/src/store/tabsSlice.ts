@@ -156,6 +156,27 @@ const tabsSlice = createSlice({
     // Clean up active tab tracking when workspace is removed
     cleanupWorkspaceActiveTab(state, action: PayloadAction<WorkspaceId>) {
       delete state.activeTabIdByWorkspace[action.payload]
+    },
+
+    // Reorder tabs within a workspace
+    reorderTabs(state, action: PayloadAction<{ workspaceId: WorkspaceId; oldIndex: number; newIndex: number }>) {
+      const { workspaceId, oldIndex, newIndex } = action.payload
+      if (oldIndex === newIndex) return
+
+      // Get indices of tabs belonging to this workspace in the global tabs array
+      const workspaceTabs = state.tabs
+        .map((tab, globalIndex) => ({ tab, globalIndex }))
+        .filter(({ tab }) => tab.workspaceId === workspaceId)
+
+      if (oldIndex >= workspaceTabs.length || newIndex >= workspaceTabs.length) return
+
+      const sourceGlobalIndex = workspaceTabs[oldIndex].globalIndex
+      const targetGlobalIndex = workspaceTabs[newIndex].globalIndex
+
+      const [moved] = state.tabs.splice(sourceGlobalIndex, 1)
+      // Recalculate target index after splice
+      const adjustedTarget = targetGlobalIndex > sourceGlobalIndex ? targetGlobalIndex - 1 : targetGlobalIndex
+      state.tabs.splice(adjustedTarget, 0, moved)
     }
   }
 })
@@ -210,7 +231,8 @@ export const {
   nextTab,
   previousTab,
   initWorkspaceActiveTab,
-  cleanupWorkspaceActiveTab
+  cleanupWorkspaceActiveTab,
+  reorderTabs
 } = tabsSlice.actions
 
 export default tabsSlice.reducer

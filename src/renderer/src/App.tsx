@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState, AppDispatch } from './store/store'
 import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, setWorkspaceSidebar, toggleMultiPane, setFocusedPane, addVisiblePane } from './store/layoutSlice'
-import { setTheme } from './store/themeSlice'
 import {
   addTab,
   updateTab,
@@ -13,7 +12,7 @@ import {
   selectAllTabs
 } from './store/tabsSlice'
 import { selectActiveWorkspaceId, selectAllWorkspaces, addWorkspace, setActiveWorkspace } from './store/workspacesSlice'
-import { loadSettings } from './store/settingsSlice'
+import { loadSettings, setCurrentTheme } from './store/settingsSlice'
 import { DEFAULT_WORKSPACE_ID } from '../../shared/workspace-types'
 import { EditorLayout } from './components/Layout/EditorLayout'
 import { TabBar } from './components/Tabs/TabBar'
@@ -26,6 +25,8 @@ import { EmptyState } from './components/EmptyState'
 import { WorkspaceBar } from './components/Workspace/WorkspaceBar'
 import { WorkspaceSidebar } from './components/Workspace/WorkspaceSidebar'
 import { MultiPaneContainer } from './components/Layout/MultiPaneContainer'
+import { CommandPalette } from './components/CommandPalette/CommandPalette'
+import { CommandDefinition } from './commands/registry'
 import { useImageDrop } from './hooks/useImageDrop'
 import { useEditorPane } from './hooks/useEditorPane'
 import { useSessionPersistence } from './hooks/useSessionPersistence'
@@ -36,7 +37,7 @@ function AppContent() {
   // Redux state
   const tabs = useSelector(selectAllTabs)
   const activeWorkspaceId = useSelector(selectActiveWorkspaceId)
-  const theme = useSelector((state: RootState) => state.theme.currentTheme)
+  const theme = useSelector((state: RootState) => state.settings.theme.current)
   const showOutline = useSelector((state: RootState) => state.layout.showOutline)
   const showWorkspaceSidebar = useSelector((state: RootState) => state.layout.showWorkspaceSidebar)
   const multiPaneEnabled = useSelector((state: RootState) => state.layout.multiPaneEnabled)
@@ -59,6 +60,9 @@ function AppContent() {
 
   // Preferences dialog state
   const [preferencesOpen, setPreferencesOpen] = useState(false)
+
+  // Command palette state
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
 
   // Load settings on mount
   useEffect(() => {
@@ -458,7 +462,13 @@ function AppContent() {
         e.preventDefault()
         handleCloseTab()
       }
-      // Ctrl+Shift+PageDown: Next pane (multi-pane mode)
+      // Ctrl+Shift+P: Command Palette
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'P') {
+        e.preventDefault()
+        setCommandPaletteOpen(true)
+        return
+      }
+      // Ctrl+Shift+PageDown: Next pane (multi-pane) or next workspace (single-pane)
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'PageDown') {
         e.preventDefault()
         if (multiPaneEnabled) {
@@ -469,10 +479,14 @@ function AppContent() {
             dispatch(setFocusedPane(visiblePanes[nextIndex]))
             dispatch(setActiveWorkspace(visiblePanes[nextIndex]))
           }
+        } else if (workspaces.length > 1) {
+          const currentIndex = workspaces.findIndex(w => w.id === activeWorkspaceId)
+          const nextIndex = (currentIndex + 1) % workspaces.length
+          dispatch(setActiveWorkspace(workspaces[nextIndex].id))
         }
         return
       }
-      // Ctrl+Shift+PageUp: Previous pane (multi-pane mode)
+      // Ctrl+Shift+PageUp: Previous pane (multi-pane) or prev workspace (single-pane)
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'PageUp') {
         e.preventDefault()
         if (multiPaneEnabled) {
@@ -483,6 +497,10 @@ function AppContent() {
             dispatch(setFocusedPane(visiblePanes[prevIndex]))
             dispatch(setActiveWorkspace(visiblePanes[prevIndex]))
           }
+        } else if (workspaces.length > 1) {
+          const currentIndex = workspaces.findIndex(w => w.id === activeWorkspaceId)
+          const prevIndex = currentIndex <= 0 ? workspaces.length - 1 : currentIndex - 1
+          dispatch(setActiveWorkspace(workspaces[prevIndex].id))
         }
         return
       }
@@ -578,10 +596,10 @@ function AppContent() {
           dispatch(setViewMode('preview-only'))
           break
         case 'theme:light':
-          dispatch(setTheme('light'))
+          dispatch(setCurrentTheme('light'))
           break
         case 'theme:dark':
-          dispatch(setTheme('dark'))
+          dispatch(setCurrentTheme('dark'))
           break
         case 'workspace:openFolder':
           handleAddWorkspace()
@@ -794,6 +812,27 @@ function AppContent() {
       <PreferencesDialog
         isOpen={preferencesOpen}
         onClose={() => setPreferencesOpen(false)}
+      />
+      <CommandPalette
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        onExecute={(cmd: CommandDefinition) => {
+          cmd.execute({
+            editor: editorRef.current,
+            dispatch: dispatch as (action: unknown) => void,
+            getState: store.getState,
+            handlers: {
+              onFileNew: handleNewFile,
+              onFileOpen: handleOpen,
+              onFileSave: handleSave,
+              onFileSaveAs: handleSaveAs,
+              onCloseTab: handleCloseTab,
+              onEditUndo: handleUndo,
+              onEditRedo: handleRedo,
+              onOpenPreferences: () => setPreferencesOpen(true)
+            }
+          })
+        }}
       />
     </div>
   )
