@@ -10,12 +10,14 @@ import {
   closeTab,
   nextTab,
   previousTab,
+  updateTabPosition,
+  updateTabScroll,
   selectAllTabs,
   selectActiveTab,
   selectActiveTabId,
   selectTabByPath
 } from './store/tabsSlice'
-import { selectActiveWorkspaceId, selectAllWorkspaces, addWorkspace, expandWorkspaceExclusive } from './store/workspacesSlice'
+import { selectActiveWorkspaceId, selectAllWorkspaces, addWorkspace, setActiveWorkspace, expandWorkspaceExclusive } from './store/workspacesSlice'
 import { loadSettings } from './store/settingsSlice'
 import { DEFAULT_WORKSPACE_ID } from '../../shared/workspace-types'
 import { EditorLayout } from './components/Layout/EditorLayout'
@@ -29,6 +31,7 @@ import { EmptyState } from './components/EmptyState'
 import { WorkspaceBar } from './components/Workspace/WorkspaceBar'
 import { WorkspaceSidebar } from './components/Workspace/WorkspaceSidebar'
 import { useImageDrop } from './hooks/useImageDrop'
+import { useSessionPersistence } from './hooks/useSessionPersistence'
 import { extractH1 } from './utils/extractH1'
 import * as monaco from 'monaco-editor'
 
@@ -56,6 +59,119 @@ function AppContent() {
     dispatch(loadSettings())
   }, [dispatch])
 
+  // Restore session on app startup
+  const sessionRestoredRef = useRef(false)
+  useEffect(() => {
+    if (sessionRestoredRef.current) return
+    sessionRestoredRef.current = true
+
+    const restoreSession = async () => {
+      try {
+        // Restore default workspace tabs
+        const defaultSession = await window.electron.workspace.loadDefaultSession()
+        if (defaultSession && defaultSession.tabs.length > 0) {
+          for (const tabState of defaultSession.tabs) {
+            let content = tabState.content || ''
+
+            // For saved files, read the current content from disk
+            if (tabState.path) {
+              const fileData = await window.electron.file.readByPath(tabState.path)
+              if (fileData) {
+                content = fileData.content
+              } else {
+                // File no longer exists, skip this tab
+                continue
+              }
+            }
+
+            dispatch(addTab({
+              id: tabState.id,
+              workspaceId: DEFAULT_WORKSPACE_ID,
+              filename: tabState.filename,
+              content,
+              path: tabState.path,
+              isDirty: tabState.isDirty && !tabState.path,
+              displayTitle: tabState.displayTitle,
+              cursorPosition: tabState.cursorPosition,
+              scrollTop: tabState.scrollPosition
+            }))
+          }
+
+          if (defaultSession.activeTabId) {
+            dispatch(setActiveTab(defaultSession.activeTabId))
+          }
+        }
+
+        // Restore workspace sessions
+        const appSession = await window.electron.workspace.loadAppSession()
+        if (appSession && appSession.openWorkspaces.length > 0) {
+          for (const workspacePath of appSession.openWorkspaces) {
+            // Load workspace config
+            const config = await window.electron.workspace.loadConfig(workspacePath)
+            if (!config) continue
+
+            // Add workspace to store
+            dispatch(addWorkspace({
+              id: config.id,
+              name: config.name,
+              color: config.color,
+              rootPath: workspacePath,
+              isExpanded: false
+            }))
+
+            // Load workspace session (tabs)
+            const session = await window.electron.workspace.loadSession(workspacePath)
+            if (session && session.tabs.length > 0) {
+              for (const tabState of session.tabs) {
+                let content = tabState.content || ''
+
+                if (tabState.path) {
+                  const fileData = await window.electron.file.readByPath(tabState.path)
+                  if (fileData) {
+                    content = fileData.content
+                  } else {
+                    continue
+                  }
+                }
+
+                dispatch(addTab({
+                  id: tabState.id,
+                  workspaceId: config.id,
+                  filename: tabState.filename,
+                  content,
+                  path: tabState.path,
+                  isDirty: tabState.isDirty && !tabState.path,
+                  displayTitle: tabState.displayTitle,
+                  cursorPosition: tabState.cursorPosition,
+                  scrollTop: tabState.scrollPosition
+                }))
+              }
+
+              if (session.activeTabId) {
+                dispatch(setActiveTab(session.activeTabId))
+              }
+            }
+          }
+
+          // Restore active workspace
+          if (appSession.activeWorkspacePath) {
+            const activeConfig = await window.electron.workspace.loadConfig(appSession.activeWorkspacePath)
+            if (activeConfig) {
+              dispatch(setActiveWorkspace(activeConfig.id))
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to restore session:', error)
+      }
+    }
+
+    restoreSession()
+  }, [dispatch])
+
+  // Auto-save session state
+  useSessionPersistence()
+
   // Local state for current content
   const [content, setContent] = useState(activeTab?.content || '')
   const [currentFilePath, setCurrentFilePath] = useState<string | undefined>(activeTab?.path)
@@ -80,6 +196,20 @@ function AppContent() {
           setBaseDir(tempDir)
         })
       }
+
+      // Restore cursor and scroll position after editor has rendered the new content
+      requestAnimationFrame(() => {
+        const editor = editorRef.current
+        if (!editor) return
+
+        if (activeTab.cursorPosition) {
+          editor.setPosition(activeTab.cursorPosition)
+          editor.revealPositionInCenter(activeTab.cursorPosition)
+        }
+        if (activeTab.scrollTop != null) {
+          editor.setScrollTop(activeTab.scrollTop)
+        }
+      })
     } else {
       // No active tab - show empty state
       setContent('')
@@ -98,6 +228,30 @@ function AppContent() {
       console.error('Auto-save failed:', error)
     }
   }
+
+  // Debounced cursor/scroll position tracking
+  const positionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const handleCursorPositionChange = useCallback((position: { lineNumber: number; column: number }) => {
+    if (!activeTab) return
+    if (positionTimeoutRef.current) {
+      clearTimeout(positionTimeoutRef.current)
+    }
+    positionTimeoutRef.current = setTimeout(() => {
+      dispatch(updateTabPosition({ id: activeTab.id, cursorPosition: position }))
+    }, 300)
+  }, [activeTab, dispatch])
+
+  const handleScrollTopChange = useCallback((scrollTop: number) => {
+    if (!activeTab) return
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current)
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      dispatch(updateTabScroll({ id: activeTab.id, scrollTop }))
+    }, 300)
+  }, [activeTab, dispatch])
 
   // Handle content change
   const handleChange = (value: string | undefined) => {
@@ -124,11 +278,17 @@ function AppContent() {
     }
   }
 
-  // Clean up auto-save timeout on unmount
+  // Clean up timeouts on unmount
   useEffect(() => {
     return () => {
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current)
+      }
+      if (positionTimeoutRef.current) {
+        clearTimeout(positionTimeoutRef.current)
+      }
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
       }
     }
   }, [])
@@ -653,6 +813,8 @@ function AppContent() {
                 baseDir={baseDir}
                 theme={monacoTheme}
                 editorRef={editorRef}
+                onCursorPositionChange={handleCursorPositionChange}
+                onScrollTopChange={handleScrollTopChange}
               />
             </div>
           </>

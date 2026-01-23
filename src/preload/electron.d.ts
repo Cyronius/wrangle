@@ -97,6 +97,10 @@ export interface ElectronAPI {
     loadAppSession: () => Promise<AppSession | null>
     // Save app-level session
     saveAppSession: (session: AppSession) => Promise<boolean>
+    // Load default workspace session (for non-folder tabs)
+    loadDefaultSession: () => Promise<WorkspaceSession | null>
+    // Save default workspace session
+    saveDefaultSession: (session: WorkspaceSession) => Promise<boolean>
     // Listen for folder changes
     onFolderChanged: (
       callback: (folderPath: string, changes: FolderChange[]) => void

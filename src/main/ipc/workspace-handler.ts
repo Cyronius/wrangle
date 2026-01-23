@@ -12,6 +12,8 @@ import {
   ensureWorkspaceDir,
   loadAppSession,
   saveAppSession,
+  loadDefaultSession,
+  saveDefaultSession,
   AppSession
 } from '../utils/workspace-manager'
 import { WorkspaceConfig, WorkspaceSession } from '../../shared/workspace-types'
@@ -178,6 +180,26 @@ export function registerWorkspaceHandlers(): void {
       return await saveAppSession(session)
     } catch (error) {
       console.error('Error saving app session:', error)
+      return false
+    }
+  })
+
+  // Load default workspace session
+  ipcMain.handle('workspace:loadDefaultSession', async () => {
+    try {
+      return await loadDefaultSession()
+    } catch (error) {
+      console.error('Error loading default session:', error)
+      return null
+    }
+  })
+
+  // Save default workspace session
+  ipcMain.handle('workspace:saveDefaultSession', async (_event, session: WorkspaceSession) => {
+    try {
+      return await saveDefaultSession(session)
+    } catch (error) {
+      console.error('Error saving default session:', error)
       return false
     }
   })

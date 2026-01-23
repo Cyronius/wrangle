@@ -16,6 +16,7 @@ const SESSION_FILE = 'session.json'
 // App-level session storage
 const APP_DATA_DIR = join(homedir(), '.wrangle')
 const APP_SESSION_FILE = join(APP_DATA_DIR, 'app-session.json')
+const DEFAULT_SESSION_FILE = join(APP_DATA_DIR, 'default-session.json')
 
 /**
  * Generate a unique workspace ID
@@ -304,6 +305,39 @@ export async function saveAppSession(session: AppSession): Promise<boolean> {
     return true
   } catch (error) {
     console.error('Failed to save app session:', error)
+    return false
+  }
+}
+
+/**
+ * Load the default workspace session (for tabs not associated with a folder workspace)
+ */
+export async function loadDefaultSession(): Promise<WorkspaceSession | null> {
+  if (!existsSync(DEFAULT_SESSION_FILE)) {
+    return null
+  }
+
+  try {
+    const content = await readFile(DEFAULT_SESSION_FILE, 'utf-8')
+    return JSON.parse(content) as WorkspaceSession
+  } catch (error) {
+    console.error('Failed to load default session:', error)
+    return null
+  }
+}
+
+/**
+ * Save the default workspace session
+ */
+export async function saveDefaultSession(session: WorkspaceSession): Promise<boolean> {
+  try {
+    if (!existsSync(APP_DATA_DIR)) {
+      await mkdir(APP_DATA_DIR, { recursive: true })
+    }
+    await writeFile(DEFAULT_SESSION_FILE, JSON.stringify(session, null, 2), 'utf-8')
+    return true
+  } catch (error) {
+    console.error('Failed to save default session:', error)
     return false
   }
 }

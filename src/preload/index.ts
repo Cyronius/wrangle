@@ -76,6 +76,9 @@ const electronAPI: ElectronAPI = {
     loadAppSession: () => ipcRenderer.invoke('workspace:loadAppSession'),
     saveAppSession: (session: AppSession) =>
       ipcRenderer.invoke('workspace:saveAppSession', session),
+    loadDefaultSession: () => ipcRenderer.invoke('workspace:loadDefaultSession'),
+    saveDefaultSession: (session: WorkspaceSession) =>
+      ipcRenderer.invoke('workspace:saveDefaultSession', session),
     onFolderChanged: (callback: (folderPath: string, changes: FolderChange[]) => void) => {
       const subscription = (
         _event: Electron.IpcRendererEvent,

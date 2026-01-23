@@ -16,6 +16,8 @@ interface EditorLayoutProps {
   baseDir?: string | null
   theme?: 'vs-dark' | 'vs'
   editorRef?: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>
+  onCursorPositionChange?: (position: { lineNumber: number; column: number }) => void
+  onScrollTopChange?: (scrollTop: number) => void
 }
 
 // Calculate font size based on zoom level (base 14px, 10% per level)
@@ -64,7 +66,9 @@ export function EditorLayout({
   onChange,
   baseDir = null,
   theme = 'vs-dark',
-  editorRef
+  editorRef,
+  onCursorPositionChange,
+  onScrollTopChange
 }: EditorLayoutProps) {
   const dispatch = useDispatch()
   const { viewMode, splitRatio, previewSync, zoomLevel } = useSelector((state: RootState) => state.layout)
@@ -158,7 +162,7 @@ export function EditorLayout({
   if (viewMode === 'editor-only') {
     return (
       <div style={{ height: '100%', width: '100%' }}>
-        <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} />
+        <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} onCursorPositionChange={onCursorPositionChange} onScrollTopChange={onScrollTopChange} />
       </div>
     )
   }
@@ -168,7 +172,7 @@ export function EditorLayout({
       <div style={{ height: '100%', width: '100%', position: 'relative' }}>
         {/* Hidden editor - keeps editorRef valid for WYSIWYG toolbar commands */}
         <div style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0, pointerEvents: 'none' }}>
-          <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} />
+          <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} onCursorPositionChange={onCursorPositionChange} />
         </div>
         <MarkdownPreview
           content={content}
@@ -198,6 +202,8 @@ export function EditorLayout({
             theme={theme}
             fontSize={fontSize}
             onScroll={handleEditorScroll}
+            onCursorPositionChange={onCursorPositionChange}
+            onScrollTopChange={onScrollTopChange}
           />
         </Allotment.Pane>
         <Allotment.Pane minSize={200}>

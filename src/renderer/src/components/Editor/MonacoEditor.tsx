@@ -12,18 +12,22 @@ interface MonacoEditorProps {
   theme?: 'vs-dark' | 'vs'
   fontSize?: number
   onCursorChange?: (offset: number) => void
+  onCursorPositionChange?: (position: { lineNumber: number; column: number }) => void
   onScroll?: (offset: number) => void  // Character offset of first visible line
+  onScrollTopChange?: (scrollTop: number) => void
   onSelectionChange?: (selection: { start: number; end: number } | null) => void  // Selection range in character offsets
 }
 
 export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | null, MonacoEditorProps>(
-  ({ value, onChange, theme = 'vs-dark', fontSize = 14, onCursorChange, onScroll, onSelectionChange }, ref) => {
+  ({ value, onChange, theme = 'vs-dark', fontSize = 14, onCursorChange, onCursorPositionChange, onScroll, onScrollTopChange, onSelectionChange }, ref) => {
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
     const disposablesRef = useRef<monaco.IDisposable[]>([])
     const cursorDisposableRef = useRef<monaco.IDisposable | null>(null)
     const scrollDisposableRef = useRef<monaco.IDisposable | null>(null)
     const selectionDisposableRef = useRef<monaco.IDisposable | null>(null)
     const onScrollRef = useRef(onScroll)
+    const onScrollTopChangeRef = useRef(onScrollTopChange)
+    const onCursorPositionChangeRef = useRef(onCursorPositionChange)
     const onSelectionChangeRef = useRef(onSelectionChange)
     const bindings = useSelector(selectCurrentBindings)
 
@@ -31,6 +35,14 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
     useEffect(() => {
       onScrollRef.current = onScroll
     }, [onScroll])
+
+    useEffect(() => {
+      onScrollTopChangeRef.current = onScrollTopChange
+    }, [onScrollTopChange])
+
+    useEffect(() => {
+      onCursorPositionChangeRef.current = onCursorPositionChange
+    }, [onCursorPositionChange])
 
     useEffect(() => {
       onSelectionChangeRef.current = onSelectionChange
@@ -123,7 +135,11 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
 
       // Set up scroll listener - must be done here since editor isn't available in useEffect
       scrollDisposableRef.current = editor.onDidScrollChange(() => {
-        console.log('[MonacoEditor] onDidScrollChange fired, onScrollRef.current:', !!onScrollRef.current)
+        // Report scrollTop for session persistence
+        if (onScrollTopChangeRef.current) {
+          onScrollTopChangeRef.current(editor.getScrollTop())
+        }
+
         if (!onScrollRef.current) return
 
         const model = editor.getModel()
@@ -131,13 +147,11 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
 
         // Get the first visible line
         const visibleRanges = editor.getVisibleRanges()
-        console.log('[MonacoEditor] visibleRanges:', visibleRanges.length)
         if (visibleRanges.length === 0) return
 
         const firstVisibleLine = visibleRanges[0].startLineNumber
         // Get the character offset at the start of the first visible line
         const offset = model.getOffsetAt({ lineNumber: firstVisibleLine, column: 1 })
-        console.log('[MonacoEditor] calling onScroll with offset:', offset)
         onScrollRef.current(offset)
       })
 
@@ -170,17 +184,24 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
 
     // Set up cursor position listener
     useEffect(() => {
-      if (!editorRef.current || !onCursorChange) return
+      if (!editorRef.current || (!onCursorChange && !onCursorPositionChange)) return
 
       // Dispose previous listener
       cursorDisposableRef.current?.dispose()
 
       const editor = editorRef.current
       cursorDisposableRef.current = editor.onDidChangeCursorPosition((e) => {
-        const model = editor.getModel()
-        if (model) {
-          const offset = model.getOffsetAt(e.position)
-          onCursorChange(offset)
+        // Report line/column for session persistence
+        if (onCursorPositionChangeRef.current) {
+          onCursorPositionChangeRef.current({ lineNumber: e.position.lineNumber, column: e.position.column })
+        }
+
+        if (onCursorChange) {
+          const model = editor.getModel()
+          if (model) {
+            const offset = model.getOffsetAt(e.position)
+            onCursorChange(offset)
+          }
         }
       })
 
@@ -188,7 +209,7 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
         cursorDisposableRef.current?.dispose()
         cursorDisposableRef.current = null
       }
-    }, [onCursorChange])
+    }, [onCursorChange, onCursorPositionChange])
 
     // Cleanup on unmount
     useEffect(() => {
