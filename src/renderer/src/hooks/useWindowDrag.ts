@@ -11,7 +11,6 @@ export function useWindowDrag(): boolean {
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Alt') {
-      e.preventDefault()
       setAltHeld(true)
     }
   }, [])
@@ -36,15 +35,15 @@ export function useWindowDrag(): boolean {
   }, [])
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('keydown', handleKeyDown, { capture: true })
+    window.addEventListener('keyup', handleKeyUp, { capture: true })
     window.addEventListener('mousedown', handleMouseDown)
     window.addEventListener('mouseup', handleMouseUp)
     window.addEventListener('blur', handleBlur)
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('keydown', handleKeyDown, { capture: true })
+      window.removeEventListener('keyup', handleKeyUp, { capture: true })
       window.removeEventListener('mousedown', handleMouseDown)
       window.removeEventListener('mouseup', handleMouseUp)
       window.removeEventListener('blur', handleBlur)

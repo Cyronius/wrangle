@@ -41,9 +41,15 @@ export function useEditorPane(workspaceId: WorkspaceId): UseEditorPaneResult {
   const [currentFilePath, setCurrentFilePath] = useState<string | undefined>(activeTab?.path)
   const [baseDir, setBaseDir] = useState<string | null>(null)
 
-  // Update local state when active tab changes
+  // Track previous tab ID to detect actual tab switches
+  const prevTabIdRef = useRef<string | null>(null)
+
+  // Sync content and restore cursor/scroll ONLY when switching tabs
   useEffect(() => {
-    if (activeTab) {
+    if (activeTab && activeTabId !== prevTabIdRef.current) {
+      // This is a genuine tab switch (or initial mount)
+      prevTabIdRef.current = activeTabId
+
       setContent(activeTab.content)
       setCurrentFilePath(activeTab.path)
 
@@ -73,7 +79,8 @@ export function useEditorPane(workspaceId: WorkspaceId): UseEditorPaneResult {
           editor.setScrollTop(activeTab.scrollTop)
         }
       })
-    } else {
+    } else if (!activeTab) {
+      prevTabIdRef.current = null
       setContent('')
       setCurrentFilePath(undefined)
       setBaseDir(null)

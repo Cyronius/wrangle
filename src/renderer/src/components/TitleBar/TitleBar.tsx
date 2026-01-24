@@ -31,7 +31,6 @@ interface TitleBarProps {
 
 export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCloseTab, onEditUndo, onEditRedo, onCopyRichText, onExportHtml, onExportPdf, onOpenPreferences, children }: TitleBarProps) {
   const dispatch = useDispatch<AppDispatch>()
-  const customThemes = useSelector((state: RootState) => state.settings.theme.customThemes)
 
   const [isMaximized, setIsMaximized] = useState(false)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
@@ -116,11 +115,11 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
         submenu: [
           { label: 'Light', action: () => {
             dispatch(setCurrentTheme('light'))
-            dispatch(saveThemeSettings({ current: 'light', customThemes }))
+            dispatch(saveThemeSettings())
           }},
           { label: 'Dark', action: () => {
             dispatch(setCurrentTheme('dark'))
-            dispatch(saveThemeSettings({ current: 'dark', customThemes }))
+            dispatch(saveThemeSettings())
           }}
         ]
       },

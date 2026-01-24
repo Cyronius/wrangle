@@ -291,6 +291,26 @@
   color: #e06c75;
 }
 
+.shortcut-item-readonly {
+  opacity: 0.8;
+}
+
+.shortcut-key.readonly {
+  cursor: default;
+  border-style: dashed;
+  color: var(--text-color-muted);
+}
+
+.shortcut-key.readonly:hover {
+  border-color: var(--border-color);
+}
+
+.shortcut-readonly-icon {
+  margin-left: 6px;
+  color: var(--text-color-muted);
+  vertical-align: middle;
+}
+
 .shortcut-readonly-notice {
   padding: 12px;
   background: rgba(77, 170, 252, 0.1);

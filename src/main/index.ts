@@ -13,7 +13,7 @@ function createWindow(): void {
     show: false,
     frame: false,
     titleBarStyle: 'hidden',
-    icon: join(__dirname, '../../src/assets/w.png'),
+    icon: join(__dirname, '../assets/w.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -23,7 +23,9 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    if (process.env.NODE_ENV !== 'test') {
+      mainWindow.show()
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

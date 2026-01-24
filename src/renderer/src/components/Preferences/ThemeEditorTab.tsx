@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Editor } from '@monaco-editor/react'
 import { AppDispatch, RootState } from '../../store/store'
@@ -9,18 +9,11 @@ import {
   deleteCustomTheme,
   saveThemeSettings
 } from '../../store/settingsSlice'
-import { validateThemeCSS, generateThemeTemplate, extractThemeName } from '../../utils/css-validator'
+import { validateThemeCSS, generateThemeTemplate } from '../../utils/css-validator'
 import { registerCustomMonacoTheme } from '../../utils/monaco-theme-generator'
 import { useDebounce } from '../../hooks/useKeyboardShortcuts'
 
-// Built-in theme CSS (read-only display)
-import lightThemeCSS from '../../styles/themes/light.css?raw'
-import darkThemeCSS from '../../styles/themes/dark.css?raw'
-
-const builtInThemes: Record<string, string> = {
-  light: lightThemeCSS,
-  dark: darkThemeCSS
-}
+import { builtInThemes } from '../../styles/themes'
 
 export function ThemeEditorTab() {
   const dispatch = useDispatch<AppDispatch>()
@@ -35,12 +28,16 @@ export function ThemeEditorTab() {
   const [baseTheme, setBaseTheme] = useState<'light' | 'dark'>('dark')
   const [copySourceCSS, setCopySourceCSS] = useState<string | null>(null)
 
+  // Ref to avoid stale closure in debounced save
+  const currentThemeRef = useRef(currentTheme)
+  useEffect(() => { currentThemeRef.current = currentTheme }, [currentTheme])
+
   // Check if current theme is built-in
   const isBuiltIn = !!builtInThemes[currentTheme]
 
   // Get all theme names
   const allThemeNames = useMemo(() => {
-    return ['light', 'dark', ...Object.keys(customThemes)]
+    return [...Object.keys(builtInThemes), ...Object.keys(customThemes)]
   }, [customThemes])
 
   // Get CSS for current theme
@@ -55,33 +52,26 @@ export function ThemeEditorTab() {
   useEffect(() => {
     setEditedCSS(currentCSS)
     setValidationErrors([])
-  }, [currentCSS])
+  }, [currentTheme, currentCSS])
 
-  // Debounced save for custom themes
+  // Debounced save for custom themes - captures theme name at call time
   const debouncedSave = useDebounce(
     useCallback(
-      (css: string) => {
-        if (isBuiltIn) return
+      (css: string, themeAtCallTime: string) => {
+        // Use the theme name from when the change was made, not current
+        const theme = themeAtCallTime
+        if (!!builtInThemes[theme]) return
 
         const result = validateThemeCSS(css)
         setValidationErrors(result.errors)
 
         if (result.valid) {
-          dispatch(updateCustomTheme({ name: currentTheme, css }))
-
-          // Register Monaco theme
-          registerCustomMonacoTheme(currentTheme, css)
-
-          // Save to persistent storage
-          dispatch(
-            saveThemeSettings({
-              current: currentTheme,
-              customThemes: { ...customThemes, [currentTheme]: css }
-            })
-          )
+          dispatch(updateCustomTheme({ name: theme, css }))
+          registerCustomMonacoTheme(theme, css)
+          dispatch(saveThemeSettings())
         }
       },
-      [dispatch, currentTheme, customThemes, isBuiltIn]
+      [dispatch]
     ),
     1500
   )
@@ -90,7 +80,8 @@ export function ThemeEditorTab() {
   const handleCSSChange = (value: string | undefined) => {
     const css = value || ''
     setEditedCSS(css)
-    debouncedSave(css)
+    // Capture current theme at the time of the change
+    debouncedSave(css, currentThemeRef.current)
   }
 
   // Handle theme selection change
@@ -98,13 +89,8 @@ export function ThemeEditorTab() {
     const themeName = e.target.value
     dispatch(setCurrentTheme(themeName))
 
-    // Save to persistent storage
-    dispatch(
-      saveThemeSettings({
-        current: themeName,
-        customThemes
-      })
-    )
+    // Save to persistent storage (reads current state internally)
+    dispatch(saveThemeSettings())
   }
 
   // Create new theme
@@ -118,22 +104,29 @@ export function ThemeEditorTab() {
       return
     }
 
-    // Use copied CSS if available, otherwise generate template
-    const css = copySourceCSS || generateThemeTemplate(name, baseTheme)
+    // Use copied CSS if available and valid, otherwise generate template
+    let css: string
+    if (copySourceCSS && copySourceCSS.includes('--app-bg')) {
+      // Replace the data-theme selector with the new theme name
+      css = copySourceCSS.replace(
+        /:root\[data-theme=['"][^'"]+['"]\]/g,
+        `:root[data-theme='${name}']`
+      )
+    } else {
+      css = generateThemeTemplate(name, baseTheme)
+    }
 
     dispatch(addCustomTheme({ name, css }))
     dispatch(setCurrentTheme(name))
 
+    // Directly apply the theme CSS to avoid race with ThemeProvider
+    applyCustomThemeCSS(name, css)
+
     // Register Monaco theme
     registerCustomMonacoTheme(name, css)
 
-    // Save to persistent storage
-    dispatch(
-      saveThemeSettings({
-        current: name,
-        customThemes: { ...customThemes, [name]: css }
-      })
-    )
+    // Save to persistent storage (reads current state internally)
+    dispatch(saveThemeSettings())
 
     setShowNewThemeModal(false)
     setNewThemeName('')
@@ -142,10 +135,16 @@ export function ThemeEditorTab() {
 
   // Copy current theme
   const handleCopyTheme = () => {
-    const baseName = currentTheme.replace(/-copy$/, '')
+    const baseName = currentTheme.replace(/-copy\d*$/, '')
     setNewThemeName(`${baseName}-copy`)
-    setBaseTheme(currentTheme === 'light' ? 'light' : 'dark')
-    setCopySourceCSS(currentCSS)
+    // Use editedCSS (what's visible in the editor) as primary source,
+    // falling back to currentCSS from Redux/built-in registry
+    const sourceCSS = editedCSS || currentCSS
+    setCopySourceCSS(sourceCSS)
+    // Detect if source is light-based by checking background color value
+    const isLightBased = sourceCSS.includes('#faf8f5') || sourceCSS.includes('#ffffff') ||
+      currentTheme === 'light' || currentTheme.toLowerCase().includes('light')
+    setBaseTheme(isLightBased ? 'light' : 'dark')
     setShowNewThemeModal(true)
   }
 
@@ -155,14 +154,8 @@ export function ThemeEditorTab() {
     if (confirm(`Delete theme "${currentTheme}"?`)) {
       dispatch(deleteCustomTheme(currentTheme))
 
-      // Save to persistent storage
-      const { [currentTheme]: _, ...remainingThemes } = customThemes
-      dispatch(
-        saveThemeSettings({
-          current: 'dark',
-          customThemes: remainingThemes
-        })
-      )
+      // Save to persistent storage (reads current state internally)
+      dispatch(saveThemeSettings())
     }
   }
 
@@ -204,6 +197,7 @@ export function ThemeEditorTab() {
             onClick={() => {
               setNewThemeName('')
               setBaseTheme('dark')
+              setCopySourceCSS(null)
               setShowNewThemeModal(true)
             }}
             title="Create a new theme from template"

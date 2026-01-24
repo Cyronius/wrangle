@@ -8,6 +8,7 @@ import {
 } from '../../store/tabsSlice'
 import {
   selectAllWorkspaces,
+  selectActiveWorkspaceId,
   setActiveWorkspace
 } from '../../store/workspacesSlice'
 import { TabGroup } from './TabGroup'
@@ -116,9 +117,13 @@ function TabGroupWrapper({
   onTabClick: (tabId: string) => void
   onTabClose: (e: React.MouseEvent, tabId: string) => void
 }) {
+  const activeWorkspaceId = useSelector(selectActiveWorkspaceId)
   const activeTabId = useSelector((state: RootState) =>
     selectActiveTabIdByWorkspace(state, workspaceId)
   )
+
+  // Only show the active indicator if this workspace is the currently visible one
+  const effectiveActiveTabId = workspaceId === activeWorkspaceId ? activeTabId : null
 
   return (
     <TabGroup
@@ -126,7 +131,7 @@ function TabGroupWrapper({
       workspaceName={workspaceName}
       workspaceColor={workspaceColor}
       tabs={tabs}
-      activeTabId={activeTabId}
+      activeTabId={effectiveActiveTabId}
       onTabClick={onTabClick}
       onTabClose={onTabClose}
     />

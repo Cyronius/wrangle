@@ -8,6 +8,10 @@ export interface CommandDefinition {
   category: CommandCategory
   defaultBinding: string | null
   execute: (context: CommandContext) => void
+  /** If true, this command's binding cannot be edited by the user */
+  readOnly?: boolean
+  /** Display string for non-standard bindings (e.g. "Alt+Drag", "Ctrl+Scroll") */
+  bindingDisplay?: string
 }
 
 export interface CommandContext {
@@ -356,6 +360,24 @@ export const commands: CommandDefinition[] = [
       ctx.dispatch(toggleWorkspaceSidebar())
     }
   },
+  {
+    id: 'view.zoomScroll',
+    label: 'Zoom (Mouse Wheel)',
+    category: 'view',
+    defaultBinding: null,
+    readOnly: true,
+    bindingDisplay: 'Ctrl+Scroll',
+    execute: () => {}
+  },
+  {
+    id: 'view.moveWindow',
+    label: 'Move Window',
+    category: 'view',
+    defaultBinding: null,
+    readOnly: true,
+    bindingDisplay: 'Alt+Drag',
+    execute: () => {}
+  },
 
   // Navigation commands
   {
@@ -660,6 +682,15 @@ export const commands: CommandDefinition[] = [
     category: 'app',
     defaultBinding: 'Ctrl+,',
     execute: (ctx) => ctx.handlers.onOpenPreferences()
+  },
+  {
+    id: 'app.closeDialog',
+    label: 'Close Dialog',
+    category: 'app',
+    defaultBinding: null,
+    readOnly: true,
+    bindingDisplay: 'Escape',
+    execute: () => {}
   }
 ]
 

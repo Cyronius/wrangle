@@ -39,6 +39,7 @@ function buildWorkspaceSession(
 export function useSessionPersistence() {
   const tabs = useSelector((state: RootState) => state.tabs.tabs)
   const activeTabIdByWorkspace = useSelector((state: RootState) => state.tabs.activeTabIdByWorkspace)
+  const ready = useSelector((state: RootState) => state.tabs.sessionRestored)
   const workspaces = useSelector((state: RootState) => state.workspaces.workspaces)
   const activeWorkspaceId = useSelector((state: RootState) => state.workspaces.activeWorkspaceId)
   const viewMode = useSelector((state: RootState) => state.layout.viewMode)
@@ -133,19 +134,22 @@ export function useSessionPersistence() {
 
   // Watch for relevant state changes and schedule saves
   useEffect(() => {
+    if (!ready) return
     scheduleSave()
-  }, [tabs, activeTabIdByWorkspace, workspaces, activeWorkspaceId, viewMode, splitRatio, multiPaneEnabled, visiblePanes, focusedPaneId, scheduleSave])
+  }, [tabs, activeTabIdByWorkspace, workspaces, activeWorkspaceId, viewMode, splitRatio, multiPaneEnabled, visiblePanes, focusedPaneId, scheduleSave, ready])
 
   // Periodic unconditional save every 30 seconds
   useEffect(() => {
+    if (!ready) return
     const interval = setInterval(() => {
       saveAllSessions()
     }, 30000)
     return () => clearInterval(interval)
-  }, [saveAllSessions])
+  }, [saveAllSessions, ready])
 
   // Save immediately before window close
   useEffect(() => {
+    if (!ready) return
     const handleBeforeUnload = () => {
       // Cancel any pending debounced save
       if (saveTimeoutRef.current) {
@@ -162,5 +166,5 @@ export function useSessionPersistence() {
         clearTimeout(saveTimeoutRef.current)
       }
     }
-  }, [saveAllSessions])
+  }, [saveAllSessions, ready])
 }

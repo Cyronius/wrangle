@@ -3,12 +3,21 @@
   "version": "1.0.0",
   "description": "Wrangle - A modern markdown editor with Monaco editor, built with Electron and React",
   "main": "./out/main/index.js",
+  "bin": {
+    "wrangle": "./bin/cli.js"
+  },
+  "files": [
+    "out/",
+    "bin/"
+  ],
   "author": "",
   "license": "MIT",
   "scripts": {
     "start": "electron-vite dev",
     "dev:claude": "node -e \"delete process.env.ELECTRON_RUN_AS_NODE; require('child_process').spawn('npx', ['electron-vite', 'dev'], {stdio: 'inherit', shell: true, env: process.env})\"",
     "build": "electron-vite build",
+    "postbuild": "node -e \"const fs=require('fs');const p=require('path');fs.mkdirSync(p.join('out','assets'),{recursive:true});fs.copyFileSync(p.join('src','assets','w.png'),p.join('out','assets','w.png'));\"",
+    "prepublishOnly": "npm run build",
     "preview": "electron-vite preview",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
@@ -41,7 +50,8 @@
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
-    "unist-util-visit": "^5.0.0"
+    "unist-util-visit": "^5.0.0",
+    "electron": "^28.3.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
@@ -49,7 +59,6 @@
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^4.2.1",
-    "electron": "^28.3.3",
     "electron-builder": "^24.9.1",
     "electron-vite": "^2.0.0",
     "typescript": "^5.3.3",

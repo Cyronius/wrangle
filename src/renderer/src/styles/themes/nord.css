@@ -1,0 +1,42 @@
+:root[data-theme='Nord'] {
+  /* App background and text */
+  --app-bg: #2e3440;
+  --text-color: #d8dee9;
+  --text-color-active: #eceff4;
+  --text-color-muted: #4c566a;
+  --border-color: #3b4252;
+
+  /* Tab bar */
+  --tab-bar-bg: #2e3440;
+  --tab-bg: #3b4252;
+  --tab-hover-bg: #434c5e;
+  --tab-active-bg: #2e3440;
+  --tab-close-hover-bg: #434c5e;
+  --tab-close-active-bg: #4c566a;
+
+  /* Toolbar */
+  --toolbar-bg: #2e3440;
+  --toolbar-border: #3b4252;
+  --button-bg: #3b4252;
+  --button-hover-bg: #434c5e;
+  --button-active-bg: #4c566a;
+
+  /* Preview */
+  --preview-bg: #2e3440;
+  --preview-text: #d8dee9;
+  --preview-heading: #eceff4;
+  --preview-text-muted: #4c566a;
+  --preview-border: #3b4252;
+  --preview-link: #88c0d0;
+  --preview-code-bg: rgba(59, 66, 82, 0.6);
+  --preview-code-block-bg: #3b4252;
+  --preview-table-header-bg: #3b4252;
+  --preview-table-row-alt-bg: #353b47;
+
+  /* Accent color */
+  --accent-color: #88c0d0;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #3b4252;
+  --scrollbar-thumb-hover: #434c5e;
+}

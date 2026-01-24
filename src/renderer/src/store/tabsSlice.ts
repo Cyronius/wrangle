@@ -18,13 +18,16 @@ interface TabsState {
   tabs: TabDocument[]
   // Track active tab per workspace
   activeTabIdByWorkspace: Record<WorkspaceId, string | null>
+  // Whether session restore has completed (guards persistence hook)
+  sessionRestored: boolean
 }
 
 const initialState: TabsState = {
   tabs: [],
   activeTabIdByWorkspace: {
     [DEFAULT_WORKSPACE_ID]: null
-  }
+  },
+  sessionRestored: false
 }
 
 const tabsSlice = createSlice({
@@ -177,6 +180,10 @@ const tabsSlice = createSlice({
       // Recalculate target index after splice
       const adjustedTarget = targetGlobalIndex > sourceGlobalIndex ? targetGlobalIndex - 1 : targetGlobalIndex
       state.tabs.splice(adjustedTarget, 0, moved)
+    },
+
+    markSessionRestored(state) {
+      state.sessionRestored = true
     }
   }
 })
@@ -232,7 +239,8 @@ export const {
   previousTab,
   initWorkspaceActiveTab,
   cleanupWorkspaceActiveTab,
-  reorderTabs
+  reorderTabs,
+  markSessionRestored
 } = tabsSlice.actions
 
 export default tabsSlice.reducer

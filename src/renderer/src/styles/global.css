@@ -69,6 +69,15 @@ code {
   cursor: grab;
 }
 
+/* When drag overlay is active, override no-drag regions so Alt+drag works everywhere */
+.window-drag-overlay ~ .title-bar .title-bar-menus,
+.window-drag-overlay ~ .title-bar .menu-bar,
+.window-drag-overlay ~ .title-bar .title-bar-tabs,
+.window-drag-overlay ~ .title-bar .window-controls {
+  -webkit-app-region: drag;
+  pointer-events: none;
+}
+
 /* Print styles - only show preview content */
 @media print {
   .title-bar,

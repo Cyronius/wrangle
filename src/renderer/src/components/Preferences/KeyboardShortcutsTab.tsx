@@ -53,7 +53,8 @@ export function KeyboardShortcutsTab() {
       (cmd) =>
         cmd.label.toLowerCase().includes(query) ||
         cmd.id.toLowerCase().includes(query) ||
-        (bindings[cmd.id]?.toLowerCase().includes(query) ?? false)
+        (bindings[cmd.id]?.toLowerCase().includes(query) ?? false) ||
+        (cmd.bindingDisplay?.toLowerCase().includes(query) ?? false)
     )
   }, [searchQuery, bindings])
 
@@ -202,6 +203,22 @@ export function KeyboardShortcutsTab() {
               {categoryLabels[category as keyof typeof categoryLabels]}
             </div>
             {cmds.map((cmd) => {
+              if (cmd.readOnly) {
+                return (
+                  <div key={cmd.id} className="shortcut-item shortcut-item-readonly">
+                    <span className="shortcut-label">
+                      {cmd.label}
+                      <svg className="shortcut-readonly-icon" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" title="This shortcut cannot be changed">
+                        <path d="M4 7V5a4 4 0 1 1 8 0v2h1a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h1zm2 0h4V5a2 2 0 1 0-4 0v2z" />
+                      </svg>
+                    </span>
+                    <div className="shortcut-binding">
+                      <span className="shortcut-key readonly">{cmd.bindingDisplay}</span>
+                    </div>
+                  </div>
+                )
+              }
+
               const conflicts = getConflictsForCommand(cmd.id)
               const hasConflict = conflicts.length > 0
 

@@ -82,6 +82,15 @@
   border: 1px solid var(--border-color);
 }
 
+.command-palette-item.readonly {
+  cursor: default;
+  opacity: 0.8;
+}
+
+.command-palette-item-shortcut.readonly {
+  border-style: dashed;
+}
+
 .command-palette-empty {
   padding: 24px 16px;
   text-align: center;

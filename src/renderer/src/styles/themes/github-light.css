@@ -1,0 +1,42 @@
+:root[data-theme='GitHub Light'] {
+  /* App background and text */
+  --app-bg: #ffffff;
+  --text-color: #1f2328;
+  --text-color-active: #000000;
+  --text-color-muted: #656d76;
+  --border-color: #d1d9e0;
+
+  /* Tab bar */
+  --tab-bar-bg: #f6f8fa;
+  --tab-bg: #f6f8fa;
+  --tab-hover-bg: #eaeef2;
+  --tab-active-bg: #ffffff;
+  --tab-close-hover-bg: #d1d9e0;
+  --tab-close-active-bg: #bcc3cb;
+
+  /* Toolbar */
+  --toolbar-bg: #f6f8fa;
+  --toolbar-border: #d1d9e0;
+  --button-bg: #f6f8fa;
+  --button-hover-bg: #eaeef2;
+  --button-active-bg: #d1d9e0;
+
+  /* Preview */
+  --preview-bg: #ffffff;
+  --preview-text: #1f2328;
+  --preview-heading: #1f2328;
+  --preview-text-muted: #656d76;
+  --preview-border: #d1d9e0;
+  --preview-link: #0969da;
+  --preview-code-bg: rgba(175, 184, 193, 0.2);
+  --preview-code-block-bg: #f6f8fa;
+  --preview-table-header-bg: #f6f8fa;
+  --preview-table-row-alt-bg: #f6f8fa;
+
+  /* Accent color */
+  --accent-color: #0969da;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #bcc3cb;
+  --scrollbar-thumb-hover: #9ea7b3;
+}

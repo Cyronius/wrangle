@@ -1,0 +1,42 @@
+:root[data-theme='Monokai Pro'] {
+  /* App background and text */
+  --app-bg: #2d2a2e;
+  --text-color: #d9d5cf;
+  --text-color-active: #fcfcfa;
+  --text-color-muted: #727072;
+  --border-color: #403e41;
+
+  /* Tab bar */
+  --tab-bar-bg: #221f22;
+  --tab-bg: #2d2a2e;
+  --tab-hover-bg: #403e41;
+  --tab-active-bg: #2d2a2e;
+  --tab-close-hover-bg: #403e41;
+  --tab-close-active-bg: #525053;
+
+  /* Toolbar */
+  --toolbar-bg: #221f22;
+  --toolbar-border: #403e41;
+  --button-bg: #403e41;
+  --button-hover-bg: #525053;
+  --button-active-bg: #636166;
+
+  /* Preview */
+  --preview-bg: #2d2a2e;
+  --preview-text: #d9d5cf;
+  --preview-heading: #fcfcfa;
+  --preview-text-muted: #727072;
+  --preview-border: #403e41;
+  --preview-link: #78dce8;
+  --preview-code-bg: rgba(64, 62, 65, 0.6);
+  --preview-code-block-bg: #221f22;
+  --preview-table-header-bg: #221f22;
+  --preview-table-row-alt-bg: #353136;
+
+  /* Accent color */
+  --accent-color: #ffd866;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #403e41;
+  --scrollbar-thumb-hover: #525053;
+}

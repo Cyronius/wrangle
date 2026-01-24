@@ -25,7 +25,8 @@ export function CommandPalette({ isOpen, onClose, onExecute }: CommandPalettePro
     return commands.filter(cmd =>
       cmd.label.toLowerCase().includes(lowerQuery) ||
       cmd.category.toLowerCase().includes(lowerQuery) ||
-      cmd.id.toLowerCase().includes(lowerQuery)
+      cmd.id.toLowerCase().includes(lowerQuery) ||
+      (cmd.bindingDisplay?.toLowerCase().includes(lowerQuery) ?? false)
     )
   }, [query])
 
@@ -65,7 +66,7 @@ export function CommandPalette({ isOpen, onClose, onExecute }: CommandPalettePro
         break
       case 'Enter':
         e.preventDefault()
-        if (filteredCommands[selectedIndex]) {
+        if (filteredCommands[selectedIndex] && !filteredCommands[selectedIndex].readOnly) {
           onExecute(filteredCommands[selectedIndex])
           onClose()
         }
@@ -95,14 +96,16 @@ export function CommandPalette({ isOpen, onClose, onExecute }: CommandPalettePro
             <div className="command-palette-empty">No matching commands</div>
           ) : (
             filteredCommands.map((cmd, index) => {
-              const shortcut = bindings[cmd.id] || cmd.defaultBinding
+              const shortcut = cmd.bindingDisplay || bindings[cmd.id] || cmd.defaultBinding
               return (
                 <div
                   key={cmd.id}
-                  className={`command-palette-item ${index === selectedIndex ? 'selected' : ''}`}
+                  className={`command-palette-item ${index === selectedIndex ? 'selected' : ''} ${cmd.readOnly ? 'readonly' : ''}`}
                   onClick={() => {
-                    onExecute(cmd)
-                    onClose()
+                    if (!cmd.readOnly) {
+                      onExecute(cmd)
+                      onClose()
+                    }
                   }}
                   onMouseEnter={() => setSelectedIndex(index)}
                 >
@@ -111,7 +114,7 @@ export function CommandPalette({ isOpen, onClose, onExecute }: CommandPalettePro
                   </span>
                   <span className="command-palette-item-label">{cmd.label}</span>
                   {shortcut && (
-                    <span className="command-palette-item-shortcut">{shortcut}</span>
+                    <span className={`command-palette-item-shortcut ${cmd.readOnly ? 'readonly' : ''}`}>{shortcut}</span>
                   )}
                 </div>
               )

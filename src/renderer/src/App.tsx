@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState, AppDispatch } from './store/store'
 import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, setWorkspaceSidebar, toggleMultiPane, setFocusedPane, addVisiblePane } from './store/layoutSlice'
@@ -9,7 +9,8 @@ import {
   closeTab,
   nextTab,
   previousTab,
-  selectAllTabs
+  selectAllTabs,
+  markSessionRestored
 } from './store/tabsSlice'
 import { selectActiveWorkspaceId, selectAllWorkspaces, addWorkspace, setActiveWorkspace } from './store/workspacesSlice'
 import { loadSettings, setCurrentTheme } from './store/settingsSlice'
@@ -31,6 +32,9 @@ import { useImageDrop } from './hooks/useImageDrop'
 import { useEditorPane } from './hooks/useEditorPane'
 import { useSessionPersistence } from './hooks/useSessionPersistence'
 import { useWindowDrag } from './hooks/useWindowDrag'
+
+// Module-level flag to prevent double session restore in React Strict Mode
+let sessionRestoreStarted = false
 
 function AppContent() {
   const dispatch = useDispatch<AppDispatch>()
@@ -74,10 +78,9 @@ function AppContent() {
   }, [dispatch])
 
   // Restore session on app startup
-  const sessionRestoredRef = useRef(false)
   useEffect(() => {
-    if (sessionRestoredRef.current) return
-    sessionRestoredRef.current = true
+    if (sessionRestoreStarted) return
+    sessionRestoreStarted = true
 
     const restoreSession = async () => {
       try {
@@ -238,12 +241,13 @@ function AppContent() {
       } catch (error) {
         console.error('Failed to restore session:', error)
       }
+      dispatch(markSessionRestored())
     }
 
     restoreSession()
   }, [dispatch])
 
-  // Auto-save session state
+  // Auto-save session state (guarded until session restore completes)
   useSessionPersistence()
 
 
@@ -438,9 +442,30 @@ function AppContent() {
     }
   }, [activeTab, content, dispatch, handleSaveAs])
 
-  // Global keyboard shortcuts
+  // Global keyboard shortcuts (capture phase to fire before Monaco)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+1: Editor only (must be before Monaco intercepts)
+      if ((e.ctrlKey || e.metaKey) && e.key === '1') {
+        e.preventDefault()
+        e.stopPropagation()
+        dispatch(setViewMode('editor-only'))
+        return
+      }
+      // Ctrl+2: Split view
+      if ((e.ctrlKey || e.metaKey) && e.key === '2') {
+        e.preventDefault()
+        e.stopPropagation()
+        dispatch(setViewMode('split'))
+        return
+      }
+      // Ctrl+3: Preview only
+      if ((e.ctrlKey || e.metaKey) && e.key === '3') {
+        e.preventDefault()
+        e.stopPropagation()
+        dispatch(setViewMode('preview-only'))
+        return
+      }
       // Ctrl+N: New file
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         e.preventDefault()
@@ -570,8 +595,8 @@ function AppContent() {
         setPreferencesOpen(true)
       }
     }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('keydown', handleKeyDown, { capture: true })
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
   }, [handleNewFile, handleCloseTab, handleOpen, handleSave, handleSaveAs, dispatch, activeWorkspaceId, multiPaneEnabled, focusedPaneId])
 
   // Menu command handler

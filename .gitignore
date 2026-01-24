@@ -7,3 +7,7 @@
 tmpclaude*cwd
 .wrangle/session.json
 .wrangle/workspace.json
+
+
+playwright-report
+test-results

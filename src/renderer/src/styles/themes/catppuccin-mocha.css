@@ -1,0 +1,42 @@
+:root[data-theme='Catppuccin Mocha'] {
+  /* App background and text */
+  --app-bg: #1e1e2e;
+  --text-color: #cdd6f4;
+  --text-color-active: #f5e0dc;
+  --text-color-muted: #6c7086;
+  --border-color: #313244;
+
+  /* Tab bar */
+  --tab-bar-bg: #181825;
+  --tab-bg: #1e1e2e;
+  --tab-hover-bg: #313244;
+  --tab-active-bg: #1e1e2e;
+  --tab-close-hover-bg: #313244;
+  --tab-close-active-bg: #45475a;
+
+  /* Toolbar */
+  --toolbar-bg: #181825;
+  --toolbar-border: #313244;
+  --button-bg: #313244;
+  --button-hover-bg: #45475a;
+  --button-active-bg: #585b70;
+
+  /* Preview */
+  --preview-bg: #1e1e2e;
+  --preview-text: #cdd6f4;
+  --preview-heading: #f5e0dc;
+  --preview-text-muted: #6c7086;
+  --preview-border: #313244;
+  --preview-link: #89b4fa;
+  --preview-code-bg: rgba(49, 50, 68, 0.6);
+  --preview-code-block-bg: #181825;
+  --preview-table-header-bg: #181825;
+  --preview-table-row-alt-bg: #232334;
+
+  /* Accent color */
+  --accent-color: #cba6f7;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #313244;
+  --scrollbar-thumb-hover: #45475a;
+}
