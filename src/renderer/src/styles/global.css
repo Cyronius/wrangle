@@ -60,6 +60,15 @@ code {
   --scrollbar-thumb-hover: #4e4e4e;
 }
 
+/* Alt+drag window movement overlay */
+.window-drag-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  -webkit-app-region: drag;
+  cursor: grab;
+}
+
 /* Print styles - only show preview content */
 @media print {
   .title-bar,

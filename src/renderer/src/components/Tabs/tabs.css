@@ -17,12 +17,13 @@
   margin: 4px 0;
   background-color: var(--tab-bg);
   border-right: 1px solid var(--border-color);
+  border-bottom: 2px solid transparent;
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
   min-width: 100px;
   max-width: 200px;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
   border-radius: 4px 4px 0 0;
 }
 
@@ -32,7 +33,7 @@
 
 .tab.active {
   background-color: var(--tab-active-bg);
-  border-bottom: 2px solid var(--accent-color);
+  border-bottom: 3px solid var(--accent-color);
 }
 
 .tab-label {

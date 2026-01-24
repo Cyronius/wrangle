@@ -26,6 +26,18 @@ export interface CommandContext {
   }
 }
 
+const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown', '.mdown', '.mkd', '.mdwn'])
+
+function isActiveFileMarkdown(ctx: CommandContext): boolean {
+  const state = ctx.getState() as { tabs: { tabs: { id: string; path?: string }[]; activeTabIdByWorkspace: Record<string, string> }; workspaces: { activeWorkspaceId: string } }
+  const workspaceId = state.workspaces.activeWorkspaceId
+  const activeTabId = state.tabs.activeTabIdByWorkspace[workspaceId]
+  const tab = state.tabs.tabs.find(t => t.id === activeTabId)
+  if (!tab?.path) return true // Unsaved files default to markdown
+  const ext = tab.path.toLowerCase().slice(tab.path.lastIndexOf('.'))
+  return MARKDOWN_EXTENSIONS.has(ext)
+}
+
 // Markdown command helper - applies formatting to selection
 function applyMarkdownFormat(
   editor: monaco.editor.IStandaloneCodeEditor | null,
@@ -269,6 +281,7 @@ export const commands: CommandDefinition[] = [
     category: 'view',
     defaultBinding: 'Ctrl+2',
     execute: (ctx) => {
+      if (!isActiveFileMarkdown(ctx)) return
       const { setViewMode } = require('../store/layoutSlice')
       ctx.dispatch(setViewMode('split'))
     }
@@ -279,6 +292,7 @@ export const commands: CommandDefinition[] = [
     category: 'view',
     defaultBinding: 'Ctrl+3',
     execute: (ctx) => {
+      if (!isActiveFileMarkdown(ctx)) return
       const { setViewMode } = require('../store/layoutSlice')
       ctx.dispatch(setViewMode('preview-only'))
     }
@@ -287,7 +301,7 @@ export const commands: CommandDefinition[] = [
     id: 'view.toggleSync',
     label: 'Toggle Preview Sync',
     category: 'view',
-    defaultBinding: null,
+    defaultBinding: 'Ctrl+Shift+Y',
     execute: (ctx) => {
       const { togglePreviewSync } = require('../store/layoutSlice')
       ctx.dispatch(togglePreviewSync())
@@ -336,7 +350,7 @@ export const commands: CommandDefinition[] = [
     id: 'view.workspaceSidebar',
     label: 'Toggle Workspace Sidebar',
     category: 'view',
-    defaultBinding: null,
+    defaultBinding: 'Ctrl+Shift+B',
     execute: (ctx) => {
       const { toggleWorkspaceSidebar } = require('../store/layoutSlice')
       ctx.dispatch(toggleWorkspaceSidebar())
@@ -434,77 +448,77 @@ export const commands: CommandDefinition[] = [
     id: 'markdown.heading1',
     label: 'Heading 1',
     category: 'markdown',
-    defaultBinding: null,
+    defaultBinding: 'Ctrl+Alt+1',
     execute: (ctx) => applyLinePrefix(ctx.editor, '# ')
   },
   {
     id: 'markdown.heading2',
     label: 'Heading 2',
     category: 'markdown',
-    defaultBinding: null,
+    defaultBinding: 'Ctrl+Alt+2',
     execute: (ctx) => applyLinePrefix(ctx.editor, '## ')
   },
   {
     id: 'markdown.heading3',
     label: 'Heading 3',
     category: 'markdown',
-    defaultBinding: null,
+    defaultBinding: 'Ctrl+Alt+3',
     execute: (ctx) => applyLinePrefix(ctx.editor, '### ')
   },
   {
     id: 'markdown.heading4',
     label: 'Heading 4',
     category: 'markdown',
-    defaultBinding: null,
+    defaultBinding: 'Ctrl+Alt+4',
     execute: (ctx) => applyLinePrefix(ctx.editor, '#### ')
   },
   {
     id: 'markdown.heading5',
     label: 'Heading 5',
     category: 'markdown',
-    defaultBinding: null,
+    defaultBinding: 'Ctrl+Alt+5',
     execute: (ctx) => applyLinePrefix(ctx.editor, '##### ')
   },
   {
     id: 'markdown.heading6',
     label: 'Heading 6',
     category: 'markdown',
-    defaultBinding: null,
+    defaultBinding: 'Ctrl+Alt+6',
     execute: (ctx) => applyLinePrefix(ctx.editor, '###### ')
   },
   {
     id: 'markdown.bulletList',
     label: 'Bullet List',
     category: 'markdown',
-    defaultBinding: null,
+    defaultBinding: 'Ctrl+Shift+8',
     execute: (ctx) => applyLinePrefix(ctx.editor, '- ')
   },
   {
     id: 'markdown.numberedList',
     label: 'Numbered List',
     category: 'markdown',
-    defaultBinding: null,
+    defaultBinding: 'Ctrl+Shift+7',
     execute: (ctx) => applyLinePrefix(ctx.editor, '1. ')
   },
   {
     id: 'markdown.taskList',
     label: 'Task List',
     category: 'markdown',
-    defaultBinding: null,
+    defaultBinding: 'Ctrl+Shift+9',
     execute: (ctx) => applyLinePrefix(ctx.editor, '- [ ] ')
   },
   {
     id: 'markdown.blockquote',
     label: 'Blockquote',
     category: 'markdown',
-    defaultBinding: null,
+    defaultBinding: 'Ctrl+Shift+.',
     execute: (ctx) => applyLinePrefix(ctx.editor, '> ')
   },
   {
     id: 'markdown.codeBlock',
     label: 'Code Block',
     category: 'markdown',
-    defaultBinding: null,
+    defaultBinding: 'Ctrl+Shift+`',
     execute: (ctx) => {
       if (!ctx.editor) return
       const selection = ctx.editor.getSelection()
@@ -567,6 +581,66 @@ export const commands: CommandDefinition[] = [
       const state = ctx.getState() as { settings: { theme: { current: string } } }
       const current = state.settings.theme.current
       ctx.dispatch(setCurrentTheme(current === 'dark' ? 'light' : 'dark'))
+    }
+  },
+
+  // Workspace navigation
+  {
+    id: 'nav.nextWorkspace',
+    label: 'Next Workspace',
+    category: 'navigation',
+    defaultBinding: 'Ctrl+Shift+PageDown',
+    execute: (ctx) => {
+      const state = ctx.getState() as {
+        workspaces: { workspaces: { id: string }[]; activeWorkspaceId: string }
+        layout: { multiPaneEnabled: boolean; visiblePanes: string[]; focusedPaneId: string | null }
+      }
+      const { setActiveWorkspace } = require('../store/workspacesSlice')
+      const { setFocusedPane } = require('../store/layoutSlice')
+      const { workspaces, activeWorkspaceId } = state.workspaces
+      const { multiPaneEnabled, visiblePanes, focusedPaneId } = state.layout
+
+      if (multiPaneEnabled) {
+        const currentIndex = visiblePanes.indexOf(focusedPaneId || '')
+        const nextIndex = (currentIndex + 1) % visiblePanes.length
+        if (visiblePanes[nextIndex]) {
+          ctx.dispatch(setFocusedPane(visiblePanes[nextIndex]))
+          ctx.dispatch(setActiveWorkspace(visiblePanes[nextIndex]))
+        }
+      } else if (workspaces.length > 1) {
+        const currentIndex = workspaces.findIndex((w: { id: string }) => w.id === activeWorkspaceId)
+        const nextIndex = (currentIndex + 1) % workspaces.length
+        ctx.dispatch(setActiveWorkspace(workspaces[nextIndex].id))
+      }
+    }
+  },
+  {
+    id: 'nav.prevWorkspace',
+    label: 'Previous Workspace',
+    category: 'navigation',
+    defaultBinding: 'Ctrl+Shift+PageUp',
+    execute: (ctx) => {
+      const state = ctx.getState() as {
+        workspaces: { workspaces: { id: string }[]; activeWorkspaceId: string }
+        layout: { multiPaneEnabled: boolean; visiblePanes: string[]; focusedPaneId: string | null }
+      }
+      const { setActiveWorkspace } = require('../store/workspacesSlice')
+      const { setFocusedPane } = require('../store/layoutSlice')
+      const { workspaces, activeWorkspaceId } = state.workspaces
+      const { multiPaneEnabled, visiblePanes, focusedPaneId } = state.layout
+
+      if (multiPaneEnabled) {
+        const currentIndex = visiblePanes.indexOf(focusedPaneId || '')
+        const prevIndex = currentIndex <= 0 ? visiblePanes.length - 1 : currentIndex - 1
+        if (visiblePanes[prevIndex]) {
+          ctx.dispatch(setFocusedPane(visiblePanes[prevIndex]))
+          ctx.dispatch(setActiveWorkspace(visiblePanes[prevIndex]))
+        }
+      } else if (workspaces.length > 1) {
+        const currentIndex = workspaces.findIndex((w: { id: string }) => w.id === activeWorkspaceId)
+        const prevIndex = currentIndex <= 0 ? workspaces.length - 1 : currentIndex - 1
+        ctx.dispatch(setActiveWorkspace(workspaces[prevIndex].id))
+      }
     }
   },
 

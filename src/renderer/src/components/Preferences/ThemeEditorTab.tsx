@@ -33,6 +33,7 @@ export function ThemeEditorTab() {
   const [showNewThemeModal, setShowNewThemeModal] = useState(false)
   const [newThemeName, setNewThemeName] = useState('')
   const [baseTheme, setBaseTheme] = useState<'light' | 'dark'>('dark')
+  const [copySourceCSS, setCopySourceCSS] = useState<string | null>(null)
 
   // Check if current theme is built-in
   const isBuiltIn = !!builtInThemes[currentTheme]
@@ -117,8 +118,8 @@ export function ThemeEditorTab() {
       return
     }
 
-    // Generate theme CSS
-    const css = generateThemeTemplate(name, baseTheme)
+    // Use copied CSS if available, otherwise generate template
+    const css = copySourceCSS || generateThemeTemplate(name, baseTheme)
 
     dispatch(addCustomTheme({ name, css }))
     dispatch(setCurrentTheme(name))
@@ -136,6 +137,7 @@ export function ThemeEditorTab() {
 
     setShowNewThemeModal(false)
     setNewThemeName('')
+    setCopySourceCSS(null)
   }
 
   // Copy current theme
@@ -143,6 +145,7 @@ export function ThemeEditorTab() {
     const baseName = currentTheme.replace(/-copy$/, '')
     setNewThemeName(`${baseName}-copy`)
     setBaseTheme(currentTheme === 'light' ? 'light' : 'dark')
+    setCopySourceCSS(currentCSS)
     setShowNewThemeModal(true)
   }
 

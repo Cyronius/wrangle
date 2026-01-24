@@ -4,7 +4,7 @@ import { markdownCommands, MarkdownCommand } from '../../utils/markdown-commands
 import { RootState } from '../../store/store'
 import { setViewMode, ViewMode, toggleOutline } from '../../store/layoutSlice'
 import * as monaco from 'monaco-editor'
-import { PenLine, Columns2, Eye, List } from 'lucide-react'
+import { SquarePen, PanelsLeftRight, BookOpenText, ListTree } from 'lucide-react'
 import './toolbar.css'
 
 interface MarkdownToolbarProps {
@@ -58,9 +58,9 @@ interface ViewModeButton {
 }
 
 const viewModeButtons: ViewModeButton[] = [
-  { mode: 'editor-only', label: 'Editor', title: 'Editor Only (Ctrl+1)', icon: <PenLine size={iconSize} /> },
-  { mode: 'split', label: 'Split', title: 'Split View (Ctrl+2)', icon: <Columns2 size={iconSize} /> },
-  { mode: 'preview-only', label: 'Preview', title: 'Preview Only (Ctrl+3)', icon: <Eye size={iconSize} /> }
+  { mode: 'editor-only', label: 'Editor', title: 'Editor Only (Ctrl+1)', icon: <SquarePen size={iconSize} /> },
+  { mode: 'split', label: 'Split', title: 'Split View (Ctrl+2)', icon: <PanelsLeftRight size={iconSize} /> },
+  { mode: 'preview-only', label: 'Preview', title: 'Preview Only (Ctrl+3)', icon: <BookOpenText size={iconSize} /> }
 ]
 
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown', '.mdown', '.mkd', '.mdwn'])
@@ -278,7 +278,7 @@ export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
             onClick={() => dispatch(toggleOutline())}
             title="Toggle Outline (Ctrl+Shift+O)"
           >
-            <List size={iconSize} />
+            <ListTree size={iconSize} />
           </button>
         </>
       )}

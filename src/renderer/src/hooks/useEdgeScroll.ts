@@ -5,7 +5,7 @@ const MAX_SPEED = 8 // max pixels per frame
 
 /**
  * Auto-scrolls a container when the mouse is near its top or bottom edge.
- * Also works during drag operations via dragover events.
+ * Works for both regular mouse hover and drag operations.
  */
 export function useEdgeScroll(containerRef: RefObject<HTMLElement | null>) {
   const animationRef = useRef<number | null>(null)
@@ -30,26 +30,13 @@ export function useEdgeScroll(containerRef: RefObject<HTMLElement | null>) {
       return 0
     }
 
-    function animate() {
-      if (scrollSpeedRef.current !== 0 && container) {
-        container.scrollTop += scrollSpeedRef.current
+    function startAnimation() {
+      if (!animationRef.current) {
+        animationRef.current = requestAnimationFrame(animate)
       }
-      animationRef.current = requestAnimationFrame(animate)
     }
 
-    function handleMouseLeave() {
-      scrollSpeedRef.current = 0
-    }
-
-    function handleDragOver(e: DragEvent) {
-      scrollSpeedRef.current = getScrollSpeed(e.clientY)
-    }
-
-    function handleDragStart() {
-      animationRef.current = requestAnimationFrame(animate)
-    }
-
-    function handleDragEnd() {
+    function stopAnimation() {
       scrollSpeedRef.current = 0
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current)
@@ -57,12 +44,46 @@ export function useEdgeScroll(containerRef: RefObject<HTMLElement | null>) {
       }
     }
 
+    function animate() {
+      if (scrollSpeedRef.current !== 0 && container) {
+        container.scrollTop += scrollSpeedRef.current
+      }
+      animationRef.current = requestAnimationFrame(animate)
+    }
+
+    // Mouse hover handlers
+    function handleMouseMove(e: MouseEvent) {
+      scrollSpeedRef.current = getScrollSpeed(e.clientY)
+      startAnimation()
+    }
+
+    function handleMouseLeave() {
+      stopAnimation()
+    }
+
+    // Drag handlers
+    function handleDragOver(e: DragEvent) {
+      scrollSpeedRef.current = getScrollSpeed(e.clientY)
+    }
+
+    function handleDragStart() {
+      startAnimation()
+    }
+
+    function handleDragEnd() {
+      stopAnimation()
+    }
+
+    container.addEventListener('mousemove', handleMouseMove)
+    container.addEventListener('mouseleave', handleMouseLeave)
     container.addEventListener('dragover', handleDragOver)
     container.addEventListener('dragleave', handleMouseLeave)
     container.addEventListener('dragenter', handleDragStart)
     container.addEventListener('drop', handleDragEnd)
 
     return () => {
+      container.removeEventListener('mousemove', handleMouseMove)
+      container.removeEventListener('mouseleave', handleMouseLeave)
       container.removeEventListener('dragover', handleDragOver)
       container.removeEventListener('dragleave', handleMouseLeave)
       container.removeEventListener('dragenter', handleDragStart)

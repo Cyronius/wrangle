@@ -30,6 +30,7 @@ import { CommandDefinition } from './commands/registry'
 import { useImageDrop } from './hooks/useImageDrop'
 import { useEditorPane } from './hooks/useEditorPane'
 import { useSessionPersistence } from './hooks/useSessionPersistence'
+import { useWindowDrag } from './hooks/useWindowDrag'
 
 function AppContent() {
   const dispatch = useDispatch<AppDispatch>()
@@ -63,6 +64,9 @@ function AppContent() {
 
   // Command palette state
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+
+  // Alt+drag window movement
+  const showDragOverlay = useWindowDrag()
 
   // Load settings on mount
   useEffect(() => {
@@ -724,6 +728,7 @@ function AppContent() {
 
   return (
     <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {showDragOverlay && <div className="window-drag-overlay" />}
       <TitleBar
         onFileNew={handleNewFile}
         onFileOpen={handleOpen}

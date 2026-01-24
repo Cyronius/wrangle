@@ -70,7 +70,9 @@ export function useKeyboardShortcuts({ editorRef, handlers }: UseKeyboardShortcu
         'app.preferences',
         'view.devTools',
         'nav.nextTab',
-        'nav.prevTab'
+        'nav.prevTab',
+        'nav.nextWorkspace',
+        'nav.prevWorkspace'
       ]
       if (globalCommands.includes(command.id)) continue
 
@@ -130,11 +132,15 @@ export function useKeyboardShortcuts({ editorRef, handlers }: UseKeyboardShortcu
         'view.editorOnly',
         'view.split',
         'view.previewOnly',
+        'view.toggleSync',
+        'view.workspaceSidebar',
         'view.zoomIn',
         'view.zoomOut',
         'view.resetZoom',
         'nav.nextTab',
-        'nav.prevTab'
+        'nav.prevTab',
+        'nav.nextWorkspace',
+        'nav.prevWorkspace'
       ]
 
       for (const commandId of globalCommands) {
