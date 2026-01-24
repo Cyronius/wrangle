@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState, AppDispatch } from '../../store/store'
 import {
@@ -84,7 +84,62 @@ export function WorkspaceBar() {
   const multiPaneEnabled = useSelector((state: RootState) => state.layout.multiPaneEnabled)
   const visiblePanes = useSelector((state: RootState) => state.layout.visiblePanes)
   const containerRef = useRef<HTMLDivElement>(null)
-  useEdgeScroll(containerRef)
+  const itemsRef = useRef<HTMLDivElement>(null)
+  const [canScrollUp, setCanScrollUp] = useState(false)
+  const [canScrollDown, setCanScrollDown] = useState(false)
+  useEdgeScroll(itemsRef)
+
+  const checkScroll = useCallback(() => {
+    const el = itemsRef.current
+    if (!el) return
+    setCanScrollUp(el.scrollTop > 0)
+    setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 1)
+  }, [])
+
+  useEffect(() => {
+    checkScroll()
+  }, [workspaces.length, checkScroll])
+
+  useEffect(() => {
+    const el = itemsRef.current
+    if (!el) return
+    el.addEventListener('scroll', checkScroll)
+    // Also check on resize
+    const observer = new ResizeObserver(checkScroll)
+    observer.observe(el)
+    return () => {
+      el.removeEventListener('scroll', checkScroll)
+      observer.disconnect()
+    }
+  }, [checkScroll])
+
+  const scrollAnimRef = useRef<number | null>(null)
+
+  const stopScroll = useCallback(() => {
+    if (scrollAnimRef.current) {
+      cancelAnimationFrame(scrollAnimRef.current)
+      scrollAnimRef.current = null
+    }
+  }, [])
+
+  const startScroll = useCallback((direction: number) => {
+    stopScroll()
+    const animate = () => {
+      const el = itemsRef.current
+      if (el) {
+        el.scrollTop += direction * 6
+      }
+      scrollAnimRef.current = requestAnimationFrame(animate)
+    }
+    scrollAnimRef.current = requestAnimationFrame(animate)
+  }, [stopScroll])
+
+  // Clean up animation on unmount or when buttons disappear
+  useEffect(() => {
+    if (!canScrollUp && !canScrollDown) {
+      stopScroll()
+    }
+  }, [canScrollUp, canScrollDown, stopScroll])
 
   const handleWorkspaceClick = (workspace: WorkspaceState) => {
     if (multiPaneEnabled) {
@@ -184,25 +239,51 @@ export function WorkspaceBar() {
           <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
       </div>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={workspaces.map(w => w.id)}
-          strategy={verticalListSortingStrategy}
+      {canScrollUp && (
+        <button
+          className="workspace-bar-scroll-btn"
+          onMouseEnter={() => startScroll(-1)}
+          onMouseLeave={stopScroll}
+          aria-label="Scroll up"
         >
-          {workspaces.map((workspace) => (
-            <SortableWorkspaceBarItem
-              key={workspace.id}
-              workspace={workspace}
-              isActive={workspace.id === activeWorkspaceId}
-              onClick={() => handleWorkspaceClick(workspace)}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="18 15 12 9 6 15" />
+          </svg>
+        </button>
+      )}
+      <div className="workspace-bar-items" ref={itemsRef}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={workspaces.map(w => w.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {workspaces.map((workspace) => (
+              <SortableWorkspaceBarItem
+                key={workspace.id}
+                workspace={workspace}
+                isActive={workspace.id === activeWorkspaceId}
+                onClick={() => handleWorkspaceClick(workspace)}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
+      </div>
+      {canScrollDown && (
+        <button
+          className="workspace-bar-scroll-btn"
+          onMouseEnter={() => startScroll(1)}
+          onMouseLeave={stopScroll}
+          aria-label="Scroll down"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }

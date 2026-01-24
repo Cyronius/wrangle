@@ -37,10 +37,6 @@ export function useEdgeScroll(containerRef: RefObject<HTMLElement | null>) {
       animationRef.current = requestAnimationFrame(animate)
     }
 
-    function handleMouseMove(e: MouseEvent) {
-      scrollSpeedRef.current = getScrollSpeed(e.clientY)
-    }
-
     function handleMouseLeave() {
       scrollSpeedRef.current = 0
     }
@@ -49,18 +45,28 @@ export function useEdgeScroll(containerRef: RefObject<HTMLElement | null>) {
       scrollSpeedRef.current = getScrollSpeed(e.clientY)
     }
 
-    container.addEventListener('mousemove', handleMouseMove)
-    container.addEventListener('mouseleave', handleMouseLeave)
+    function handleDragStart() {
+      animationRef.current = requestAnimationFrame(animate)
+    }
+
+    function handleDragEnd() {
+      scrollSpeedRef.current = 0
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+        animationRef.current = null
+      }
+    }
+
     container.addEventListener('dragover', handleDragOver)
     container.addEventListener('dragleave', handleMouseLeave)
-
-    animationRef.current = requestAnimationFrame(animate)
+    container.addEventListener('dragenter', handleDragStart)
+    container.addEventListener('drop', handleDragEnd)
 
     return () => {
-      container.removeEventListener('mousemove', handleMouseMove)
-      container.removeEventListener('mouseleave', handleMouseLeave)
       container.removeEventListener('dragover', handleDragOver)
       container.removeEventListener('dragleave', handleMouseLeave)
+      container.removeEventListener('dragenter', handleDragStart)
+      container.removeEventListener('drop', handleDragEnd)
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current)
       }

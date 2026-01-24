@@ -8,9 +8,47 @@
   background-color: var(--toolbar-bg);
   border-right: 1px solid var(--border-color);
   flex-shrink: 0;
-  overflow-y: auto;
+  overflow: hidden;
+  position: relative;
+}
+
+.workspace-bar-items {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   gap: 4px;
   padding: 4px 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.workspace-bar-items::-webkit-scrollbar {
+  display: none;
+}
+
+.workspace-bar-scroll-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 20px;
+  background-color: var(--toolbar-bg);
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  z-index: 2;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.workspace-bar-scroll-btn:hover {
+  color: var(--text-color);
+  background-color: var(--button-hover-bg);
+}
+
+.workspace-bar-scroll-btn svg {
+  width: 12px;
+  height: 12px;
 }
 
 .workspace-bar-item {
@@ -23,6 +61,7 @@
   justify-content: center;
   transition: filter 0.15s ease;
   border-radius: 0 4px 4px 0;
+  flex-shrink: 0;
 }
 
 .workspace-bar-item:hover {
