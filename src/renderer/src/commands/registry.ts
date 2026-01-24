@@ -590,7 +590,7 @@ export const commands: CommandDefinition[] = [
     defaultBinding: null,
     execute: (ctx) => {
       const { setCurrentTheme } = require('../store/settingsSlice')
-      ctx.dispatch(setCurrentTheme('dark'))
+      ctx.dispatch(setCurrentTheme('Dark'))
     }
   },
   {
@@ -602,7 +602,7 @@ export const commands: CommandDefinition[] = [
       const { setCurrentTheme } = require('../store/settingsSlice')
       const state = ctx.getState() as { settings: { theme: { current: string } } }
       const current = state.settings.theme.current
-      ctx.dispatch(setCurrentTheme(current === 'dark' ? 'light' : 'dark'))
+      ctx.dispatch(setCurrentTheme(current === 'Dark' ? 'Lightish' : 'Dark'))
     }
   },
 

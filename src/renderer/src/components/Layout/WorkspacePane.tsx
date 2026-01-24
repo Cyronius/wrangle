@@ -6,6 +6,7 @@ import { selectWorkspaceById } from '../../store/workspacesSlice'
 import { useEditorPane } from '../../hooks/useEditorPane'
 import { useImageDrop } from '../../hooks/useImageDrop'
 import { updateTab } from '../../store/tabsSlice'
+import { getMonacoThemeName } from '../../utils/monaco-theme-generator'
 import { EditorLayout } from './EditorLayout'
 import { PaneTabBar } from './PaneTabBar'
 import type { WorkspaceId } from '../../../../shared/workspace-types'
@@ -57,7 +58,7 @@ export function WorkspacePane({ workspaceId, isFocused, onFocus }: WorkspacePane
   // Use per-pane settings if set, otherwise fall back to global
   const viewMode: ViewMode = paneViewMode || globalViewMode
   const splitRatio = paneSplitRatio ?? globalSplitRatio
-  const monacoTheme = theme === 'light' ? 'vs' : 'vs-dark'
+  const monacoTheme = getMonacoThemeName(theme)
 
   if (!workspace) return null
 

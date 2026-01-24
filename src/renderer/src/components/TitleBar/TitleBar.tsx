@@ -114,11 +114,11 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
         label: 'Theme',
         submenu: [
           { label: 'Light', action: () => {
-            dispatch(setCurrentTheme('light'))
+            dispatch(setCurrentTheme('Lightish'))
             dispatch(saveThemeSettings())
           }},
           { label: 'Dark', action: () => {
-            dispatch(setCurrentTheme('dark'))
+            dispatch(setCurrentTheme('Dark'))
             dispatch(saveThemeSettings())
           }}
         ]

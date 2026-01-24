@@ -9,7 +9,7 @@ import { commandMap } from '../../commands/registry'
 interface MonacoEditorProps {
   value: string
   onChange: (value: string | undefined) => void
-  theme?: 'vs-dark' | 'vs'
+  theme?: string
   fontSize?: number
   onCursorChange?: (offset: number) => void
   onCursorPositionChange?: (position: { lineNumber: number; column: number }) => void

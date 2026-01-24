@@ -32,6 +32,7 @@ import { useImageDrop } from './hooks/useImageDrop'
 import { useEditorPane } from './hooks/useEditorPane'
 import { useSessionPersistence } from './hooks/useSessionPersistence'
 import { useWindowDrag } from './hooks/useWindowDrag'
+import { getMonacoThemeName } from './utils/monaco-theme-generator'
 
 // Module-level flag to prevent double session restore in React Strict Mode
 let sessionRestoreStarted = false
@@ -628,7 +629,7 @@ function AppContent() {
           dispatch(setCurrentTheme('light'))
           break
         case 'theme:dark':
-          dispatch(setCurrentTheme('dark'))
+          dispatch(setCurrentTheme('Dark'))
           break
         case 'workspace:openFolder':
           handleAddWorkspace()
@@ -749,7 +750,7 @@ function AppContent() {
   }, [])
 
   // Monaco theme based on app theme
-  const monacoTheme = theme === 'light' ? 'vs' : 'vs-dark'
+  const monacoTheme = getMonacoThemeName(theme)
 
   return (
     <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>

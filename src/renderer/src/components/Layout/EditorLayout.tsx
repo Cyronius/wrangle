@@ -14,7 +14,7 @@ interface EditorLayoutProps {
   content: string
   onChange: (value: string | undefined) => void
   baseDir?: string | null
-  theme?: 'vs-dark' | 'vs'
+  theme?: string
   editorRef?: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>
   onCursorPositionChange?: (position: { lineNumber: number; column: number }) => void
   onScrollTopChange?: (scrollTop: number) => void

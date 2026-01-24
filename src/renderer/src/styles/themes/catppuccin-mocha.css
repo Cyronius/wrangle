@@ -36,6 +36,21 @@
   /* Accent color */
   --accent-color: #cba6f7;
 
+  /* Monaco editor */
+  --monaco-editor-bg: #1e1e2e;
+  --monaco-editor-fg: #cdd6f4;
+  --monaco-line-number: #6c7086;
+  --monaco-line-number-active: #cdd6f4;
+  --monaco-selection-bg: #45475a;
+  --monaco-cursor: #f5e0dc;
+  --monaco-token-comment: #6c7086;
+  --monaco-token-string: #a6e3a1;
+  --monaco-token-keyword: #cba6f7;
+  --monaco-token-number: #fab387;
+  --monaco-token-operator: #89dceb;
+  --monaco-token-function: #89b4fa;
+  --monaco-token-variable: #f5c2e7;
+
   /* Scrollbar */
   --scrollbar-thumb: #313244;
   --scrollbar-thumb-hover: #45475a;

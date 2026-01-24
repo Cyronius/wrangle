@@ -31,8 +31,18 @@ for (const [, css] of Object.entries(themeModules)) {
   }
 }
 
+// Sort themes: preferred order first, then alphabetical
+const preferredOrder = ['Dark', 'Lightish', 'Balanced Grey']
+const sortedRegistry: Record<string, string> = {}
+for (const name of preferredOrder) {
+  if (registry[name]) sortedRegistry[name] = registry[name]
+}
+for (const name of Object.keys(registry).sort()) {
+  if (!preferredOrder.includes(name)) sortedRegistry[name] = registry[name]
+}
+
 /** All built-in theme names */
-export const builtInThemeNames: Set<string> = new Set(Object.keys(registry))
+export const builtInThemeNames: Set<string> = new Set(Object.keys(sortedRegistry))
 
 /** Map of theme name -> raw CSS string for all built-in themes */
-export const builtInThemes: Record<string, string> = registry
+export const builtInThemes: Record<string, string> = sortedRegistry

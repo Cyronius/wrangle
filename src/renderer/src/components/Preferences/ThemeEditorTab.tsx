@@ -7,13 +7,22 @@ import {
   addCustomTheme,
   updateCustomTheme,
   deleteCustomTheme,
+  renameCustomTheme,
   saveThemeSettings
 } from '../../store/settingsSlice'
 import { validateThemeCSS, generateThemeTemplate } from '../../utils/css-validator'
-import { registerCustomMonacoTheme } from '../../utils/monaco-theme-generator'
+import { registerCustomMonacoTheme, getMonacoThemeName } from '../../utils/monaco-theme-generator'
 import { useDebounce } from '../../hooks/useKeyboardShortcuts'
 
 import { builtInThemes } from '../../styles/themes'
+
+function getNextCopyName(baseName: string, existingNames: string[]): string {
+  const candidate = `${baseName}-copy`
+  if (!existingNames.includes(candidate)) return candidate
+  let n = 2
+  while (existingNames.includes(`${baseName}-copy ${n}`)) n++
+  return `${baseName}-copy ${n}`
+}
 
 export function ThemeEditorTab() {
   const dispatch = useDispatch<AppDispatch>()
@@ -23,10 +32,36 @@ export function ThemeEditorTab() {
 
   const [editedCSS, setEditedCSS] = useState('')
   const [validationErrors, setValidationErrors] = useState<string[]>([])
-  const [showNewThemeModal, setShowNewThemeModal] = useState(false)
-  const [newThemeName, setNewThemeName] = useState('')
-  const [baseTheme, setBaseTheme] = useState<'light' | 'dark'>('dark')
-  const [copySourceCSS, setCopySourceCSS] = useState<string | null>(null)
+
+  // Inline name editing state
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [editingName, setEditingName] = useState('')
+  const editInputRef = useRef<HTMLInputElement>(null)
+
+  // Intercept Escape key when inline editing name
+  useEffect(() => {
+    if (!isEditingName) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopImmediatePropagation()
+        e.preventDefault()
+        setIsEditingName(false)
+        setEditingName('')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown, true)
+    return () => window.removeEventListener('keydown', handleKeyDown, true)
+  }, [isEditingName])
+
+  // Focus input when entering edit mode
+  useEffect(() => {
+    if (isEditingName && editInputRef.current) {
+      editInputRef.current.focus()
+      editInputRef.current.select()
+    }
+  }, [isEditingName])
 
   // Ref to avoid stale closure in debounced save
   const currentThemeRef = useRef(currentTheme)
@@ -93,59 +128,67 @@ export function ThemeEditorTab() {
     dispatch(saveThemeSettings())
   }
 
-  // Create new theme
-  const handleCreateTheme = () => {
-    const name = newThemeName.trim()
-    if (!name) return
+  // Copy current theme immediately (no modal)
+  const handleCopyTheme = () => {
+    const baseName = currentTheme.replace(/-copy( \d+)?$/, '')
+    const copyName = getNextCopyName(baseName, allThemeNames)
 
-    // Check if name already exists
-    if (allThemeNames.includes(name)) {
-      alert('A theme with this name already exists')
+    // Use editedCSS (what's visible in the editor) as primary source
+    const sourceCSS = editedCSS || currentCSS
+
+    // Replace data-theme selector with new name
+    let css: string
+    if (sourceCSS && sourceCSS.includes('--app-bg')) {
+      css = sourceCSS.replace(
+        /:root\[data-theme=['"][^'"]+['"]\]/g,
+        `:root[data-theme='${copyName}']`
+      )
+    } else {
+      css = generateThemeTemplate(copyName, 'dark')
+    }
+
+    dispatch(addCustomTheme({ name: copyName, css }))
+    dispatch(setCurrentTheme(copyName))
+    applyCustomThemeCSS(copyName, css)
+    registerCustomMonacoTheme(copyName, css)
+    dispatch(saveThemeSettings())
+  }
+
+  // Save inline name edit
+  const handleSaveName = () => {
+    const newName = editingName.trim()
+    if (!newName || newName === currentTheme) {
+      setIsEditingName(false)
+      setEditingName('')
       return
     }
 
-    // Use copied CSS if available and valid, otherwise generate template
-    let css: string
-    if (copySourceCSS && copySourceCSS.includes('--app-bg')) {
-      // Replace the data-theme selector with the new theme name
-      css = copySourceCSS.replace(
-        /:root\[data-theme=['"][^'"]+['"]\]/g,
-        `:root[data-theme='${name}']`
-      )
-    } else {
-      css = generateThemeTemplate(name, baseTheme)
+    // Check for conflicts
+    if (allThemeNames.includes(newName)) {
+      return
     }
 
-    dispatch(addCustomTheme({ name, css }))
-    dispatch(setCurrentTheme(name))
+    // Update CSS and re-register
+    const css = customThemes[currentTheme]
+    if (css) {
+      const updatedCSS = css.replace(
+        /:root\[data-theme=['"][^'"]+['"]\]/g,
+        `:root[data-theme='${newName}']`
+      )
+      registerCustomMonacoTheme(newName, updatedCSS)
+      applyCustomThemeCSS(newName, updatedCSS)
+    }
 
-    // Directly apply the theme CSS to avoid race with ThemeProvider
-    applyCustomThemeCSS(name, css)
-
-    // Register Monaco theme
-    registerCustomMonacoTheme(name, css)
-
-    // Save to persistent storage (reads current state internally)
+    dispatch(renameCustomTheme({ oldName: currentTheme, newName }))
     dispatch(saveThemeSettings())
-
-    setShowNewThemeModal(false)
-    setNewThemeName('')
-    setCopySourceCSS(null)
+    setIsEditingName(false)
+    setEditingName('')
   }
 
-  // Copy current theme
-  const handleCopyTheme = () => {
-    const baseName = currentTheme.replace(/-copy\d*$/, '')
-    setNewThemeName(`${baseName}-copy`)
-    // Use editedCSS (what's visible in the editor) as primary source,
-    // falling back to currentCSS from Redux/built-in registry
-    const sourceCSS = editedCSS || currentCSS
-    setCopySourceCSS(sourceCSS)
-    // Detect if source is light-based by checking background color value
-    const isLightBased = sourceCSS.includes('#faf8f5') || sourceCSS.includes('#ffffff') ||
-      currentTheme === 'light' || currentTheme.toLowerCase().includes('light')
-    setBaseTheme(isLightBased ? 'light' : 'dark')
-    setShowNewThemeModal(true)
+  // Cancel inline name edit
+  const handleCancelEdit = () => {
+    setIsEditingName(false)
+    setEditingName('')
   }
 
   // Delete custom theme
@@ -181,36 +224,85 @@ export function ThemeEditorTab() {
       {/* Controls */}
       <div className="theme-controls">
         <div className="theme-select">
-          <select value={currentTheme} onChange={handleThemeChange}>
-            {allThemeNames.map((name) => (
-              <option key={name} value={name}>
-                {name}
-                {builtInThemes[name] ? ' (built-in)' : ''}
-              </option>
-            ))}
-          </select>
+          {isEditingName ? (
+            <div className="theme-name-edit-container">
+              <input
+                ref={editInputRef}
+                type="text"
+                className="theme-name-edit-input"
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveName()
+                }}
+              />
+              <button
+                className="theme-name-edit-btn cancel"
+                onClick={handleCancelEdit}
+                title="Cancel (Esc)"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+              <button
+                className="theme-name-edit-btn save"
+                onClick={handleSaveName}
+                title="Save (Enter)"
+                disabled={!editingName.trim() || editingName.trim() === currentTheme || allThemeNames.includes(editingName.trim())}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <div className="theme-select-with-edit">
+              <select value={currentTheme} onChange={handleThemeChange}>
+                <optgroup label="Built-in">
+                  {Object.keys(builtInThemes).map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </optgroup>
+                {Object.keys(customThemes).length > 0 && (
+                  <optgroup label="User Themes">
+                    {Object.keys(customThemes).map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              {!isBuiltIn && (
+                <button
+                  className="theme-name-edit-btn pencil"
+                  onClick={() => {
+                    setEditingName(currentTheme)
+                    setIsEditingName(true)
+                  }}
+                  title="Rename theme"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </button>
+              )}
+              <button
+                className="theme-name-edit-btn copy"
+                onClick={handleCopyTheme}
+                title="Copy theme"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="theme-actions">
-          <button
-            className="shortcuts-btn"
-            onClick={() => {
-              setNewThemeName('')
-              setBaseTheme('dark')
-              setCopySourceCSS(null)
-              setShowNewThemeModal(true)
-            }}
-            title="Create a new theme from template"
-          >
-            New Theme
-          </button>
-          <button
-            className="shortcuts-btn"
-            onClick={handleCopyTheme}
-            title="Create a copy of current theme"
-          >
-            Copy Theme
-          </button>
           {!isBuiltIn && (
             <>
               <button
@@ -235,8 +327,7 @@ export function ThemeEditorTab() {
       {/* Read-only notice for built-in themes */}
       {isBuiltIn && (
         <div className="theme-readonly-notice">
-          Built-in themes are read-only. Click "New Theme" or "Copy Theme" to create a
-          customizable theme.
+          Built-in themes are read-only. Copy a theme to create a customizable version.
         </div>
       )}
 
@@ -245,7 +336,7 @@ export function ThemeEditorTab() {
         <Editor
           height="100%"
           defaultLanguage="css"
-          theme="vs-dark"
+          theme={getMonacoThemeName(currentTheme)}
           value={editedCSS}
           onChange={handleCSSChange}
           options={{
@@ -272,60 +363,6 @@ export function ThemeEditorTab() {
         </div>
       )}
 
-      {/* New theme modal */}
-      {showNewThemeModal && (
-        <div
-          className="name-modal-overlay"
-          onClick={(e) => e.target === e.currentTarget && setShowNewThemeModal(false)}
-        >
-          <div className="name-modal">
-            <h3>New Theme</h3>
-            <input
-              type="text"
-              placeholder="Theme name"
-              value={newThemeName}
-              onChange={(e) => setNewThemeName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleCreateTheme()}
-              autoFocus
-            />
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', marginBottom: 8, color: 'var(--text-color)' }}>
-                Based on:
-              </label>
-              <select
-                value={baseTheme}
-                onChange={(e) => setBaseTheme(e.target.value as 'light' | 'dark')}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  background: 'var(--button-bg)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: 4,
-                  color: 'var(--text-color)'
-                }}
-              >
-                <option value="dark">Dark</option>
-                <option value="light">Light</option>
-              </select>
-            </div>
-            <div className="name-modal-actions">
-              <button
-                className="shortcuts-btn"
-                onClick={() => setShowNewThemeModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="shortcuts-btn primary"
-                onClick={handleCreateTheme}
-                disabled={!newThemeName.trim()}
-              >
-                Create
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

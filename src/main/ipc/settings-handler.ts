@@ -20,7 +20,7 @@ interface SettingsSchema {
 // Default settings values
 const defaults: SettingsSchema = {
   theme: {
-    current: 'dark',
+    current: 'Dark',
     customThemes: {}
   },
   shortcuts: {
