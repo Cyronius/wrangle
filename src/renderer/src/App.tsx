@@ -33,6 +33,7 @@ import { useEditorPane } from './hooks/useEditorPane'
 import { useSessionPersistence } from './hooks/useSessionPersistence'
 import { useWindowDrag } from './hooks/useWindowDrag'
 import { getMonacoThemeName } from './utils/monaco-theme-generator'
+import * as monaco from 'monaco-editor'
 
 // Module-level flag to prevent double session restore in React Strict Mode
 let sessionRestoreStarted = false
@@ -69,6 +70,9 @@ function AppContent() {
 
   // Command palette state
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+
+  // Preview selection for WYSIWYG editing
+  const [previewSelection, setPreviewSelection] = useState<{ start: number; end: number } | null>(null)
 
   // Alt+drag window movement
   const showDragOverlay = useWindowDrag()
@@ -595,10 +599,52 @@ function AppContent() {
         e.preventDefault()
         setPreferencesOpen(true)
       }
+
+      // Markdown formatting shortcuts from contentEditable preview (WYSIWYG)
+      const target = e.target as HTMLElement
+      if (target.isContentEditable && previewSelection) {
+        const editor = editorRef.current
+        if (editor) {
+          const model = editor.getModel()
+          if (model) {
+            // Apply preview selection to editor
+            const startPos = model.getPositionAt(previewSelection.start)
+            const endPos = model.getPositionAt(previewSelection.end)
+
+            // Ctrl+B: Bold
+            if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+              e.preventDefault()
+              editor.setSelection(new monaco.Selection(
+                startPos.lineNumber, startPos.column,
+                endPos.lineNumber, endPos.column
+              ))
+              editor.trigger('keyboard', 'markdown.bold', null)
+            }
+            // Ctrl+I: Italic
+            if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+              e.preventDefault()
+              editor.setSelection(new monaco.Selection(
+                startPos.lineNumber, startPos.column,
+                endPos.lineNumber, endPos.column
+              ))
+              editor.trigger('keyboard', 'markdown.italic', null)
+            }
+            // Ctrl+K: Link
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+              e.preventDefault()
+              editor.setSelection(new monaco.Selection(
+                startPos.lineNumber, startPos.column,
+                endPos.lineNumber, endPos.column
+              ))
+              editor.trigger('keyboard', 'markdown.link', null)
+            }
+          }
+        }
+      }
     }
     window.addEventListener('keydown', handleKeyDown, { capture: true })
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
-  }, [handleNewFile, handleCloseTab, handleOpen, handleSave, handleSaveAs, dispatch, activeWorkspaceId, multiPaneEnabled, focusedPaneId])
+  }, [handleNewFile, handleCloseTab, handleOpen, handleSave, handleSaveAs, dispatch, activeWorkspaceId, multiPaneEnabled, focusedPaneId, previewSelection])
 
   // Menu command handler
   useEffect(() => {
@@ -807,7 +853,7 @@ function AppContent() {
           />
         )}
       </TitleBar>
-      {tabs.length > 0 && !multiPaneEnabled && <MarkdownToolbar editorRef={editorRef} />}
+      {tabs.length > 0 && !multiPaneEnabled && <MarkdownToolbar editorRef={editorRef} previewSelection={previewSelection} />}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
         {/* Workspace bar - always visible */}
         <WorkspaceBar />
@@ -862,6 +908,7 @@ function AppContent() {
                 editorRef={editorRef}
                 onCursorPositionChange={handleCursorPositionChange}
                 onScrollTopChange={handleScrollTopChange}
+                onPreviewSelectionChange={setPreviewSelection}
               />
             </div>
           </>

@@ -9,6 +9,7 @@ import { matchesShortcut, parseShortcutToMonaco } from '../utils/shortcut-parser
 interface UseKeyboardShortcutsOptions {
   editorRef: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>
   handlers: CommandContext['handlers']
+  previewSelection?: { start: number; end: number } | null
 }
 
 /**
@@ -16,7 +17,7 @@ interface UseKeyboardShortcutsOptions {
  * - Registers Monaco editor actions with current bindings
  * - Handles global (non-editor) shortcuts via window keydown listener
  */
-export function useKeyboardShortcuts({ editorRef, handlers }: UseKeyboardShortcutsOptions) {
+export function useKeyboardShortcuts({ editorRef, handlers, previewSelection }: UseKeyboardShortcutsOptions) {
   const dispatch = useDispatch<AppDispatch>()
   const bindings = useSelector(selectCurrentBindings)
   const disposablesRef = useRef<monaco.IDisposable[]>([])
@@ -27,9 +28,10 @@ export function useKeyboardShortcuts({ editorRef, handlers }: UseKeyboardShortcu
       editor: editorRef.current,
       dispatch,
       getState: () => ({}), // We use useSelector instead
+      previewSelection,
       handlers
     }
-  }, [dispatch, editorRef, handlers])
+  }, [dispatch, editorRef, handlers, previewSelection])
 
   // Execute a command by ID
   const executeCommand = useCallback(
@@ -105,8 +107,13 @@ export function useKeyboardShortcuts({ editorRef, handlers }: UseKeyboardShortcu
         target.tagName === 'TEXTAREA' ||
         target.isContentEditable
       ) {
-        // Allow some shortcuts even in inputs
-        const allowInInput = ['file.save', 'file.saveAs', 'file.new', 'file.open', 'app.preferences']
+        // Allow some shortcuts even in inputs (including markdown formatting for WYSIWYG)
+        const allowInInput = [
+          'file.save', 'file.saveAs', 'file.new', 'file.open', 'app.preferences',
+          'markdown.bold', 'markdown.italic', 'markdown.strikethrough', 'markdown.code',
+          'markdown.link', 'markdown.heading1', 'markdown.heading2', 'markdown.heading3',
+          'markdown.heading4', 'markdown.heading5', 'markdown.heading6'
+        ]
 
         for (const commandId of allowInInput) {
           const binding = bindings[commandId]

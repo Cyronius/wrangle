@@ -9,6 +9,7 @@ import './toolbar.css'
 
 interface MarkdownToolbarProps {
   editorRef?: React.RefObject<monaco.editor.IStandaloneCodeEditor>
+  previewSelection?: { start: number; end: number } | null
 }
 
 interface ToolbarButton {
@@ -71,7 +72,7 @@ function isMarkdownFile(filePath?: string): boolean {
   return MARKDOWN_EXTENSIONS.has(ext)
 }
 
-export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
+export function MarkdownToolbar({ editorRef, previewSelection }: MarkdownToolbarProps) {
   const dispatch = useDispatch()
   const viewMode = useSelector((state: RootState) => state.layout.viewMode)
   const showOutline = useSelector((state: RootState) => state.layout.showOutline)
@@ -195,9 +196,25 @@ export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
 
   const executeCommand = (command: MarkdownCommand) => {
     if (!editorRef?.current) return
+    const editor = editorRef.current
+
+    // If preview has selection, apply it to editor first (WYSIWYG editing)
+    if (previewSelection) {
+      const model = editor.getModel()
+      if (model) {
+        const startPos = model.getPositionAt(previewSelection.start)
+        const endPos = model.getPositionAt(previewSelection.end)
+        editor.setSelection(new monaco.Selection(
+          startPos.lineNumber, startPos.column,
+          endPos.lineNumber, endPos.column
+        ))
+      }
+    }
+
     // Focus editor before command to ensure selection is active
-    editorRef.current.focus()
-    markdownCommands[command](editorRef.current)
+    editor.focus()
+    markdownCommands[command](editor)
+
     // Return focus to preview if in preview-only mode
     if (viewMode === 'preview-only') {
       setTimeout(() => {

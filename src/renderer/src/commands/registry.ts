@@ -18,6 +18,7 @@ export interface CommandContext {
   editor: monaco.editor.IStandaloneCodeEditor | null
   dispatch: (action: unknown) => void
   getState: () => unknown
+  previewSelection?: { start: number; end: number } | null
   handlers: {
     onFileNew: () => void
     onFileOpen: () => void
@@ -42,13 +43,34 @@ function isActiveFileMarkdown(ctx: CommandContext): boolean {
   return MARKDOWN_EXTENSIONS.has(ext)
 }
 
+// Apply preview selection to editor (for WYSIWYG editing)
+function applyPreviewSelection(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  previewSelection: { start: number; end: number } | null | undefined
+): void {
+  if (!previewSelection) return
+  const model = editor.getModel()
+  if (!model) return
+  const startPos = model.getPositionAt(previewSelection.start)
+  const endPos = model.getPositionAt(previewSelection.end)
+  editor.setSelection(new monaco.Selection(
+    startPos.lineNumber, startPos.column,
+    endPos.lineNumber, endPos.column
+  ))
+}
+
 // Markdown command helper - applies formatting to selection
 function applyMarkdownFormat(
   editor: monaco.editor.IStandaloneCodeEditor | null,
   prefix: string,
-  suffix: string = prefix
+  suffix: string = prefix,
+  previewSelection?: { start: number; end: number } | null
 ): void {
   if (!editor) return
+
+  // Apply preview selection first if available (WYSIWYG)
+  applyPreviewSelection(editor, previewSelection)
+
   const selection = editor.getSelection()
   if (!selection) return
 
@@ -84,9 +106,14 @@ function applyMarkdownFormat(
 function insertText(
   editor: monaco.editor.IStandaloneCodeEditor | null,
   text: string,
-  cursorOffset: number = text.length
+  cursorOffset: number = text.length,
+  previewSelection?: { start: number; end: number } | null
 ): void {
   if (!editor) return
+
+  // Apply preview selection first if available (WYSIWYG)
+  applyPreviewSelection(editor, previewSelection)
+
   const selection = editor.getSelection()
   if (!selection) return
 
@@ -119,9 +146,14 @@ function insertText(
 // Apply line prefix to current line or selected lines
 function applyLinePrefix(
   editor: monaco.editor.IStandaloneCodeEditor | null,
-  prefix: string
+  prefix: string,
+  previewSelection?: { start: number; end: number } | null
 ): void {
   if (!editor) return
+
+  // Apply preview selection first if available (WYSIWYG)
+  applyPreviewSelection(editor, previewSelection)
+
   const selection = editor.getSelection()
   if (!selection) return
 
@@ -407,28 +439,28 @@ export const commands: CommandDefinition[] = [
     label: 'Bold',
     category: 'markdown',
     defaultBinding: 'Ctrl+B',
-    execute: (ctx) => applyMarkdownFormat(ctx.editor, '**')
+    execute: (ctx) => applyMarkdownFormat(ctx.editor, '**', '**', ctx.previewSelection)
   },
   {
     id: 'markdown.italic',
     label: 'Italic',
     category: 'markdown',
     defaultBinding: 'Ctrl+I',
-    execute: (ctx) => applyMarkdownFormat(ctx.editor, '*')
+    execute: (ctx) => applyMarkdownFormat(ctx.editor, '*', '*', ctx.previewSelection)
   },
   {
     id: 'markdown.strikethrough',
     label: 'Strikethrough',
     category: 'markdown',
     defaultBinding: 'Ctrl+Shift+X',
-    execute: (ctx) => applyMarkdownFormat(ctx.editor, '~~')
+    execute: (ctx) => applyMarkdownFormat(ctx.editor, '~~', '~~', ctx.previewSelection)
   },
   {
     id: 'markdown.code',
     label: 'Inline Code',
     category: 'markdown',
     defaultBinding: 'Ctrl+`',
-    execute: (ctx) => applyMarkdownFormat(ctx.editor, '`')
+    execute: (ctx) => applyMarkdownFormat(ctx.editor, '`', '`', ctx.previewSelection)
   },
   {
     id: 'markdown.link',
@@ -437,6 +469,8 @@ export const commands: CommandDefinition[] = [
     defaultBinding: 'Ctrl+K',
     execute: (ctx) => {
       if (!ctx.editor) return
+      // Apply preview selection first if available (WYSIWYG)
+      applyPreviewSelection(ctx.editor, ctx.previewSelection)
       const selection = ctx.editor.getSelection()
       const text = ctx.editor.getModel()?.getValueInRange(selection!) || ''
       const linkText = text || 'link text'
@@ -463,7 +497,7 @@ export const commands: CommandDefinition[] = [
 | Cell 1   | Cell 2   | Cell 3   |
 | Cell 4   | Cell 5   | Cell 6   |
 `
-      insertText(ctx.editor, table, 2)
+      insertText(ctx.editor, table, 2, ctx.previewSelection)
     }
   },
   {
@@ -471,70 +505,70 @@ export const commands: CommandDefinition[] = [
     label: 'Heading 1',
     category: 'markdown',
     defaultBinding: 'Ctrl+Alt+1',
-    execute: (ctx) => applyLinePrefix(ctx.editor, '# ')
+    execute: (ctx) => applyLinePrefix(ctx.editor, '# ', ctx.previewSelection)
   },
   {
     id: 'markdown.heading2',
     label: 'Heading 2',
     category: 'markdown',
     defaultBinding: 'Ctrl+Alt+2',
-    execute: (ctx) => applyLinePrefix(ctx.editor, '## ')
+    execute: (ctx) => applyLinePrefix(ctx.editor, '## ', ctx.previewSelection)
   },
   {
     id: 'markdown.heading3',
     label: 'Heading 3',
     category: 'markdown',
     defaultBinding: 'Ctrl+Alt+3',
-    execute: (ctx) => applyLinePrefix(ctx.editor, '### ')
+    execute: (ctx) => applyLinePrefix(ctx.editor, '### ', ctx.previewSelection)
   },
   {
     id: 'markdown.heading4',
     label: 'Heading 4',
     category: 'markdown',
     defaultBinding: 'Ctrl+Alt+4',
-    execute: (ctx) => applyLinePrefix(ctx.editor, '#### ')
+    execute: (ctx) => applyLinePrefix(ctx.editor, '#### ', ctx.previewSelection)
   },
   {
     id: 'markdown.heading5',
     label: 'Heading 5',
     category: 'markdown',
     defaultBinding: 'Ctrl+Alt+5',
-    execute: (ctx) => applyLinePrefix(ctx.editor, '##### ')
+    execute: (ctx) => applyLinePrefix(ctx.editor, '##### ', ctx.previewSelection)
   },
   {
     id: 'markdown.heading6',
     label: 'Heading 6',
     category: 'markdown',
     defaultBinding: 'Ctrl+Alt+6',
-    execute: (ctx) => applyLinePrefix(ctx.editor, '###### ')
+    execute: (ctx) => applyLinePrefix(ctx.editor, '###### ', ctx.previewSelection)
   },
   {
     id: 'markdown.bulletList',
     label: 'Bullet List',
     category: 'markdown',
     defaultBinding: 'Ctrl+Shift+8',
-    execute: (ctx) => applyLinePrefix(ctx.editor, '- ')
+    execute: (ctx) => applyLinePrefix(ctx.editor, '- ', ctx.previewSelection)
   },
   {
     id: 'markdown.numberedList',
     label: 'Numbered List',
     category: 'markdown',
     defaultBinding: 'Ctrl+Shift+7',
-    execute: (ctx) => applyLinePrefix(ctx.editor, '1. ')
+    execute: (ctx) => applyLinePrefix(ctx.editor, '1. ', ctx.previewSelection)
   },
   {
     id: 'markdown.taskList',
     label: 'Task List',
     category: 'markdown',
     defaultBinding: 'Ctrl+Shift+9',
-    execute: (ctx) => applyLinePrefix(ctx.editor, '- [ ] ')
+    execute: (ctx) => applyLinePrefix(ctx.editor, '- [ ] ', ctx.previewSelection)
   },
   {
     id: 'markdown.blockquote',
     label: 'Blockquote',
     category: 'markdown',
     defaultBinding: 'Ctrl+Shift+.',
-    execute: (ctx) => applyLinePrefix(ctx.editor, '> ')
+    execute: (ctx) => applyLinePrefix(ctx.editor, '> ', ctx.previewSelection)
   },
   {
     id: 'markdown.codeBlock',
@@ -543,6 +577,8 @@ export const commands: CommandDefinition[] = [
     defaultBinding: 'Ctrl+Shift+`',
     execute: (ctx) => {
       if (!ctx.editor) return
+      // Apply preview selection first if available (WYSIWYG)
+      applyPreviewSelection(ctx.editor, ctx.previewSelection)
       const selection = ctx.editor.getSelection()
       const text = ctx.editor.getModel()?.getValueInRange(selection!) || ''
       const codeBlock = '```\n' + text + '\n```'
@@ -562,14 +598,14 @@ export const commands: CommandDefinition[] = [
     label: 'Insert Image',
     category: 'markdown',
     defaultBinding: null,
-    execute: (ctx) => insertText(ctx.editor, '![alt text](image-url)', 2)
+    execute: (ctx) => insertText(ctx.editor, '![alt text](image-url)', 2, ctx.previewSelection)
   },
   {
     id: 'markdown.hr',
     label: 'Horizontal Rule',
     category: 'markdown',
     defaultBinding: null,
-    execute: (ctx) => insertText(ctx.editor, '\n---\n')
+    execute: (ctx) => insertText(ctx.editor, '\n---\n', undefined, ctx.previewSelection)
   },
 
   // Theme commands

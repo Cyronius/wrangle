@@ -18,6 +18,7 @@ interface EditorLayoutProps {
   editorRef?: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>
   onCursorPositionChange?: (position: { lineNumber: number; column: number }) => void
   onScrollTopChange?: (scrollTop: number) => void
+  onPreviewSelectionChange?: (selection: { start: number; end: number } | null) => void
   // Optional overrides for multi-pane mode
   viewModeOverride?: 'split' | 'editor-only' | 'preview-only'
   splitRatioOverride?: number
@@ -79,6 +80,7 @@ export const EditorLayout = memo(function EditorLayout({
   editorRef,
   onCursorPositionChange,
   onScrollTopChange,
+  onPreviewSelectionChange,
   viewModeOverride,
   splitRatioOverride,
   onSplitRatioChange
@@ -199,6 +201,7 @@ export const EditorLayout = memo(function EditorLayout({
           baseDir={baseDir}
           syncScroll={false}
           zoomLevel={zoomLevel}
+          onSelectionChange={onPreviewSelectionChange}
         />
       </div>
     )
@@ -234,6 +237,7 @@ export const EditorLayout = memo(function EditorLayout({
             syncScroll={previewSync}
             onScroll={handlePreviewScroll}
             onSourceMapReady={handleSourceMapReady}
+            onSelectionChange={onPreviewSelectionChange}
             zoomLevel={zoomLevel}
           />
         </Allotment.Pane>

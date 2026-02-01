@@ -9,6 +9,7 @@ import { remarkSourcePositions } from '../../utils/remark-source-positions'
 import { rehypeSourcePositions } from '../../utils/rehype-source-positions'
 import { extractFrontMatter, renderFrontMatter } from '../../utils/markdown-renderer'
 import { SourceMap, buildSourceMapFromDOM } from '../../utils/source-map'
+import { usePreviewCursor } from '../../hooks/usePreviewCursor'
 import {
   ParagraphRenderer,
   H1Renderer, H2Renderer, H3Renderer, H4Renderer, H5Renderer, H6Renderer,
@@ -28,6 +29,7 @@ interface MarkdownPreviewProps {
   syncScroll?: boolean
   onScroll?: (sourceId: string | null) => void  // Source ID of topmost visible element
   onSourceMapReady?: (sourceMap: SourceMap) => void
+  onSelectionChange?: (selection: { start: number; end: number } | null) => void  // Selection in source offsets
   zoomLevel?: number
 }
 
@@ -42,6 +44,7 @@ export const MarkdownPreview = memo(forwardRef<MarkdownPreviewHandle, MarkdownPr
   syncScroll = false,
   onScroll,
   onSourceMapReady,
+  onSelectionChange,
   zoomLevel = 0
 }, ref) {
   // Calculate zoom scale (10% per level)
@@ -50,6 +53,12 @@ export const MarkdownPreview = memo(forwardRef<MarkdownPreviewHandle, MarkdownPr
   const contentRef = useRef<HTMLDivElement>(null)
   const isScrollingRef = useRef(false)
   const [sourceMap, setSourceMap] = useState<SourceMap | null>(null)
+
+  // Track selection in preview for WYSIWYG editing
+  usePreviewCursor(contentRef, {
+    onSelectionChange,
+    enabled: true
+  })
 
   // Extract front matter before passing to ReactMarkdown
   const { content: markdownContent, data: frontMatterData, hasFrontMatter } = useMemo(

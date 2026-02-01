@@ -41,6 +41,9 @@ export function useEditorPane(workspaceId: WorkspaceId): UseEditorPaneResult {
   const [currentFilePath, setCurrentFilePath] = useState<string | undefined>(activeTab?.path)
   const [baseDir, setBaseDir] = useState<string | null>(null)
 
+  // Ref to track current content for auto-save (avoids circular dependency)
+  const contentRef = useRef(content)
+
   // Track previous tab ID to detect actual tab switches
   const prevTabIdRef = useRef<string | null>(null)
 
@@ -87,15 +90,20 @@ export function useEditorPane(workspaceId: WorkspaceId): UseEditorPaneResult {
     }
   }, [activeTabId, activeTab])
 
-  // Auto-save function
+  // Keep contentRef in sync with content state
+  useEffect(() => {
+    contentRef.current = content
+  }, [content])
+
+  // Auto-save function - uses ref to avoid circular dependency with handleChange
   const performAutoSave = useCallback(async () => {
     if (!activeTab) return
     try {
-      await window.electron.file.autoSave(activeTab.id, content, activeTab.path || null)
+      await window.electron.file.autoSave(activeTab.id, contentRef.current, activeTab.path || null)
     } catch (error) {
       console.error('Auto-save failed:', error)
     }
-  }, [activeTab, content])
+  }, [activeTab])
 
   // Debounced cursor/scroll position tracking
   const positionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
