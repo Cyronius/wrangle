@@ -45,7 +45,7 @@ export async function ensureTempAssetDir(tabId: string): Promise<void> {
 /**
  * Initialize the root temporary directory structure on app start
  */
-export async function initTempRoot(): Promise<void> {
+export async function initTempRoot(skipCleanup = false): Promise<void> {
   try {
     if (!existsSync(TEMP_ROOT_DIR)) {
       await mkdir(TEMP_ROOT_DIR, { recursive: true })
@@ -55,8 +55,10 @@ export async function initTempRoot(): Promise<void> {
       await mkdir(DRAFTS_DIR, { recursive: true })
     }
 
-    // Optionally clean up old temp directories (older than 7 days)
-    await cleanupOldDrafts()
+    // Clean up old temp directories (older than 7 days) unless skipped for crash recovery
+    if (!skipCleanup) {
+      await cleanupOldDrafts()
+    }
   } catch (error) {
     console.error('Failed to initialize temp root directory:', error)
     throw error

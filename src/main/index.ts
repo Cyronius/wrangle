@@ -4,6 +4,8 @@ import { existsSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { registerAllHandlers } from './ipc'
 import { initTempRoot } from './utils/temp-dir-manager'
+import { didCrashLastSession, createRunningMarker, clearRunningMarker, findOrphanedDrafts } from './utils/crash-recovery'
+import { setCrashRecoveryInfo } from './ipc/crash-recovery-handler'
 
 function getFilePathFromArgs(): string | null {
   // process.argv structure in Electron:
@@ -29,7 +31,7 @@ function createWindow(): void {
     show: false,
     frame: false,
     titleBarStyle: 'hidden',
-    icon: join(__dirname, '../../src/assets/w.png'),
+    icon: join(__dirname, '../assets/w.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -39,7 +41,9 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', async () => {
-    mainWindow.show()
+    if (process.env.NODE_ENV !== 'test') {
+      mainWindow.show()
+    }
 
     // Check for file path in command-line arguments
     const filePath = getFilePathFromArgs()
@@ -77,9 +81,22 @@ app.whenReady().then(async () => {
     app.setAppUserModelId('com.electron.wrangle')
   }
 
-  // Initialize temp directory system
+  // Check for crash from previous session
+  const crashed = didCrashLastSession()
+  let hasOrphanedDrafts = false
+
+  if (crashed) {
+    const orphanedDrafts = await findOrphanedDrafts()
+    hasOrphanedDrafts = orphanedDrafts.length > 0
+    setCrashRecoveryInfo({ didCrash: true, orphanedDrafts })
+  }
+
+  // Create running marker for this session
+  await createRunningMarker()
+
+  // Initialize temp directory system (skip cleanup if we have orphaned drafts to recover)
   try {
-    await initTempRoot()
+    await initTempRoot(hasOrphanedDrafts)
   } catch (error) {
     console.error('Failed to initialize temp directory:', error)
   }
@@ -120,9 +137,21 @@ app.whenReady().then(async () => {
   })
 })
 
-// Unregister global shortcuts when quitting
+// Unregister global shortcuts and clear crash marker when quitting
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
+  clearRunningMarker().catch(() => {})
+})
+
+// Handle SIGINT/SIGTERM for graceful shutdown
+process.on('SIGINT', () => {
+  clearRunningMarker().catch(() => {})
+  app.quit()
+})
+
+process.on('SIGTERM', () => {
+  clearRunningMarker().catch(() => {})
+  app.quit()
 })
 
 // Quit when all windows are closed, except on macOS

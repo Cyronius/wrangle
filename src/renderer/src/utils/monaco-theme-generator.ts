@@ -131,21 +131,39 @@ export function generateMonacoTheme(
 }
 
 /**
+ * Determine if a hex color is light based on perceived luminance
+ */
+function isLightColor(hex: string): boolean {
+  const clean = hex.replace('#', '')
+  const r = parseInt(clean.substring(0, 2), 16)
+  const g = parseInt(clean.substring(2, 4), 16)
+  const b = parseInt(clean.substring(4, 6), 16)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.5
+}
+
+/**
+ * Sanitize a theme name to be compatible with Monaco's defineTheme.
+ * Monaco only allows alphanumeric characters and hyphens (/^[a-z0-9\-]+$/i).
+ */
+function sanitizeMonacoThemeName(name: string): string {
+  return name.replace(/[^a-z0-9-]/gi, '-').toLowerCase()
+}
+
+/**
  * Register a custom Monaco theme from CSS content
  */
 export function registerCustomMonacoTheme(themeName: string, css: string): boolean {
   try {
     const colors = extractMonacoVariables(css)
 
-    // Determine base theme from CSS (look for common light theme colors)
-    const isLight =
-      css.includes('--app-bg: #faf') ||
-      css.includes('--app-bg: #fff') ||
-      css.includes('--app-bg: #f5f')
-    const base = isLight ? 'vs' : 'vs-dark'
+    // Determine base theme from editor background luminance
+    const editorBg = colors.editorBg || '#1e1e1e'
+    const base = isLightColor(editorBg) ? 'vs' : 'vs-dark'
 
-    const theme = generateMonacoTheme(themeName, colors, base)
-    monaco.editor.defineTheme(themeName, theme)
+    const sanitizedName = sanitizeMonacoThemeName(themeName)
+    const theme = generateMonacoTheme(sanitizedName, colors, base)
+    monaco.editor.defineTheme(sanitizedName, theme)
     return true
   } catch (e) {
     console.error('Failed to register Monaco theme:', e)
@@ -158,9 +176,9 @@ export function registerCustomMonacoTheme(themeName: string, css: string): boole
  */
 export function getMonacoThemeName(themeName: string): string {
   // Built-in themes map to Monaco's default themes
-  if (themeName === 'light') return 'vs'
-  if (themeName === 'dark') return 'vs-dark'
+  if (themeName === 'Lightish') return 'vs'
+  if (themeName === 'Dark') return 'vs-dark'
 
-  // Custom themes use their own name (must be registered first)
-  return themeName
+  // Custom themes use their sanitized name (must be registered first)
+  return sanitizeMonacoThemeName(themeName)
 }

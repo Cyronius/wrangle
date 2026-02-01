@@ -12,11 +12,16 @@ import 'allotment/dist/style.css'
 
 interface EditorLayoutProps {
   content: string
-  previewContent?: string  // Debounced content for preview (defaults to content if not provided)
   onChange: (value: string | undefined) => void
   baseDir?: string | null
-  theme?: 'vs-dark' | 'vs'
+  theme?: string
   editorRef?: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>
+  onCursorPositionChange?: (position: { lineNumber: number; column: number }) => void
+  onScrollTopChange?: (scrollTop: number) => void
+  // Optional overrides for multi-pane mode
+  viewModeOverride?: 'split' | 'editor-only' | 'preview-only'
+  splitRatioOverride?: number
+  onSplitRatioChange?: (ratio: number) => void
 }
 
 // Calculate font size based on zoom level (base 14px, 10% per level)
@@ -30,7 +35,7 @@ function getZoomedFontSize(zoomLevel: number): number {
  * that appear before the given offset.
  */
 function normalizeOffset(content: string, offset: number): number {
-  // Fast path: if content has no \r, no normalization needed
+  // Fast path: no CRLF in content
   if (!content.includes('\r')) return offset
 
   // Count \r characters before the offset
@@ -49,7 +54,7 @@ function normalizeOffset(content: string, offset: number): number {
  * the cursor in Monaco (which may use CRLF).
  */
 function denormalizeOffset(content: string, lfOffset: number): number {
-  // Fast path: if content has no \r, no denormalization needed
+  // Fast path: no CRLF in content
   if (!content.includes('\r')) return Math.min(lfOffset, content.length)
 
   // Walk through content, counting characters without \r
@@ -68,16 +73,23 @@ function denormalizeOffset(content: string, lfOffset: number): number {
 
 export const EditorLayout = memo(function EditorLayout({
   content,
-  previewContent,
   onChange,
   baseDir = null,
   theme = 'vs-dark',
-  editorRef
+  editorRef,
+  onCursorPositionChange,
+  onScrollTopChange,
+  viewModeOverride,
+  splitRatioOverride,
+  onSplitRatioChange
 }: EditorLayoutProps) {
-  // Use previewContent if provided, otherwise fall back to content
-  const effectivePreviewContent = previewContent ?? content
   const dispatch = useDispatch()
-  const { viewMode, splitRatio, previewSync, zoomLevel } = useSelector((state: RootState) => state.layout)
+  const layoutState = useSelector((state: RootState) => state.layout)
+
+  // Use overrides if provided (multi-pane mode), otherwise use global state
+  const viewMode = viewModeOverride ?? layoutState.viewMode
+  const splitRatio = splitRatioOverride ?? layoutState.splitRatio
+  const { previewSync, zoomLevel } = layoutState
 
   // State for scroll sync
   const [sourceMap, setSourceMap] = useState<SourceMap | null>(null)
@@ -89,8 +101,6 @@ export const EditorLayout = memo(function EditorLayout({
   const sourceMapRef = useRef<SourceMap | null>(null)
   const previewSyncRef = useRef(previewSync)
   const contentRef = useRef(content)
-  const lastEditorScrollRef = useRef(0)
-  const lastPreviewScrollRef = useRef(0)
 
   // Keep refs in sync with state (avoids stale closures in callbacks captured by Monaco)
   sourceMapRef.current = sourceMap
@@ -108,11 +118,6 @@ export const EditorLayout = memo(function EditorLayout({
   // Handle editor scroll - sync to preview using source map
   // Use refs to avoid stale closure issues - this callback is captured by Monaco on mount
   const handleEditorScroll = useCallback((offset: number) => {
-    // Throttle scroll events to max once per 50ms
-    const now = Date.now()
-    if (now - lastEditorScrollRef.current < 50) return
-    lastEditorScrollRef.current = now
-
     // Normalize offset from editor (which may have CRLF) to match source map (which uses LF)
     const normalizedOffset = normalizeOffset(contentRef.current, offset)
     if (!previewSyncRef.current || isPreviewScrollingRef.current || !sourceMapRef.current) return
@@ -137,11 +142,6 @@ export const EditorLayout = memo(function EditorLayout({
   // Handle preview scroll - sync to editor using source map
   // Note: sourceId is now a start offset string (e.g., "0", "45") from data-source-start attribute
   const handlePreviewScroll = useCallback((sourceId: string | null) => {
-    // Throttle scroll events to max once per 50ms
-    const now = Date.now()
-    if (now - lastPreviewScrollRef.current < 50) return
-    lastPreviewScrollRef.current = now
-
     if (!previewSync || isEditorScrollingRef.current) return
     if (!editorRef?.current || !sourceId) return
 
@@ -167,12 +167,14 @@ export const EditorLayout = memo(function EditorLayout({
 
   const handleSplitChange = (sizes: number[]) => {
     if (sizes.length === 2) {
-      // Convert pixel sizes to ratio (0-1)
       const total = sizes[0] + sizes[1]
       const ratio = sizes[0] / total
-      // Clamp ratio between 0.2 and 0.8
       const clampedRatio = Math.max(0.2, Math.min(0.8, ratio))
-      dispatch(setSplitRatio(clampedRatio))
+      if (onSplitRatioChange) {
+        onSplitRatioChange(clampedRatio)
+      } else {
+        dispatch(setSplitRatio(clampedRatio))
+      }
     }
   }
 
@@ -180,7 +182,7 @@ export const EditorLayout = memo(function EditorLayout({
   if (viewMode === 'editor-only') {
     return (
       <div style={{ height: '100%', width: '100%' }}>
-        <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} />
+        <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} onCursorPositionChange={onCursorPositionChange} onScrollTopChange={onScrollTopChange} />
       </div>
     )
   }
@@ -190,10 +192,10 @@ export const EditorLayout = memo(function EditorLayout({
       <div style={{ height: '100%', width: '100%', position: 'relative' }}>
         {/* Hidden editor - keeps editorRef valid for WYSIWYG toolbar commands */}
         <div style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0, pointerEvents: 'none' }}>
-          <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} />
+          <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} onCursorPositionChange={onCursorPositionChange} />
         </div>
         <MarkdownPreview
-          content={effectivePreviewContent}
+          content={content}
           baseDir={baseDir}
           syncScroll={false}
           zoomLevel={zoomLevel}
@@ -220,12 +222,14 @@ export const EditorLayout = memo(function EditorLayout({
             theme={theme}
             fontSize={fontSize}
             onScroll={handleEditorScroll}
+            onCursorPositionChange={onCursorPositionChange}
+            onScrollTopChange={onScrollTopChange}
           />
         </Allotment.Pane>
         <Allotment.Pane minSize={200}>
           <MarkdownPreview
             ref={previewRef}
-            content={effectivePreviewContent}
+            content={content}
             baseDir={baseDir}
             syncScroll={previewSync}
             onScroll={handlePreviewScroll}

@@ -1,0 +1,97 @@
+.multi-pane-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+}
+
+/* Individual workspace pane */
+.workspace-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  border-left: 2px solid transparent;
+  transition: border-color 0.15s ease;
+}
+
+.workspace-pane-focused {
+  border-left-color: var(--pane-color);
+}
+
+.workspace-pane-content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.workspace-pane-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-color-muted);
+  font-size: 14px;
+}
+
+.workspace-pane-drop-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(77, 170, 252, 0.1);
+  border: 2px dashed var(--accent-color);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--accent-color);
+  pointer-events: none;
+}
+
+/* Pane tab bar */
+.pane-tab-bar {
+  display: flex;
+  align-items: stretch;
+  background-color: var(--tab-bar-bg);
+  border-bottom: 1px solid var(--border-color);
+  border-top: 3px solid transparent;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 36px;
+  flex-shrink: 0;
+  transition: border-top-color 0.15s ease;
+}
+
+.pane-tab-bar-focused {
+  border-top-color: var(--pane-color);
+}
+
+.pane-tab-bar-empty {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+
+.pane-tab-bar-label {
+  font-size: 12px;
+  color: var(--text-color-muted);
+  font-style: italic;
+}
+
+/* Pane tab bar scrollbar */
+.pane-tab-bar::-webkit-scrollbar {
+  height: 3px;
+}
+
+.pane-tab-bar::-webkit-scrollbar-track {
+  background: var(--tab-bar-bg);
+}
+
+.pane-tab-bar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}

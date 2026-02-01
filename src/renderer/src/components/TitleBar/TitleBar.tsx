@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { RootState } from '../../store/store'
+import { RootState, AppDispatch } from '../../store/store'
 import { setViewMode } from '../../store/layoutSlice'
-import { setTheme } from '../../store/themeSlice'
+import { setCurrentTheme, saveThemeSettings } from '../../store/settingsSlice'
 import wrangleIcon from '../../../../assets/wrangle.png'
 import './TitleBar.css'
 
@@ -30,9 +30,7 @@ interface TitleBarProps {
 }
 
 export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCloseTab, onEditUndo, onEditRedo, onCopyRichText, onExportHtml, onExportPdf, onOpenPreferences, children }: TitleBarProps) {
-  const dispatch = useDispatch()
-  const viewMode = useSelector((state: RootState) => state.layout.mode)
-  const theme = useSelector((state: RootState) => state.theme.currentTheme)
+  const dispatch = useDispatch<AppDispatch>()
 
   const [isMaximized, setIsMaximized] = useState(false)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
@@ -115,8 +113,14 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
       {
         label: 'Theme',
         submenu: [
-          { label: 'Light', action: () => dispatch(setTheme('light')) },
-          { label: 'Dark', action: () => dispatch(setTheme('dark')) }
+          { label: 'Light', action: () => {
+            dispatch(setCurrentTheme('Lightish'))
+            dispatch(saveThemeSettings())
+          }},
+          { label: 'Dark', action: () => {
+            dispatch(setCurrentTheme('Dark'))
+            dispatch(saveThemeSettings())
+          }}
         ]
       },
       { separator: true, label: '' },
@@ -145,17 +149,23 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
         <div className="menu-bar">
           {Object.entries(menus).map(([menuName, items], index) => (
             <div key={menuName} className={`menu-item ${openMenu === menuName ? 'open' : ''}`}>
-              <button
-                className={`menu-button ${index === 0 ? 'menu-button-icon' : ''}`}
-                onClick={() => handleMenuClick(menuName)}
-                onMouseEnter={() => openMenu && setOpenMenu(menuName)}
-              >
-                {index === 0 ? (
+              {index === 0 ? (
+                <button
+                  className="menu-button menu-button-icon"
+                  onClick={() => handleMenuClick(menuName)}
+                  onMouseEnter={() => openMenu && setOpenMenu(menuName)}
+                >
                   <img src={wrangleIcon} alt="Menu" className="menu-icon" />
-                ) : (
-                  menuName
-                )}
-              </button>
+                </button>
+              ) : (
+                <button
+                  className="menu-button"
+                  onClick={() => handleMenuClick(menuName)}
+                  onMouseEnter={() => openMenu && setOpenMenu(menuName)}
+                >
+                  {menuName}
+                </button>
+              )}
 
               {openMenu === menuName && (
                 <div className="menu-dropdown">

@@ -1,4 +1,4 @@
-:root[data-theme='light'] {
+:root[data-theme='Lightish'] {
   /* App background and text - warm off-white tones */
   --app-bg: #faf8f5;
   --text-color: #1a1a1a;
@@ -35,6 +35,21 @@
 
   /* Accent color */
   --accent-color: #0969da;
+
+  /* Monaco editor */
+  --monaco-editor-bg: #faf8f5;
+  --monaco-editor-fg: #1a1a1a;
+  --monaco-line-number: #6a6a6a;
+  --monaco-line-number-active: #1a1a1a;
+  --monaco-selection-bg: #b4d7ff;
+  --monaco-cursor: #1a1a1a;
+  --monaco-token-comment: #6a737d;
+  --monaco-token-string: #a31515;
+  --monaco-token-keyword: #0000ff;
+  --monaco-token-number: #098658;
+  --monaco-token-operator: #1a1a1a;
+  --monaco-token-function: #795e26;
+  --monaco-token-variable: #001080;
 
   /* Scrollbar */
   --scrollbar-thumb: #ccc8c3;

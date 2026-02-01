@@ -4,6 +4,7 @@ import { markdownCommands, MarkdownCommand } from '../../utils/markdown-commands
 import { RootState } from '../../store/store'
 import { setViewMode, ViewMode, toggleOutline } from '../../store/layoutSlice'
 import * as monaco from 'monaco-editor'
+import { SquarePen, PanelsLeftRight, BookOpenText, ListTree } from 'lucide-react'
 import './toolbar.css'
 
 interface MarkdownToolbarProps {
@@ -47,31 +48,7 @@ const headingButtons: ToolbarButton[] = [
   { command: 'heading6', label: 'H6', title: 'Heading 6' }
 ]
 
-// SVG Icons for view mode buttons
-const EditorIcon = () => (
-  <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
-    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5L13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5z"/>
-  </svg>
-)
-
-const SplitIcon = () => (
-  <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
-    <path d="M0 3a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3zm8.5-1v12H14a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H8.5zm-1 0H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h5.5V2z"/>
-  </svg>
-)
-
-const PreviewIcon = () => (
-  <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
-    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
-    <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
-  </svg>
-)
-
-const OutlineIcon = () => (
-  <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
-    <path d="M2 2h12v1H2V2zm0 4h8v1H2V6zm0 4h10v1H2v-1zm0 4h6v1H2v-1z"/>
-  </svg>
-)
+const iconSize = 14
 
 interface ViewModeButton {
   mode: ViewMode
@@ -81,16 +58,38 @@ interface ViewModeButton {
 }
 
 const viewModeButtons: ViewModeButton[] = [
-  { mode: 'editor-only', label: 'Editor', title: 'Editor Only (Ctrl+1)', icon: <EditorIcon /> },
-  { mode: 'split', label: 'Split', title: 'Split View (Ctrl+2)', icon: <SplitIcon /> },
-  { mode: 'preview-only', label: 'Preview', title: 'Preview Only (Ctrl+3)', icon: <PreviewIcon /> }
+  { mode: 'editor-only', label: 'Editor', title: 'Editor Only (Ctrl+1)', icon: <SquarePen size={iconSize} /> },
+  { mode: 'split', label: 'Split', title: 'Split View (Ctrl+2)', icon: <PanelsLeftRight size={iconSize} /> },
+  { mode: 'preview-only', label: 'Preview', title: 'Preview Only (Ctrl+3)', icon: <BookOpenText size={iconSize} /> }
 ]
+
+const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown', '.mdown', '.mkd', '.mdwn'])
+
+function isMarkdownFile(filePath?: string): boolean {
+  if (!filePath) return true // Unsaved files default to markdown
+  const ext = filePath.toLowerCase().slice(filePath.lastIndexOf('.'))
+  return MARKDOWN_EXTENSIONS.has(ext)
+}
 
 export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
   const dispatch = useDispatch()
-  const viewMode = useSelector((state: RootState) => state.layout.mode)
+  const viewMode = useSelector((state: RootState) => state.layout.viewMode)
   const showOutline = useSelector((state: RootState) => state.layout.showOutline)
+  const activeTabPath = useSelector((state: RootState) => {
+    const workspaceId = state.workspaces.activeWorkspaceId
+    const activeTabId = state.tabs.activeTabIdByWorkspace[workspaceId]
+    const tab = state.tabs.tabs.find(t => t.id === activeTabId)
+    return tab?.path
+  })
+  const isMarkdown = isMarkdownFile(activeTabPath)
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set())
+
+  // Force editor-only mode for non-markdown files
+  useEffect(() => {
+    if (!isMarkdown && viewMode !== 'editor-only') {
+      dispatch(setViewMode('editor-only'))
+    }
+  }, [isMarkdown, viewMode, dispatch])
 
   // Track cursor position and detect active formatting
   useEffect(() => {
@@ -253,32 +252,36 @@ export function MarkdownToolbar({ editorRef }: MarkdownToolbarProps) {
         ))}
       </div>
 
-      <div className="toolbar-separator" />
+      {isMarkdown && (
+        <>
+          <div className="toolbar-separator" />
 
-      {/* View mode group: Editor, Split, Preview */}
-      <div className="toolbar-group view-mode-group">
-        {viewModeButtons.map((btn) => (
+          {/* View mode group: Editor, Split, Preview */}
+          <div className="toolbar-group view-mode-group">
+            {viewModeButtons.map((btn) => (
+              <button
+                key={btn.mode}
+                className={`toolbar-button view-mode-button ${viewMode === btn.mode ? 'active' : ''}`}
+                onClick={() => dispatch(setViewMode(btn.mode))}
+                title={btn.title}
+              >
+                {btn.icon}
+              </button>
+            ))}
+          </div>
+
+          <div className="toolbar-separator" />
+
+          {/* Outline toggle button */}
           <button
-            key={btn.mode}
-            className={`toolbar-button view-mode-button ${viewMode === btn.mode ? 'active' : ''}`}
-            onClick={() => dispatch(setViewMode(btn.mode))}
-            title={btn.title}
+            className={`toolbar-button ${showOutline ? 'active' : ''}`}
+            onClick={() => dispatch(toggleOutline())}
+            title="Toggle Outline (Ctrl+Shift+O)"
           >
-            {btn.icon}
+            <ListTree size={iconSize} />
           </button>
-        ))}
-      </div>
-
-      <div className="toolbar-separator" />
-
-      {/* Outline toggle button */}
-      <button
-        className={`toolbar-button ${showOutline ? 'active' : ''}`}
-        onClick={() => dispatch(toggleOutline())}
-        title="Toggle Outline (Ctrl+Shift+O)"
-      >
-        <OutlineIcon />
-      </button>
+        </>
+      )}
     </div>
   )
 }

@@ -1,0 +1,57 @@
+:root[data-theme='Material Palenight'] {
+  /* App background and text */
+  --app-bg: #292d3e;
+  --text-color: #959dcb;
+  --text-color-active: #ffffff;
+  --text-color-muted: #676e95;
+  --border-color: #3a3f58;
+
+  /* Tab bar */
+  --tab-bar-bg: #252837;
+  --tab-bg: #292d3e;
+  --tab-hover-bg: #3a3f58;
+  --tab-active-bg: #292d3e;
+  --tab-close-hover-bg: #3a3f58;
+  --tab-close-active-bg: #4b5178;
+
+  /* Toolbar */
+  --toolbar-bg: #252837;
+  --toolbar-border: #3a3f58;
+  --button-bg: #3a3f58;
+  --button-hover-bg: #4b5178;
+  --button-active-bg: #5c6398;
+
+  /* Preview */
+  --preview-bg: #292d3e;
+  --preview-text: #959dcb;
+  --preview-heading: #ffffff;
+  --preview-text-muted: #676e95;
+  --preview-border: #3a3f58;
+  --preview-link: #82aaff;
+  --preview-code-bg: rgba(58, 63, 88, 0.6);
+  --preview-code-block-bg: #252837;
+  --preview-table-header-bg: #252837;
+  --preview-table-row-alt-bg: #2e3245;
+
+  /* Accent color */
+  --accent-color: #c792ea;
+
+  /* Monaco editor */
+  --monaco-editor-bg: #292d3e;
+  --monaco-editor-fg: #a6accd;
+  --monaco-line-number: #3a3f58;
+  --monaco-line-number-active: #a6accd;
+  --monaco-selection-bg: #3c435e;
+  --monaco-cursor: #ffcc00;
+  --monaco-token-comment: #676e95;
+  --monaco-token-string: #c3e88d;
+  --monaco-token-keyword: #c792ea;
+  --monaco-token-number: #f78c6c;
+  --monaco-token-operator: #89ddff;
+  --monaco-token-function: #82aaff;
+  --monaco-token-variable: #f07178;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #3a3f58;
+  --scrollbar-thumb-hover: #4b5178;
+}

@@ -20,6 +20,13 @@ export function createApplicationMenu(mainWindow: BrowserWindow): void {
           }
         },
         {
+          label: 'Open Folder as Workspace...',
+          accelerator: 'CmdOrCtrl+K CmdOrCtrl+O',
+          click: () => {
+            mainWindow.webContents.send('menu:command', 'workspace:openFolder')
+          }
+        },
+        {
           label: 'Save',
           accelerator: 'CmdOrCtrl+S',
           click: () => {
@@ -96,6 +103,14 @@ export function createApplicationMenu(mainWindow: BrowserWindow): void {
               }
             }
           ]
+        },
+        { type: 'separator' },
+        {
+          label: 'Multi-Pane Mode',
+          accelerator: 'CmdOrCtrl+Alt+M',
+          click: () => {
+            mainWindow.webContents.send('menu:command', 'view:toggle-multi-pane')
+          }
         },
         { type: 'separator' },
         { role: 'reload' },

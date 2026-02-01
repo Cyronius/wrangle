@@ -1,22 +1,33 @@
 import { createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit'
+import { WorkspaceId, DEFAULT_WORKSPACE_ID } from '../../../shared/workspace-types'
+import type { RootState } from './store'
 
 export interface TabDocument {
   id: string
+  workspaceId: WorkspaceId
   path?: string
   filename: string
   content: string
   isDirty: boolean
-  displayTitle?: string  // H1 heading for unsaved files
+  displayTitle?: string // H1 heading for unsaved files
+  cursorPosition?: { lineNumber: number; column: number }
+  scrollTop?: number
 }
 
 interface TabsState {
   tabs: TabDocument[]
-  activeTabId: string | null
+  // Track active tab per workspace
+  activeTabIdByWorkspace: Record<WorkspaceId, string | null>
+  // Whether session restore has completed (guards persistence hook)
+  sessionRestored: boolean
 }
 
 const initialState: TabsState = {
   tabs: [],
-  activeTabId: null
+  activeTabIdByWorkspace: {
+    [DEFAULT_WORKSPACE_ID]: null
+  },
+  sessionRestored: false
 }
 
 const tabsSlice = createSlice({
@@ -25,77 +36,228 @@ const tabsSlice = createSlice({
   reducers: {
     addTab(state, action: PayloadAction<TabDocument>) {
       state.tabs.push(action.payload)
-      state.activeTabId = action.payload.id
+      // Set as active tab for its workspace
+      state.activeTabIdByWorkspace[action.payload.workspaceId] = action.payload.id
     },
-    closeTab(state, action: PayloadAction<string>) {
-      const index = state.tabs.findIndex((tab) => tab.id === action.payload)
-      if (index !== -1) {
-        state.tabs.splice(index, 1)
 
-        if (state.activeTabId === action.payload) {
-          state.activeTabId = state.tabs.length > 0 ? state.tabs[0].id : null
-        }
+    closeTab(state, action: PayloadAction<string>) {
+      const tabIndex = state.tabs.findIndex((tab) => tab.id === action.payload)
+      if (tabIndex === -1) return
+
+      const tab = state.tabs[tabIndex]
+      const workspaceId = tab.workspaceId
+
+      state.tabs.splice(tabIndex, 1)
+
+      // If this was the active tab for its workspace, select another tab in same workspace
+      if (state.activeTabIdByWorkspace[workspaceId] === action.payload) {
+        const remainingTabs = state.tabs.filter((t) => t.workspaceId === workspaceId)
+        state.activeTabIdByWorkspace[workspaceId] =
+          remainingTabs.length > 0 ? remainingTabs[0].id : null
       }
     },
+
     setActiveTab(state, action: PayloadAction<string>) {
-      state.activeTabId = action.payload
+      const tab = state.tabs.find((t) => t.id === action.payload)
+      if (tab) {
+        state.activeTabIdByWorkspace[tab.workspaceId] = action.payload
+      }
     },
+
     updateTab(state, action: PayloadAction<Partial<TabDocument> & { id: string }>) {
       const tab = state.tabs.find((t) => t.id === action.payload.id)
       if (tab) {
         Object.assign(tab, action.payload)
       }
     },
-    nextTab(state) {
-      if (state.tabs.length <= 1) return
-      const currentIndex = state.tabs.findIndex((t) => t.id === state.activeTabId)
-      const nextIndex = (currentIndex + 1) % state.tabs.length
-      state.activeTabId = state.tabs[nextIndex].id
+
+    // Update cursor position for a tab
+    updateTabPosition(
+      state,
+      action: PayloadAction<{
+        id: string
+        cursorPosition: { lineNumber: number; column: number }
+      }>
+    ) {
+      const tab = state.tabs.find((t) => t.id === action.payload.id)
+      if (tab) {
+        tab.cursorPosition = action.payload.cursorPosition
+      }
     },
-    previousTab(state) {
-      if (state.tabs.length <= 1) return
-      const currentIndex = state.tabs.findIndex((t) => t.id === state.activeTabId)
-      const prevIndex = currentIndex === 0 ? state.tabs.length - 1 : currentIndex - 1
-      state.activeTabId = state.tabs[prevIndex].id
+
+    // Update scroll position for a tab
+    updateTabScroll(state, action: PayloadAction<{ id: string; scrollTop: number }>) {
+      const tab = state.tabs.find((t) => t.id === action.payload.id)
+      if (tab) {
+        tab.scrollTop = action.payload.scrollTop
+      }
+    },
+
+    // Move a tab to a different workspace
+    moveTabToWorkspace(
+      state,
+      action: PayloadAction<{ tabId: string; newWorkspaceId: WorkspaceId }>
+    ) {
+      const tab = state.tabs.find((t) => t.id === action.payload.tabId)
+      if (!tab) return
+
+      const oldWorkspaceId = tab.workspaceId
+
+      // Update tab's workspace
+      tab.workspaceId = action.payload.newWorkspaceId
+
+      // If this was active in old workspace, clear it and select another
+      if (state.activeTabIdByWorkspace[oldWorkspaceId] === action.payload.tabId) {
+        const remainingTabs = state.tabs.filter(
+          (t) => t.workspaceId === oldWorkspaceId && t.id !== action.payload.tabId
+        )
+        state.activeTabIdByWorkspace[oldWorkspaceId] =
+          remainingTabs.length > 0 ? remainingTabs[0].id : null
+      }
+
+      // Set as active in new workspace
+      state.activeTabIdByWorkspace[action.payload.newWorkspaceId] = action.payload.tabId
+    },
+
+    // Close all tabs in a workspace
+    closeTabsByWorkspace(state, action: PayloadAction<WorkspaceId>) {
+      state.tabs = state.tabs.filter((t) => t.workspaceId !== action.payload)
+      state.activeTabIdByWorkspace[action.payload] = null
+    },
+
+    // Navigate to next tab within the same workspace
+    nextTab(state, action: PayloadAction<WorkspaceId>) {
+      const workspaceId = action.payload
+      const workspaceTabs = state.tabs.filter((t) => t.workspaceId === workspaceId)
+      if (workspaceTabs.length <= 1) return
+
+      const activeTabId = state.activeTabIdByWorkspace[workspaceId]
+      const currentIndex = workspaceTabs.findIndex((t) => t.id === activeTabId)
+      const nextIndex = (currentIndex + 1) % workspaceTabs.length
+      state.activeTabIdByWorkspace[workspaceId] = workspaceTabs[nextIndex].id
+    },
+
+    // Navigate to previous tab within the same workspace
+    previousTab(state, action: PayloadAction<WorkspaceId>) {
+      const workspaceId = action.payload
+      const workspaceTabs = state.tabs.filter((t) => t.workspaceId === workspaceId)
+      if (workspaceTabs.length <= 1) return
+
+      const activeTabId = state.activeTabIdByWorkspace[workspaceId]
+      const currentIndex = workspaceTabs.findIndex((t) => t.id === activeTabId)
+      const prevIndex = currentIndex === 0 ? workspaceTabs.length - 1 : currentIndex - 1
+      state.activeTabIdByWorkspace[workspaceId] = workspaceTabs[prevIndex].id
+    },
+
+    // Initialize active tab tracking for a new workspace
+    initWorkspaceActiveTab(state, action: PayloadAction<WorkspaceId>) {
+      if (!(action.payload in state.activeTabIdByWorkspace)) {
+        state.activeTabIdByWorkspace[action.payload] = null
+      }
+    },
+
+    // Clean up active tab tracking when workspace is removed
+    cleanupWorkspaceActiveTab(state, action: PayloadAction<WorkspaceId>) {
+      delete state.activeTabIdByWorkspace[action.payload]
+    },
+
+    // Reorder tabs within a workspace
+    reorderTabs(state, action: PayloadAction<{ workspaceId: WorkspaceId; oldIndex: number; newIndex: number }>) {
+      const { workspaceId, oldIndex, newIndex } = action.payload
+      if (oldIndex === newIndex) return
+
+      // Get indices of tabs belonging to this workspace in the global tabs array
+      const workspaceTabs = state.tabs
+        .map((tab, globalIndex) => ({ tab, globalIndex }))
+        .filter(({ tab }) => tab.workspaceId === workspaceId)
+
+      if (oldIndex >= workspaceTabs.length || newIndex >= workspaceTabs.length) return
+
+      const sourceGlobalIndex = workspaceTabs[oldIndex].globalIndex
+      const targetGlobalIndex = workspaceTabs[newIndex].globalIndex
+
+      const [moved] = state.tabs.splice(sourceGlobalIndex, 1)
+      // Recalculate target index after splice
+      const adjustedTarget = targetGlobalIndex > sourceGlobalIndex ? targetGlobalIndex - 1 : targetGlobalIndex
+      state.tabs.splice(adjustedTarget, 0, moved)
+    },
+
+    markSessionRestored(state) {
+      state.sessionRestored = true
     }
   }
 })
 
-export const { addTab, closeTab, setActiveTab, updateTab, nextTab, previousTab } = tabsSlice.actions
-export default tabsSlice.reducer
+// Memoized selectors to prevent unnecessary re-renders
+export const selectAllTabs = createSelector(
+  [(state: RootState) => state.tabs.tabs],
+  (tabs) => tabs
+)
 
-// Memoized selectors - these prevent unnecessary re-renders
-// Base selectors (input selectors)
-const selectTabsSlice = (state: { tabs: TabsState }) => state.tabs
-export const selectTabsArray = (state: { tabs: TabsState }) => state.tabs.tabs
-const selectActiveTabIdRaw = (state: { tabs: TabsState }) => state.tabs.activeTabId
+// Alias for backwards compatibility
+export const selectTabsArray = selectAllTabs
 
-// Memoized selector for active tab ID
+export const selectTabsByWorkspace = (state: RootState, workspaceId: WorkspaceId) => {
+  return state.tabs.tabs.filter((t) => t.workspaceId === workspaceId)
+}
+
+export const selectActiveTabIdByWorkspace = (state: RootState, workspaceId: WorkspaceId) => {
+  return state.tabs.activeTabIdByWorkspace[workspaceId] ?? null
+}
+
+export const selectActiveTabByWorkspace = (state: RootState, workspaceId: WorkspaceId) => {
+  const activeTabId = state.tabs.activeTabIdByWorkspace[workspaceId]
+  if (!activeTabId) return null
+  return state.tabs.tabs.find((t) => t.id === activeTabId) ?? null
+}
+
+export const selectTabById = (state: RootState, tabId: string) => {
+  return state.tabs.tabs.find((t) => t.id === tabId)
+}
+
+// Memoized selector factory for getting tab by id
+export const makeSelectTabById = () => createSelector(
+  [selectAllTabs, (_state: RootState, tabId: string) => tabId],
+  (tabs, tabId) => tabs.find((t) => t.id === tabId)
+)
+
+// For backwards compatibility - get active tab for active workspace
 export const selectActiveTabId = createSelector(
-  [selectActiveTabIdRaw],
-  (activeTabId) => activeTabId
+  [
+    (state: RootState) => state.workspaces?.activeWorkspaceId ?? DEFAULT_WORKSPACE_ID,
+    (state: RootState) => state.tabs.activeTabIdByWorkspace
+  ],
+  (activeWorkspaceId, activeTabIdByWorkspace) => activeTabIdByWorkspace[activeWorkspaceId] ?? null
 )
 
-// Memoized selector for active tab - only recomputes when tabs array or activeTabId changes
 export const selectActiveTab = createSelector(
-  [selectTabsArray, selectActiveTabIdRaw],
-  (tabs, activeTabId) => tabs.find(t => t.id === activeTabId)
+  [selectAllTabs, selectActiveTabId],
+  (tabs, activeTabId) => {
+    if (!activeTabId) return null
+    return tabs.find((t) => t.id === activeTabId) ?? null
+  }
 )
 
-// Memoized selector for tab IDs - useful for rendering tab list without re-rendering on content changes
-export const selectTabIds = createSelector(
-  [selectTabsArray],
-  (tabs) => tabs.map(t => t.id)
-)
+// Check if a file path is already open in any workspace
+export const selectTabByPath = (state: RootState, filePath: string) => {
+  return state.tabs.tabs.find((t) => t.path === filePath)
+}
 
-// Memoized selector for tabs count
-export const selectTabsCount = createSelector(
-  [selectTabsArray],
-  (tabs) => tabs.length
-)
+export const {
+  addTab,
+  closeTab,
+  setActiveTab,
+  updateTab,
+  updateTabPosition,
+  updateTabScroll,
+  moveTabToWorkspace,
+  closeTabsByWorkspace,
+  nextTab,
+  previousTab,
+  initWorkspaceActiveTab,
+  cleanupWorkspaceActiveTab,
+  reorderTabs,
+  markSessionRestored
+} = tabsSlice.actions
 
-// Selector factory for individual tab by ID
-export const makeSelectTabById = (tabId: string) => createSelector(
-  [selectTabsArray],
-  (tabs) => tabs.find(t => t.id === tabId)
-)
+export default tabsSlice.reducer

@@ -7,6 +7,26 @@
 
 Wrangle is a powerful desktop Markdown editor that combines the Monaco Editor with live preview, syntax highlighting, mathematical formula rendering, and diagram support. Whether you're writing documentation, taking notes, or creating content, Wrangle provides a seamless editing experience with professional-grade features.
 
+## Quick Start
+
+Install globally via npm:
+
+```bash
+npm install -g wrangle
+```
+
+Then launch from anywhere:
+
+```bash
+wrangle
+```
+
+Open a file directly:
+
+```bash
+wrangle path/to/file.md
+```
+
 ## Key Features
 
 - **Monaco Editor** - The same powerful code editor that powers VS Code
@@ -81,36 +101,27 @@ Wrangle is a powerful desktop Markdown editor that combines the Monaco Editor wi
 
 ## Installation
 
-### From Package (Recommended)
+### Prerequisites
+- **Node.js** (v18 or higher recommended)
+- **npm** or **yarn** package manager
 
-Download the latest release for your platform:
-- **Linux AppImage**: Download, make executable (`chmod +x`), and run
-- **Linux .deb**: Install with `sudo dpkg -i wrangle_*.deb`
+### Setup
 
-### From Source
-
-**Prerequisites:**
-- Node.js v18 or higher
-- npm package manager
-
-1. Clone and install:
+1. Clone the repository:
 ```bash
 git clone https://github.com/yourusername/wrangle.git
 cd wrangle
+```
+
+2. Install dependencies:
+```bash
 npm install
 ```
 
-2. Build and run:
+3. Run the application:
 ```bash
-npm run build
 npm start
 ```
-
-3. (Optional) Build installable packages:
-```bash
-npm run dist:linux
-```
-Packages will be created in the `dist/` directory.
 
 ---
 

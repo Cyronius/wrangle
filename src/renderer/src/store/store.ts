@@ -1,15 +1,15 @@
 import { configureStore } from '@reduxjs/toolkit'
 import tabsReducer from './tabsSlice'
 import layoutReducer from './layoutSlice'
-import themeReducer from './themeSlice'
 import settingsReducer from './settingsSlice'
+import workspacesReducer from './workspacesSlice'
 
 export const store = configureStore({
   reducer: {
     tabs: tabsReducer,
     layout: layoutReducer,
-    theme: themeReducer,
-    settings: settingsReducer
+    settings: settingsReducer,
+    workspaces: workspacesReducer
   }
 })
 

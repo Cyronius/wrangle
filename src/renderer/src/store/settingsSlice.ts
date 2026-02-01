@@ -9,6 +9,7 @@ export type ShortcutBindings = Record<string, string | null>
 function getDefaultBindings(): ShortcutBindings {
   const bindings: ShortcutBindings = {}
   for (const cmd of commands) {
+    if (cmd.readOnly) continue
     bindings[cmd.id] = cmd.defaultBinding
   }
   return bindings
@@ -54,6 +55,12 @@ export interface SettingsState {
   layout: {
     previewSyncLocked: boolean
     splitRatio: number
+    preferencesDialog?: {
+      x: number
+      y: number
+      width: number
+      height: number
+    }
   }
 }
 
@@ -62,7 +69,7 @@ const initialState: SettingsState = {
   loading: false,
   error: null,
   theme: {
-    current: 'dark',
+    current: 'Dark',
     customThemes: {}
   },
   shortcuts: {
@@ -84,10 +91,12 @@ export const loadSettings = createAsyncThunk(
   }
 )
 
-// Async thunk to save theme settings
+// Async thunk to save theme settings - reads current state to avoid race conditions
 export const saveThemeSettings = createAsyncThunk(
   'settings/saveTheme',
-  async (theme: SettingsState['theme']) => {
+  async (_: void, { getState }) => {
+    const state = getState() as { settings: SettingsState }
+    const theme = state.settings.theme
     await window.electron.settings.set('theme', theme)
     return theme
   }
@@ -129,9 +138,22 @@ const settingsSlice = createSlice({
     },
     deleteCustomTheme(state, action: PayloadAction<string>) {
       delete state.theme.customThemes[action.payload]
-      // Reset to dark if we deleted the current theme
+      // Reset to Dark if we deleted the current theme
       if (state.theme.current === action.payload) {
-        state.theme.current = 'dark'
+        state.theme.current = 'Dark'
+      }
+    },
+    renameCustomTheme(state, action: PayloadAction<{ oldName: string; newName: string }>) {
+      const css = state.theme.customThemes[action.payload.oldName]
+      if (css === undefined) return
+      const updatedCSS = css.replace(
+        /:root\[data-theme=['"][^'"]+['"]\]/g,
+        `:root[data-theme='${action.payload.newName}']`
+      )
+      delete state.theme.customThemes[action.payload.oldName]
+      state.theme.customThemes[action.payload.newName] = updatedCSS
+      if (state.theme.current === action.payload.oldName) {
+        state.theme.current = action.payload.newName
       }
     },
 
@@ -170,6 +192,9 @@ const settingsSlice = createSlice({
     },
     setSettingsSplitRatio(state, action: PayloadAction<number>) {
       state.layout.splitRatio = action.payload
+    },
+    setPreferencesDialogBounds(state, action: PayloadAction<{ x: number; y: number; width: number; height: number }>) {
+      state.layout.preferencesDialog = action.payload
     }
   },
   extraReducers: (builder) => {
@@ -185,6 +210,10 @@ const settingsSlice = createSlice({
         // Merge loaded settings with state
         if (action.payload.theme) {
           state.theme = action.payload.theme
+          // Migrate old lowercase 'dark' theme name
+          if (state.theme.current === 'dark') {
+            state.theme.current = 'Dark'
+          }
         }
         if (action.payload.shortcuts) {
           state.shortcuts = action.payload.shortcuts
@@ -197,9 +226,9 @@ const settingsSlice = createSlice({
         state.loading = false
         state.error = action.error.message || 'Failed to load settings'
       })
-      // Save theme
-      .addCase(saveThemeSettings.fulfilled, (state, action) => {
-        state.theme = action.payload
+      // Save theme - don't overwrite state, it's already updated by sync reducers
+      .addCase(saveThemeSettings.fulfilled, () => {
+        // Persistence handled by the thunk. State is source of truth.
       })
       // Save shortcuts
       .addCase(saveShortcutSettings.fulfilled, (state, action) => {
@@ -217,13 +246,15 @@ export const {
   addCustomTheme,
   updateCustomTheme,
   deleteCustomTheme,
+  renameCustomTheme,
   setCurrentPreset,
   addCustomPreset,
   updateCustomPreset,
   updateShortcutBinding,
   deleteCustomPreset,
   setPreviewSyncLocked,
-  setSettingsSplitRatio
+  setSettingsSplitRatio,
+  setPreferencesDialogBounds
 } = settingsSlice.actions
 
 export default settingsSlice.reducer
