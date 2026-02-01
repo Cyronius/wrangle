@@ -3,13 +3,18 @@
   "version": "1.0.0",
   "description": "Wrangle - A modern markdown editor with Monaco editor, built with Electron and React",
   "main": "./out/main/index.js",
-  "author": "",
+  "author": {
+    "name": "Cyrus Attoun",
+    "email": "cyrus.attoun@gmail.com"
+  },
   "license": "MIT",
   "scripts": {
     "start": "electron-vite dev",
     "dev:claude": "node -e \"delete process.env.ELECTRON_RUN_AS_NODE; require('child_process').spawn('npx', ['electron-vite', 'dev'], {stdio: 'inherit', shell: true, env: process.env})\"",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
+    "dist": "npm run build && electron-builder",
+    "dist:linux": "npm run build && electron-builder --linux",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug"
@@ -51,5 +56,20 @@
     "electron-vite": "^2.0.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.10"
+  },
+  "build": {
+    "appId": "com.wrangle.app",
+    "productName": "Wrangle",
+    "icon": "src/assets/W.png",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Office"
+    }
   }
 }
