@@ -56,15 +56,27 @@ function AppContent() {
   const [editorKey, setEditorKey] = useState(activeTabId || 'default')
   const [currentFilePath, setCurrentFilePath] = useState<string | undefined>(activeTab?.path)
   const [baseDir, setBaseDir] = useState<string | null>(null)
+  // Track previous tab ID to detect actual tab switches vs content updates
+  const prevActiveTabIdRef = useRef<string | undefined>(undefined)
 
   // Update local state when active tab changes
   useEffect(() => {
+    // Detect actual tab switch vs content update within same tab
+    const isTabSwitch = prevActiveTabIdRef.current !== activeTabId
+    prevActiveTabIdRef.current = activeTabId
+
     if (activeTab) {
-      // Update ref and initial content for Monaco
+      // Always update content ref
       contentRef.current = activeTab.content
-      setInitialContent(activeTab.content)  // Set initial content for Monaco
-      setEditorKey(activeTab.id)  // Key change will remount Monaco with new content
-      setPreviewContent(activeTab.content)  // Also update preview immediately on tab switch
+
+      // Only update Monaco initial content on actual tab switches
+      // This prevents cursor jumping when Redux updates content during typing
+      if (isTabSwitch) {
+        setInitialContent(activeTab.content)
+        setEditorKey(activeTab.id)
+        setPreviewContent(activeTab.content)
+      }
+
       setCurrentFilePath(activeTab.path)
 
       // Calculate base directory for image preview
