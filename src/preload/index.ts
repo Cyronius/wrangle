@@ -45,6 +45,16 @@ const electronAPI: ElectronAPI = {
     return () => {
       ipcRenderer.removeListener('menu:command', subscription)
     }
+  },
+  onFileOpenedFromPath: (callback: (fileData: { path: string; content: string }) => void) => {
+    const subscription = (_event: Electron.IpcRendererEvent, fileData: { path: string; content: string }) =>
+      callback(fileData)
+    ipcRenderer.on('file:openFromPath', subscription)
+
+    // Return unsubscribe function
+    return () => {
+      ipcRenderer.removeListener('file:openFromPath', subscription)
+    }
   }
 }
 

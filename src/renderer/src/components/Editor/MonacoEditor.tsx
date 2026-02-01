@@ -1,6 +1,6 @@
 import { Editor } from '@monaco-editor/react'
 import * as monaco from 'monaco-editor'
-import { forwardRef, useRef, useEffect, useCallback } from 'react'
+import { forwardRef, useRef, useEffect, useCallback, memo } from 'react'
 import { useSelector } from 'react-redux'
 import { selectCurrentBindings, ShortcutBindings } from '../../store/settingsSlice'
 import { parseShortcutToMonaco } from '../../utils/shortcut-parser'
@@ -16,7 +16,7 @@ interface MonacoEditorProps {
   onSelectionChange?: (selection: { start: number; end: number } | null) => void  // Selection range in character offsets
 }
 
-export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | null, MonacoEditorProps>(
+export const MonacoEditor = memo(forwardRef<monaco.editor.IStandaloneCodeEditor | null, MonacoEditorProps>(
   ({ value, onChange, theme = 'vs-dark', fontSize = 14, onCursorChange, onScroll, onSelectionChange }, ref) => {
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
     const disposablesRef = useRef<monaco.IDisposable[]>([])
@@ -123,7 +123,6 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
 
       // Set up scroll listener - must be done here since editor isn't available in useEffect
       scrollDisposableRef.current = editor.onDidScrollChange(() => {
-        console.log('[MonacoEditor] onDidScrollChange fired, onScrollRef.current:', !!onScrollRef.current)
         if (!onScrollRef.current) return
 
         const model = editor.getModel()
@@ -131,13 +130,11 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
 
         // Get the first visible line
         const visibleRanges = editor.getVisibleRanges()
-        console.log('[MonacoEditor] visibleRanges:', visibleRanges.length)
         if (visibleRanges.length === 0) return
 
         const firstVisibleLine = visibleRanges[0].startLineNumber
         // Get the character offset at the start of the first visible line
         const offset = model.getOffsetAt({ lineNumber: firstVisibleLine, column: 1 })
-        console.log('[MonacoEditor] calling onScroll with offset:', offset)
         onScrollRef.current(offset)
       })
 
@@ -235,4 +232,4 @@ export const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor | nul
       />
     )
   }
-)
+))

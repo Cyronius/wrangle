@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
+import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle, useMemo, memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -36,7 +36,7 @@ export interface MarkdownPreviewHandle {
   scrollToSourceId: (sourceId: string) => void
 }
 
-export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreviewProps>(function MarkdownPreview({
+export const MarkdownPreview = memo(forwardRef<MarkdownPreviewHandle, MarkdownPreviewProps>(function MarkdownPreview({
   content,
   baseDir = null,
   syncScroll = false,
@@ -97,14 +97,14 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
 
   // Build source map from DOM after ReactMarkdown renders
   useEffect(() => {
-    // Small delay to ensure ReactMarkdown has rendered
+    // Delay to ensure ReactMarkdown has rendered and to avoid rebuilding too frequently
     const timer = setTimeout(() => {
       if (contentRef.current) {
         const map = buildSourceMapFromDOM(contentRef.current)
         setSourceMap(map)
         onSourceMapReady?.(map)
       }
-    }, 100)
+    }, 800) // Increased to 800ms to reduce rebuild frequency during typing
 
     return () => clearTimeout(timer)
   }, [markdownContent, onSourceMapReady])
@@ -231,39 +231,9 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       <div
         ref={contentRef}
         className="markdown-body"
-        contentEditable
-        suppressContentEditableWarning
-        onBeforeInput={(e) => e.preventDefault()}
-        onInput={(e) => e.preventDefault()}
-        onPaste={(e) => e.preventDefault()}
-        onCut={(e) => e.preventDefault()}
-        onDrop={(e) => e.preventDefault()}
-        onKeyDown={(e) => {
-          // Block Backspace and Delete explicitly
-          if (e.key === 'Backspace' || e.key === 'Delete') {
-            e.preventDefault()
-            return
-          }
-          // Allow navigation keys
-          const allowedKeys = [
-            'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-            'Home', 'End', 'PageUp', 'PageDown',
-            'Shift', 'Control', 'Alt', 'Meta',
-            'Tab', 'Escape', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'
-          ]
-          // Block all other keys except navigation and modifiers
-          if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
-            e.preventDefault()
-            return
-          }
-        }}
-        onKeyPress={(e) => e.preventDefault()}
         style={{
           fontSize: `${zoomScale}em`,
-          lineHeight: 1.6,
-          outline: 'none',
-          caretColor: 'var(--preview-cursor-color, #4daafc)',
-          cursor: 'text'
+          lineHeight: 1.6
         }}
       >
         {/* Front matter rendered separately */}
@@ -281,5 +251,5 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       </div>
     </div>
   )
-})
+}))
 

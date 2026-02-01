@@ -18,8 +18,9 @@ export const test = base.extend<ElectronFixtures>({
     // Path to the built main process entry
     const appPath = path.resolve(__dirname, '../../out/main/index.js')
 
-    // Path to the Electron executable
-    const electronPath = path.resolve(__dirname, '../../node_modules/electron/dist/electron.exe')
+    // Path to the Electron executable (platform-specific)
+    const electronExecutable = process.platform === 'win32' ? 'electron.exe' : 'electron'
+    const electronPath = path.resolve(__dirname, `../../node_modules/electron/dist/${electronExecutable}`)
 
     // Create a clean environment without ELECTRON_RUN_AS_NODE
     const cleanEnv = { ...process.env }

@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, startTransition, useDeferredValue } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState, AppDispatch } from './store/store'
 import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline } from './store/layoutSlice'
 import { setTheme } from './store/themeSlice'
-import { addTab, updateTab, setActiveTab, closeTab, nextTab, previousTab } from './store/tabsSlice'
+import { addTab, updateTab, setActiveTab, closeTab, nextTab, previousTab, selectActiveTab, selectActiveTabId, selectTabsArray } from './store/tabsSlice'
 import { loadSettings } from './store/settingsSlice'
 import { EditorLayout } from './components/Layout/EditorLayout'
 import { TabBar } from './components/Tabs/TabBar'
@@ -21,9 +21,13 @@ function AppContent() {
   const dispatch = useDispatch<AppDispatch>()
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const previewUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const reduxUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Redux state
-  const { tabs, activeTabId } = useSelector((state: RootState) => state.tabs)
+  // Redux state - using memoized selectors to prevent unnecessary re-renders
+  const tabs = useSelector(selectTabsArray)
+  const activeTabId = useSelector(selectActiveTabId)
+  const activeTab = useSelector(selectActiveTab)
   const theme = useSelector((state: RootState) => state.theme.currentTheme)
   const showOutline = useSelector((state: RootState) => state.layout.showOutline)
 
@@ -35,18 +39,32 @@ function AppContent() {
     dispatch(loadSettings())
   }, [dispatch])
 
-  // Get active tab
-  const activeTab = tabs.find(t => t.id === activeTabId)
+  // Refs to avoid stale closures in memoized callbacks
+  const activeTabRef = useRef(activeTab)
+  activeTabRef.current = activeTab
 
-  // Local state for current content
-  const [content, setContent] = useState(activeTab?.content || '')
+  // Content stored in ref to avoid re-renders on every keystroke
+  // React state is only updated for preview (debounced)
+  const contentRef = useRef(activeTab?.content || '')
+  // Initial content for Monaco - only changes on tab switch (not on keystrokes)
+  const [initialContent, setInitialContent] = useState(activeTab?.content || '')
+  // Debounced state for preview (updates after typing stops)
+  const [previewContent, setPreviewContent] = useState(activeTab?.content || '')
+  // Use deferred value to let React prioritize input over preview rendering
+  const deferredPreviewContent = useDeferredValue(previewContent)
+  // Key to reset Monaco when tab changes (not on content changes)
+  const [editorKey, setEditorKey] = useState(activeTabId || 'default')
   const [currentFilePath, setCurrentFilePath] = useState<string | undefined>(activeTab?.path)
   const [baseDir, setBaseDir] = useState<string | null>(null)
 
   // Update local state when active tab changes
   useEffect(() => {
     if (activeTab) {
-      setContent(activeTab.content)
+      // Update ref and initial content for Monaco
+      contentRef.current = activeTab.content
+      setInitialContent(activeTab.content)  // Set initial content for Monaco
+      setEditorKey(activeTab.id)  // Key change will remount Monaco with new content
+      setPreviewContent(activeTab.content)  // Also update preview immediately on tab switch
       setCurrentFilePath(activeTab.path)
 
       // Calculate base directory for image preview
@@ -64,7 +82,8 @@ function AppContent() {
       }
     } else {
       // No active tab - show empty state
-      setContent('')
+      contentRef.current = ''
+      setEditorKey('empty')
       setCurrentFilePath(undefined)
       setBaseDir(null)
     }
@@ -75,28 +94,51 @@ function AppContent() {
     if (!activeTab) return
 
     try {
-      await window.electron.file.autoSave(activeTab.id, content, activeTab.path || null)
+      await window.electron.file.autoSave(activeTab.id, contentRef.current, activeTab.path || null)
     } catch (error) {
       console.error('Auto-save failed:', error)
     }
   }
 
-  // Handle content change
-  const handleChange = (value: string | undefined) => {
+  // Handle content change - memoized with refs to avoid stale closures
+  const handleChange = useCallback((value: string | undefined) => {
     const newContent = value || ''
-    setContent(newContent)
+    contentRef.current = newContent  // Update ref (no re-render, Monaco manages its own state)
 
-    // Mark tab as dirty if content changed
-    if (activeTab && newContent !== activeTab.content) {
-      // Extract H1 for unsaved files to use as display title
-      const displayTitle = !activeTab.path ? extractH1(newContent) || undefined : undefined
+    // Debounce preview update (300ms) to avoid re-rendering on every keystroke
+    // Use startTransition to mark as low-priority, allowing input to interrupt rendering
+    if (previewUpdateTimeoutRef.current) {
+      clearTimeout(previewUpdateTimeoutRef.current)
+    }
+    previewUpdateTimeoutRef.current = setTimeout(() => {
+      startTransition(() => {
+        setPreviewContent(newContent)
+      })
+    }, 500)
 
-      dispatch(updateTab({
-        id: activeTab.id,
-        content: newContent,
-        isDirty: true,
-        displayTitle
-      }))
+    const currentTab = activeTabRef.current
+    // Batch all Redux updates to reduce re-renders during typing
+    if (currentTab && newContent !== currentTab.content) {
+      // Capture tab info for the debounced callback (in case tab switches)
+      const tabId = currentTab.id
+      const tabPath = currentTab.path
+      const wasDirty = currentTab.isDirty
+
+      // Debounce ALL Redux updates (content + isDirty) to reduce dispatches
+      if (reduxUpdateTimeoutRef.current) {
+        clearTimeout(reduxUpdateTimeoutRef.current)
+      }
+      reduxUpdateTimeoutRef.current = setTimeout(() => {
+        // Extract H1 for unsaved files to use as display title
+        const displayTitle = !tabPath ? extractH1(newContent) || undefined : undefined
+        dispatch(updateTab({
+          id: tabId,
+          content: newContent,
+          displayTitle,
+          // Include isDirty in the same dispatch
+          ...(wasDirty ? {} : { isDirty: true })
+        }))
+      }, 500)
 
       // Trigger auto-save with debouncing (2.5 seconds)
       if (autoSaveTimeoutRef.current) {
@@ -104,13 +146,19 @@ function AppContent() {
       }
       autoSaveTimeoutRef.current = setTimeout(performAutoSave, 2500)
     }
-  }
+  }, [dispatch])
 
-  // Clean up auto-save timeout on unmount
+  // Clean up timeouts on unmount
   useEffect(() => {
     return () => {
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current)
+      }
+      if (previewUpdateTimeoutRef.current) {
+        clearTimeout(previewUpdateTimeoutRef.current)
+      }
+      if (reduxUpdateTimeoutRef.current) {
+        clearTimeout(reduxUpdateTimeoutRef.current)
       }
     }
   }, [])
@@ -190,14 +238,15 @@ function AppContent() {
     if (!activeTab) return
 
     const wasUnsaved = !activeTab.path
+    const currentContent = contentRef.current
 
     // Extract first H1 heading for suggested filename
-    const h1Match = content.match(/^#\s+(.+)$/m)
+    const h1Match = currentContent.match(/^#\s+(.+)$/m)
     const suggestedName = h1Match
       ? h1Match[1].trim().replace(/[^a-zA-Z0-9-_ ]/g, '').substring(0, 50)
       : undefined
 
-    const filePath = await window.electron.file.saveAs(content, suggestedName)
+    const filePath = await window.electron.file.saveAs(currentContent, suggestedName)
     if (filePath) {
       // If this was previously an unsaved file, move temp files to saved location
       if (wasUnsaved) {
@@ -208,7 +257,7 @@ function AppContent() {
       dispatch(updateTab({
         id: activeTab.id,
         filename,
-        content,
+        content: currentContent,
         path: filePath,
         isDirty: false
       }))
@@ -225,18 +274,19 @@ function AppContent() {
         clearTimeout(autoSaveTimeoutRef.current)
       }
     }
-  }, [activeTab, content, dispatch])
+  }, [activeTab, dispatch])
 
   const handleSave = useCallback(async () => {
     if (!activeTab) return
 
     if (activeTab.path) {
       // Save to existing path
-      const success = await window.electron.file.save(activeTab.path, content)
+      const currentContent = contentRef.current
+      const success = await window.electron.file.save(activeTab.path, currentContent)
       if (success) {
         dispatch(updateTab({
           id: activeTab.id,
-          content,
+          content: currentContent,
           isDirty: false
         }))
 
@@ -249,7 +299,7 @@ function AppContent() {
       // No path, do save as
       await handleSaveAs()
     }
-  }, [activeTab, content, dispatch, handleSaveAs])
+  }, [activeTab, dispatch, handleSaveAs])
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -380,7 +430,33 @@ function AppContent() {
     })
 
     return unsubscribe
-  }, [activeTab, content, dispatch])
+  }, [activeTab, dispatch, handleNewFile, handleOpen, handleSave, handleSaveAs])
+
+  // Handle files opened via command line (e.g., double-click to open, "Open with" menu)
+  useEffect(() => {
+    const unsubscribe = window.electron.onFileOpenedFromPath((fileData) => {
+      // Check if file is already open
+      const existingTab = tabs.find(t => t.path === fileData.path)
+      if (existingTab) {
+        dispatch(setActiveTab(existingTab.id))
+        return
+      }
+
+      // Create new tab with the file content
+      const filename = fileData.path.split(/[\\/]/).pop() || 'Untitled'
+      const newTabId = `tab-${Date.now()}`
+      dispatch(addTab({
+        id: newTabId,
+        filename,
+        content: fileData.content,
+        path: fileData.path,
+        isDirty: false
+      }))
+      dispatch(setActiveTab(newTabId))
+    })
+
+    return unsubscribe
+  }, [tabs, dispatch])
 
   // Image drop support
   const { isDragging } = useImageDrop({
@@ -521,7 +597,7 @@ function AppContent() {
         ) : (
           <>
             {showOutline && (
-              <OutlineSidebar content={content} editorRef={editorRef} />
+              <OutlineSidebar content={deferredPreviewContent} editorRef={editorRef} />
             )}
             <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
               {isDragging && (
@@ -547,7 +623,9 @@ function AppContent() {
                 </div>
               )}
               <EditorLayout
-                content={content}
+                key={editorKey}
+                content={initialContent}
+                previewContent={deferredPreviewContent}
                 onChange={handleChange}
                 baseDir={baseDir}
                 theme={monacoTheme}

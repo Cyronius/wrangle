@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, memo } from 'react'
 import { Allotment } from 'allotment'
 import { MonacoEditor } from '../Editor/MonacoEditor'
 import { MarkdownPreview, MarkdownPreviewHandle } from '../Preview/MarkdownPreview'
@@ -12,6 +12,7 @@ import 'allotment/dist/style.css'
 
 interface EditorLayoutProps {
   content: string
+  previewContent?: string  // Debounced content for preview (defaults to content if not provided)
   onChange: (value: string | undefined) => void
   baseDir?: string | null
   theme?: 'vs-dark' | 'vs'
@@ -29,6 +30,9 @@ function getZoomedFontSize(zoomLevel: number): number {
  * that appear before the given offset.
  */
 function normalizeOffset(content: string, offset: number): number {
+  // Fast path: if content has no \r, no normalization needed
+  if (!content.includes('\r')) return offset
+
   // Count \r characters before the offset
   let crCount = 0
   for (let i = 0; i < offset && i < content.length; i++) {
@@ -45,6 +49,9 @@ function normalizeOffset(content: string, offset: number): number {
  * the cursor in Monaco (which may use CRLF).
  */
 function denormalizeOffset(content: string, lfOffset: number): number {
+  // Fast path: if content has no \r, no denormalization needed
+  if (!content.includes('\r')) return Math.min(lfOffset, content.length)
+
   // Walk through content, counting characters without \r
   let lfCount = 0
   for (let i = 0; i < content.length; i++) {
@@ -59,13 +66,16 @@ function denormalizeOffset(content: string, lfOffset: number): number {
   return content.length
 }
 
-export function EditorLayout({
+export const EditorLayout = memo(function EditorLayout({
   content,
+  previewContent,
   onChange,
   baseDir = null,
   theme = 'vs-dark',
   editorRef
 }: EditorLayoutProps) {
+  // Use previewContent if provided, otherwise fall back to content
+  const effectivePreviewContent = previewContent ?? content
   const dispatch = useDispatch()
   const { viewMode, splitRatio, previewSync, zoomLevel } = useSelector((state: RootState) => state.layout)
 
@@ -79,6 +89,8 @@ export function EditorLayout({
   const sourceMapRef = useRef<SourceMap | null>(null)
   const previewSyncRef = useRef(previewSync)
   const contentRef = useRef(content)
+  const lastEditorScrollRef = useRef(0)
+  const lastPreviewScrollRef = useRef(0)
 
   // Keep refs in sync with state (avoids stale closures in callbacks captured by Monaco)
   sourceMapRef.current = sourceMap
@@ -96,6 +108,11 @@ export function EditorLayout({
   // Handle editor scroll - sync to preview using source map
   // Use refs to avoid stale closure issues - this callback is captured by Monaco on mount
   const handleEditorScroll = useCallback((offset: number) => {
+    // Throttle scroll events to max once per 50ms
+    const now = Date.now()
+    if (now - lastEditorScrollRef.current < 50) return
+    lastEditorScrollRef.current = now
+
     // Normalize offset from editor (which may have CRLF) to match source map (which uses LF)
     const normalizedOffset = normalizeOffset(contentRef.current, offset)
     if (!previewSyncRef.current || isPreviewScrollingRef.current || !sourceMapRef.current) return
@@ -120,6 +137,11 @@ export function EditorLayout({
   // Handle preview scroll - sync to editor using source map
   // Note: sourceId is now a start offset string (e.g., "0", "45") from data-source-start attribute
   const handlePreviewScroll = useCallback((sourceId: string | null) => {
+    // Throttle scroll events to max once per 50ms
+    const now = Date.now()
+    if (now - lastPreviewScrollRef.current < 50) return
+    lastPreviewScrollRef.current = now
+
     if (!previewSync || isEditorScrollingRef.current) return
     if (!editorRef?.current || !sourceId) return
 
@@ -171,7 +193,7 @@ export function EditorLayout({
           <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} />
         </div>
         <MarkdownPreview
-          content={content}
+          content={effectivePreviewContent}
           baseDir={baseDir}
           syncScroll={false}
           zoomLevel={zoomLevel}
@@ -203,7 +225,7 @@ export function EditorLayout({
         <Allotment.Pane minSize={200}>
           <MarkdownPreview
             ref={previewRef}
-            content={content}
+            content={effectivePreviewContent}
             baseDir={baseDir}
             syncScroll={previewSync}
             onScroll={handlePreviewScroll}
@@ -215,4 +237,4 @@ export function EditorLayout({
       <SyncLockIcon />
     </div>
   )
-}
+})

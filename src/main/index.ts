@@ -1,7 +1,25 @@
 import { app, shell, BrowserWindow, Menu, globalShortcut } from 'electron'
 import { join } from 'path'
+import { existsSync } from 'fs'
+import { readFile } from 'fs/promises'
 import { registerAllHandlers } from './ipc'
 import { initTempRoot } from './utils/temp-dir-manager'
+
+function getFilePathFromArgs(): string | null {
+  // process.argv structure in Electron:
+  // [0]: electron executable
+  // [1]: app path (main.js)
+  // [2+]: custom arguments
+  const args = process.argv.slice(2)
+
+  for (const arg of args) {
+    // Skip flags and look for markdown file paths
+    if (!arg.startsWith('-') && /\.(md|markdown|mdown|mkd|mdwn)$/i.test(arg) && existsSync(arg)) {
+      return arg
+    }
+  }
+  return null
+}
 
 function createWindow(): void {
   // Create the browser window
@@ -20,8 +38,19 @@ function createWindow(): void {
     }
   })
 
-  mainWindow.on('ready-to-show', () => {
+  mainWindow.on('ready-to-show', async () => {
     mainWindow.show()
+
+    // Check for file path in command-line arguments
+    const filePath = getFilePathFromArgs()
+    if (filePath) {
+      try {
+        const content = await readFile(filePath, 'utf-8')
+        mainWindow.webContents.send('file:openFromPath', { path: filePath, content })
+      } catch (error) {
+        console.error('Error reading file from command line:', error)
+      }
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

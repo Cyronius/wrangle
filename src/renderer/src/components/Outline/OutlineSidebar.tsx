@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, memo } from 'react'
 import { useDispatch } from 'react-redux'
 import { toggleOutline } from '../../store/layoutSlice'
 import { marked } from 'marked'
@@ -17,37 +17,62 @@ interface OutlineSidebarProps {
   editorRef: React.RefObject<monaco.editor.IStandaloneCodeEditor | null>
 }
 
-export function OutlineSidebar({ content, editorRef }: OutlineSidebarProps) {
+export const OutlineSidebar = memo(function OutlineSidebar({ content, editorRef }: OutlineSidebarProps) {
   const dispatch = useDispatch()
   const [items, setItems] = useState<OutlineItem[]>([])
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Parse headings from content using marked lexer
+  // Parse headings from content using marked lexer (debounced)
   useEffect(() => {
-    const tokens = marked.lexer(content)
-    const parsed: OutlineItem[] = []
+    // Clear existing timeout
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
 
-    // Track position to calculate line numbers
-    let currentOffset = 0
+    // Debounce parsing by 1000ms to reduce work during typing
+    debounceRef.current = setTimeout(() => {
+      const tokens = marked.lexer(content)
+      const parsed: OutlineItem[] = []
 
-    tokens.forEach((token) => {
-      if (token.type === 'heading') {
-        // Calculate line number from offset in source
-        const lineNumber = content.substring(0, currentOffset).split('\n').length
+      // Track position and line number incrementally (O(n) total instead of O(n*m))
+      let currentOffset = 0
+      let currentLine = 1
 
-        parsed.push({
-          id: `heading-${lineNumber}`,
-          level: token.depth,
-          text: token.text,
-          lineNumber
-        })
+      tokens.forEach((token) => {
+        if ('raw' in token) {
+          // Find where this token starts
+          const tokenStart = content.indexOf(token.raw, currentOffset)
+
+          // Count newlines between currentOffset and tokenStart
+          for (let i = currentOffset; i < tokenStart; i++) {
+            if (content[i] === '\n') currentLine++
+          }
+
+          if (token.type === 'heading') {
+            parsed.push({
+              id: `heading-${currentLine}`,
+              level: token.depth,
+              text: token.text,
+              lineNumber: currentLine
+            })
+          }
+
+          // Count newlines within the token and advance offset
+          for (let i = tokenStart; i < tokenStart + token.raw.length; i++) {
+            if (content[i] === '\n') currentLine++
+          }
+          currentOffset = tokenStart + token.raw.length
+        }
+      })
+
+      setItems(parsed)
+    }, 1000)
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
       }
-      // Advance offset by the raw token length
-      if ('raw' in token) {
-        currentOffset = content.indexOf(token.raw, currentOffset) + token.raw.length
-      }
-    })
-
-    setItems(parsed)
+    }
   }, [content])
 
   const handleClick = (item: OutlineItem) => {
@@ -91,4 +116,4 @@ export function OutlineSidebar({ content, editorRef }: OutlineSidebarProps) {
       </div>
     </div>
   )
-}
+})

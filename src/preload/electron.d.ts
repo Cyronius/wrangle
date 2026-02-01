@@ -52,6 +52,7 @@ export interface ElectronAPI {
     getPath: () => Promise<string>
   }
   onMenuCommand: (callback: (command: string) => void) => () => void
+  onFileOpenedFromPath: (callback: (fileData: { path: string; content: string }) => void) => () => void
 }
 
 declare global {
