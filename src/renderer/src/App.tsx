@@ -814,13 +814,61 @@ function AppContent() {
 </html>`
 
     // Use file save dialog to save as HTML
-    await window.electron.file.saveAs(htmlDoc, title)
+    await window.electron.window.exportHtml(htmlDoc, title)
   }, [activeTab?.filename])
 
-  // Export as PDF
+  // Export as PDF - renders markdown to a hidden window for clean output
   const handleExportPdf = useCallback(async () => {
-    await window.electron.window.exportPdf()
-  }, [])
+    const previewElement = document.querySelector('.markdown-body')
+    if (!previewElement) return
+
+    const html = previewElement.innerHTML
+    const title = activeTab?.filename?.replace(/\.md$/, '') || 'Document'
+
+    // Create standalone HTML document with embedded styles for PDF
+    const htmlDoc = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title}</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      max-width: 100%;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+      background-color: white;
+    }
+    h1, h2, h3, h4, h5, h6 { margin-top: 24px; margin-bottom: 16px; font-weight: 600; line-height: 1.25; color: black; }
+    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: .3em; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: .3em; }
+    h3 { font-size: 1.25em; }
+    p { margin-top: 0; margin-bottom: 16px; }
+    a { color: #0366d6; text-decoration: none; }
+    code { padding: .2em .4em; margin: 0; font-size: 85%; background-color: rgba(27,31,35,.05); border-radius: 3px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; }
+    pre { padding: 16px; overflow: auto; font-size: 85%; line-height: 1.45; background-color: #f6f8fa; border-radius: 3px; }
+    pre code { padding: 0; background-color: transparent; }
+    blockquote { padding: 0 1em; color: #6a737d; border-left: .25em solid #dfe2e5; margin: 0 0 16px 0; }
+    ul, ol { padding-left: 2em; margin-top: 0; margin-bottom: 16px; }
+    li { margin-top: .25em; }
+    table { border-spacing: 0; border-collapse: collapse; margin-bottom: 16px; }
+    th, td { padding: 6px 13px; border: 1px solid #dfe2e5; }
+    th { font-weight: 600; background-color: #f6f8fa; }
+    tr:nth-child(2n) { background-color: #f6f8fa; }
+    img { max-width: 100%; height: auto; }
+    hr { height: .25em; padding: 0; margin: 24px 0; background-color: #e1e4e8; border: 0; }
+  </style>
+</head>
+<body>
+  ${html}
+</body>
+</html>`
+
+    await window.electron.window.exportPdf(htmlDoc, title)
+  }, [activeTab?.filename])
 
   // Monaco theme based on app theme
   const monacoTheme = getMonacoThemeName(theme)

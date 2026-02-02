@@ -36,7 +36,8 @@ const electronAPI: ElectronAPI = {
     getZoom: () => ipcRenderer.invoke('window:getZoom'),
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
     print: () => ipcRenderer.send('window:print'),
-    exportPdf: () => ipcRenderer.invoke('window:exportPdf'),
+    exportPdf: (html: string, title: string) => ipcRenderer.invoke('window:exportPdf', html, title),
+    exportHtml: (html: string, title: string) => ipcRenderer.invoke('window:exportHtml', html, title),
     toggleDevTools: () => ipcRenderer.send('window:toggleDevTools')
   },
   settings: {

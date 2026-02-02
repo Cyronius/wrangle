@@ -1,6 +1,6 @@
 {
   "name": "wrangle",
-  "version": "1.0.0",
+  "version": "0.4.0",
   "description": "Wrangle - A modern markdown editor with Monaco editor, built with Electron and React",
   "main": "./out/main/index.js",
   "bin": {

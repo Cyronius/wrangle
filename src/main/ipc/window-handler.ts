@@ -59,34 +59,81 @@ export function registerWindowHandlers(): void {
     window?.webContents.toggleDevTools()
   })
 
-  ipcMain.handle('window:exportPdf', async (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender)
-    if (!window) return null
+  ipcMain.handle(
+    'window:exportPdf',
+    async (event, html: string, title: string) => {
+      const parentWindow = BrowserWindow.fromWebContents(event.sender)
+      if (!parentWindow) return null
 
-    const result = await dialog.showSaveDialog(window, {
-      title: 'Export as PDF',
-      defaultPath: 'document.pdf',
-      filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
-    })
+      const result = await dialog.showSaveDialog(parentWindow, {
+        title: 'Export as PDF',
+        defaultPath: `${title}.pdf`,
+        filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
+      })
 
-    if (result.canceled || !result.filePath) return null
+      if (result.canceled || !result.filePath) return null
 
-    try {
-      const pdfBuffer = await window.webContents.printToPDF({
-        printBackground: true,
-        margins: {
-          top: 0.5,
-          bottom: 0.5,
-          left: 0.5,
-          right: 0.5
+      // Create a hidden window to render the HTML for PDF export
+      const hiddenWindow = new BrowserWindow({
+        show: false,
+        width: 816, // US Letter width at 96 DPI
+        height: 1056, // US Letter height at 96 DPI
+        webPreferences: {
+          offscreen: true
         }
       })
 
-      await writeFile(result.filePath, pdfBuffer)
-      return result.filePath
-    } catch (error) {
-      console.error('Failed to export PDF:', error)
-      return null
+      try {
+        // Load the HTML content
+        await hiddenWindow.loadURL(
+          `data:text/html;charset=utf-8,${encodeURIComponent(html)}`
+        )
+
+        // Wait for content to render
+        await new Promise((resolve) => setTimeout(resolve, 500))
+
+        const pdfBuffer = await hiddenWindow.webContents.printToPDF({
+          printBackground: true,
+          margins: {
+            top: 0.5,
+            bottom: 0.5,
+            left: 0.5,
+            right: 0.5
+          }
+        })
+
+        await writeFile(result.filePath, pdfBuffer)
+        return result.filePath
+      } catch (error) {
+        console.error('Failed to export PDF:', error)
+        return null
+      } finally {
+        hiddenWindow.destroy()
+      }
     }
-  })
+  )
+
+  ipcMain.handle(
+    'window:exportHtml',
+    async (event, html: string, title: string) => {
+      const parentWindow = BrowserWindow.fromWebContents(event.sender)
+      if (!parentWindow) return null
+
+      const result = await dialog.showSaveDialog(parentWindow, {
+        title: 'Export as HTML',
+        defaultPath: `${title}.html`,
+        filters: [{ name: 'HTML Files', extensions: ['html'] }]
+      })
+
+      if (result.canceled || !result.filePath) return null
+
+      try {
+        await writeFile(result.filePath, html, 'utf-8')
+        return result.filePath
+      } catch (error) {
+        console.error('Failed to export HTML:', error)
+        return null
+      }
+    }
+  )
 }
