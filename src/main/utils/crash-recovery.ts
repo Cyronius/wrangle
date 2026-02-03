@@ -1,6 +1,6 @@
 import { homedir } from 'os'
 import { join } from 'path'
-import { writeFile, unlink, readdir, readFile, stat } from 'fs/promises'
+import { writeFile, unlink, readdir, readFile, stat, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
 
 const WRANGLE_DIR = join(homedir(), '.wrangle')
@@ -24,6 +24,7 @@ export function didCrashLastSession(): boolean {
  * Create the running marker on startup.
  */
 export async function createRunningMarker(): Promise<void> {
+  await mkdir(WRANGLE_DIR, { recursive: true })
   await writeFile(RUNNING_MARKER, String(Date.now()), 'utf-8')
 }
 
