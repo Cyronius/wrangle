@@ -96,9 +96,9 @@ export interface ElectronAPI {
     // Save workspace session
     saveSession: (folderPath: string, session: WorkspaceSession) => Promise<boolean>
     // List files in directory (non-recursive)
-    listFiles: (folderPath: string) => Promise<FileTreeNode[]>
+    listFiles: (folderPath: string, showHidden?: boolean) => Promise<FileTreeNode[]>
     // List files recursively
-    listFilesRecursive: (folderPath: string, maxDepth?: number) => Promise<FileTreeNode[]>
+    listFilesRecursive: (folderPath: string, maxDepth?: number, showHidden?: boolean) => Promise<FileTreeNode[]>
     // Start watching a folder for changes
     watchFolder: (folderPath: string) => Promise<boolean>
     // Stop watching a folder

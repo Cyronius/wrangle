@@ -127,6 +127,23 @@ export function WorkspaceHeader({ workspace }: WorkspaceHeaderProps) {
     }
   }
 
+  const handleToggleHiddenFiles = () => {
+    const newValue = !workspace.showHiddenFiles
+    dispatch(updateWorkspace({ id: workspace.id, changes: { showHiddenFiles: newValue } }))
+
+    // Persist to config file
+    if (workspace.rootPath) {
+      window.electron.workspace.loadConfig(workspace.rootPath).then((config) => {
+        if (config) {
+          window.electron.workspace.saveConfig(workspace.rootPath!, {
+            ...config,
+            showHiddenFiles: newValue
+          })
+        }
+      })
+    }
+  }
+
   const handleCollapse = () => {
     dispatch(collapseAllWorkspaces())
     dispatch(setWorkspaceSidebar(false))
@@ -225,6 +242,16 @@ export function WorkspaceHeader({ workspace }: WorkspaceHeaderProps) {
           <CloseIcon />
         </button>
       </div>
+      {!isDefault && workspace.rootPath && (
+        <label className="workspace-hidden-files-toggle">
+          <input
+            type="checkbox"
+            checked={workspace.showHiddenFiles}
+            onChange={handleToggleHiddenFiles}
+          />
+          Show hidden files
+        </label>
+      )}
     </div>
   )
 }

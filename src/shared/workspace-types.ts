@@ -10,6 +10,7 @@ export interface WorkspaceConfig {
   color: string // Hex color code
   createdAt: number
   lastOpenedAt: number
+  showHiddenFiles?: boolean
 }
 
 // Tab state stored per-workspace for session restoration
@@ -40,6 +41,7 @@ export interface WorkspaceState {
   color: string
   rootPath: string | null // null for default workspace
   isExpanded: boolean
+  showHiddenFiles: boolean
 }
 
 // File tree node for directory listing

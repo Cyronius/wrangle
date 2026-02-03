@@ -17,14 +17,18 @@ export function rehypeSourcePositions() {
     visit(tree, 'element', (node: Element) => {
       if (node.position) {
         node.properties = node.properties || {}
-        node.properties['data-source-start'] = node.position.start.offset
-        node.properties['data-source-end'] = node.position.end.offset
+        if (node.position.start?.offset !== undefined) {
+          node.properties['data-source-start'] = node.position.start.offset
+        }
+        if (node.position.end?.offset !== undefined) {
+          node.properties['data-source-end'] = node.position.end.offset
+        }
 
         // For elements with children, find where text content starts/ends
         if (node.children && node.children.length > 0) {
           // Find first child with position
           for (const child of node.children) {
-            if (child.position) {
+            if (child.position?.start?.offset !== undefined) {
               node.properties['data-text-start'] = child.position.start.offset
               break
             }
@@ -33,7 +37,7 @@ export function rehypeSourcePositions() {
           // Find last child with position
           for (let i = node.children.length - 1; i >= 0; i--) {
             const child = node.children[i]
-            if (child.position) {
+            if (child.position?.end?.offset !== undefined) {
               node.properties['data-text-end'] = child.position.end.offset
               break
             }

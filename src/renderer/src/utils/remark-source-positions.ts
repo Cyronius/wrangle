@@ -30,8 +30,12 @@ export function remarkSourcePositions() {
       // hProperties will be transferred to HTML attributes by remark-rehype
       node.data = node.data || {}
       node.data.hProperties = node.data.hProperties || {}
-      node.data.hProperties['data-source-start'] = node.position.start.offset
-      node.data.hProperties['data-source-end'] = node.position.end.offset
+      if (node.position.start?.offset !== undefined) {
+        node.data.hProperties['data-source-start'] = node.position.start.offset
+      }
+      if (node.position.end?.offset !== undefined) {
+        node.data.hProperties['data-source-end'] = node.position.end.offset
+      }
 
       // For parent nodes with children, calculate where the text content starts
       // by looking at the first text child's position
@@ -40,20 +44,24 @@ export function remarkSourcePositions() {
         const lastChild = node.children[node.children.length - 1] as NodeWithData
 
         // If first child has position data, that's where text content starts
-        if (firstChild.position) {
+        if (firstChild.position?.start?.offset !== undefined) {
           node.data.hProperties['data-text-start'] = firstChild.position.start.offset
         }
 
         // If last child has position data, that's where text content ends
-        if (lastChild.position) {
+        if (lastChild.position?.end?.offset !== undefined) {
           node.data.hProperties['data-text-end'] = lastChild.position.end.offset
         }
       }
 
       // For text nodes (literals), text-start equals source-start
       if ('value' in node && typeof node.value === 'string') {
-        node.data.hProperties['data-text-start'] = node.position.start.offset
-        node.data.hProperties['data-text-end'] = node.position.end.offset
+        if (node.position.start?.offset !== undefined) {
+          node.data.hProperties['data-text-start'] = node.position.start.offset
+        }
+        if (node.position.end?.offset !== undefined) {
+          node.data.hProperties['data-text-end'] = node.position.end.offset
+        }
       }
     })
   }

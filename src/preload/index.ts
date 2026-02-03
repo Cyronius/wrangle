@@ -61,10 +61,10 @@ const electronAPI: ElectronAPI = {
       ipcRenderer.invoke('workspace:loadSession', folderPath),
     saveSession: (folderPath: string, session: WorkspaceSession) =>
       ipcRenderer.invoke('workspace:saveSession', folderPath, session),
-    listFiles: (folderPath: string) =>
-      ipcRenderer.invoke('workspace:listFiles', folderPath),
-    listFilesRecursive: (folderPath: string, maxDepth?: number) =>
-      ipcRenderer.invoke('workspace:listFilesRecursive', folderPath, maxDepth),
+    listFiles: (folderPath: string, showHidden?: boolean) =>
+      ipcRenderer.invoke('workspace:listFiles', folderPath, showHidden),
+    listFilesRecursive: (folderPath: string, maxDepth?: number, showHidden?: boolean) =>
+      ipcRenderer.invoke('workspace:listFilesRecursive', folderPath, maxDepth, showHidden),
     watchFolder: (folderPath: string) =>
       ipcRenderer.invoke('workspace:watchFolder', folderPath),
     unwatchFolder: (folderPath: string) =>

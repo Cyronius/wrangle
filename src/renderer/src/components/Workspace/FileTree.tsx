@@ -8,9 +8,10 @@ interface FileTreeProps {
   workspaceId: string
   onFileOpen: (filePath: string) => void
   selectedPath?: string
+  showHiddenFiles?: boolean
 }
 
-export function FileTree({ rootPath, workspaceId, onFileOpen, selectedPath }: FileTreeProps) {
+export function FileTree({ rootPath, workspaceId, onFileOpen, selectedPath, showHiddenFiles }: FileTreeProps) {
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([])
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set([rootPath]))
   const [isLoading, setIsLoading] = useState(true)
@@ -26,7 +27,7 @@ export function FileTree({ rootPath, workspaceId, onFileOpen, selectedPath }: Fi
 
       try {
         // Load with depth 3 for initial view
-        const tree = await window.electron.workspace.listFilesRecursive(rootPath, 3)
+        const tree = await window.electron.workspace.listFilesRecursive(rootPath, 3, showHiddenFiles)
         if (!cancelled) {
           setFileTree(tree)
           setIsLoading(false)
@@ -45,7 +46,7 @@ export function FileTree({ rootPath, workspaceId, onFileOpen, selectedPath }: Fi
     return () => {
       cancelled = true
     }
-  }, [rootPath, workspaceId])
+  }, [rootPath, workspaceId, showHiddenFiles])
 
   // Handle folder expand/collapse
   const handleToggle = useCallback((path: string) => {

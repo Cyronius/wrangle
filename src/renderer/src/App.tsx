@@ -28,6 +28,7 @@ import { WorkspaceSidebar } from './components/Workspace/WorkspaceSidebar'
 import { MultiPaneContainer } from './components/Layout/MultiPaneContainer'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
 import { CommandDefinition } from './commands/registry'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { useImageDrop } from './hooks/useImageDrop'
 import { useEditorPane } from './hooks/useEditorPane'
 import { useSessionPersistence } from './hooks/useSessionPersistence'
@@ -138,7 +139,8 @@ function AppContent() {
               name: config.name,
               color: config.color,
               rootPath: workspacePath,
-              isExpanded: false
+              isExpanded: false,
+              showHiddenFiles: config.showHiddenFiles !== false
             }))
 
             // Load workspace session (tabs)
@@ -393,7 +395,8 @@ function AppContent() {
         name: result.config.name,
         color: result.config.color,
         rootPath: result.path,
-        isExpanded: true
+        isExpanded: true,
+        showHiddenFiles: result.config.showHiddenFiles !== false
       })
     )
     dispatch(setWorkspaceSidebar(true))
@@ -995,7 +998,9 @@ function App() {
   return (
     <Provider store={store}>
       <ThemeProvider>
-        <AppContent />
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
       </ThemeProvider>
     </Provider>
   )

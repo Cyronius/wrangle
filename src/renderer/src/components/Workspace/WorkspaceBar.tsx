@@ -195,7 +195,8 @@ export function WorkspaceBar() {
         name: result.config.name,
         color: result.config.color,
         rootPath: result.path,
-        isExpanded: true
+        isExpanded: true,
+        showHiddenFiles: result.config.showHiddenFiles !== false
       })
     )
 

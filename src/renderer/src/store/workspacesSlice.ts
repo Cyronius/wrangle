@@ -18,7 +18,8 @@ const defaultWorkspace: WorkspaceState = {
   name: 'Default',
   color: WORKSPACE_COLORS[0],
   rootPath: null,
-  isExpanded: true
+  isExpanded: true,
+  showHiddenFiles: true
 }
 
 const initialState: WorkspacesState = {

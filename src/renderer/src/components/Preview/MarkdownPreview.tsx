@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle, useMemo, memo } from 'react'
+import { Component, useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle, useMemo, memo } from 'react'
+import type { ReactNode, ErrorInfo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -22,6 +23,67 @@ import './preview.css'
 
 // Re-export SourceMap for consumers
 export { SourceMap }
+
+/**
+ * Error boundary specifically for the markdown preview.
+ * If ReactMarkdown or a rehype/remark plugin crashes on certain content,
+ * this catches the error and shows a fallback instead of killing the entire app.
+ */
+class PreviewErrorBoundary extends Component<
+  { children: ReactNode; content: string },
+  { error: Error | null; errorContent: string | null }
+> {
+  constructor(props: { children: ReactNode; content: string }) {
+    super(props)
+    this.state = { error: null, errorContent: null }
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Preview render error:', error, errorInfo)
+    this.setState({ errorContent: this.props.content })
+  }
+
+  componentDidUpdate(prevProps: { content: string }) {
+    // If content changes from the content that caused the error, try again
+    if (this.state.error && this.props.content !== this.state.errorContent) {
+      this.setState({ error: null, errorContent: null })
+    }
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{
+          padding: '24px',
+          color: 'var(--text-muted, #888)',
+          fontSize: '13px',
+          lineHeight: '1.6'
+        }}>
+          <p style={{ color: 'var(--error-color, #f44336)', fontWeight: 500 }}>
+            Preview could not render this content.
+          </p>
+          <pre style={{
+            fontSize: '11px',
+            padding: '8px 12px',
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            borderRadius: '4px',
+            overflow: 'auto',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            maxHeight: '80px'
+          }}>
+            {this.state.error.message}
+          </pre>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 interface MarkdownPreviewProps {
   content: string
@@ -279,14 +341,17 @@ export const MarkdownPreview = memo(forwardRef<MarkdownPreviewHandle, MarkdownPr
         {hasFrontMatter && (
           <div dangerouslySetInnerHTML={{ __html: renderFrontMatter(frontMatterData) }} />
         )}
-        {/* ReactMarkdown renders the markdown */}
-        <ReactMarkdown
-          remarkPlugins={remarkPlugins}
-          rehypePlugins={rehypePlugins}
-          components={components}
-        >
-          {markdownContent}
-        </ReactMarkdown>
+        {/* ReactMarkdown renders the markdown - wrapped in error boundary
+            so a rehype/remark plugin crash doesn't kill the entire app */}
+        <PreviewErrorBoundary content={markdownContent}>
+          <ReactMarkdown
+            remarkPlugins={remarkPlugins}
+            rehypePlugins={rehypePlugins}
+            components={components}
+          >
+            {markdownContent}
+          </ReactMarkdown>
+        </PreviewErrorBoundary>
       </div>
     </div>
   )

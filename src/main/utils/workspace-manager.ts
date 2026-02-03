@@ -181,7 +181,8 @@ export function isInsideWorkspace(filePath: string, workspacePath: string): bool
 export async function listFilesRecursive(
   dirPath: string,
   maxDepth: number = 10,
-  currentDepth: number = 0
+  currentDepth: number = 0,
+  showHidden?: boolean
 ): Promise<FileTreeNode[]> {
   if (currentDepth >= maxDepth) {
     return []
@@ -191,8 +192,12 @@ export async function listFilesRecursive(
   const nodes: FileTreeNode[] = []
 
   for (const entry of entries) {
-    // Skip hidden files and directories (including .wrangle)
-    if (entry.startsWith('.')) {
+    // Always skip .wrangle directory (internal config)
+    if (entry === WRANGLE_DIR) {
+      continue
+    }
+    // Skip hidden files unless showHidden is true
+    if (!showHidden && entry.startsWith('.')) {
       continue
     }
 
@@ -209,7 +214,7 @@ export async function listFilesRecursive(
       }
 
       if (isDirectory) {
-        node.children = await listFilesRecursive(fullPath, maxDepth, currentDepth + 1)
+        node.children = await listFilesRecursive(fullPath, maxDepth, currentDepth + 1, showHidden)
       }
 
       nodes.push(node)
@@ -232,13 +237,17 @@ export async function listFilesRecursive(
 /**
  * List files in a directory (non-recursive, for lazy loading)
  */
-export async function listFiles(dirPath: string): Promise<FileTreeNode[]> {
+export async function listFiles(dirPath: string, showHidden?: boolean): Promise<FileTreeNode[]> {
   const entries = await readdir(dirPath)
   const nodes: FileTreeNode[] = []
 
   for (const entry of entries) {
-    // Skip hidden files and directories (including .wrangle)
-    if (entry.startsWith('.')) {
+    // Always skip .wrangle directory (internal config)
+    if (entry === WRANGLE_DIR) {
+      continue
+    }
+    // Skip hidden files unless showHidden is true
+    if (!showHidden && entry.startsWith('.')) {
       continue
     }
 

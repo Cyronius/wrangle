@@ -107,9 +107,9 @@ export function registerWorkspaceHandlers(): void {
   )
 
   // List files in directory (non-recursive for lazy loading)
-  ipcMain.handle('workspace:listFiles', async (_event, folderPath: string) => {
+  ipcMain.handle('workspace:listFiles', async (_event, folderPath: string, showHidden?: boolean) => {
     try {
-      return await listFiles(folderPath)
+      return await listFiles(folderPath, showHidden)
     } catch (error) {
       console.error(`Error listing files in ${folderPath}:`, error)
       return []
@@ -119,9 +119,9 @@ export function registerWorkspaceHandlers(): void {
   // List files recursively (for initial tree load)
   ipcMain.handle(
     'workspace:listFilesRecursive',
-    async (_event, folderPath: string, maxDepth: number = 5) => {
+    async (_event, folderPath: string, maxDepth: number = 5, showHidden?: boolean) => {
       try {
-        return await listFilesRecursive(folderPath, maxDepth)
+        return await listFilesRecursive(folderPath, maxDepth, undefined, showHidden)
       } catch (error) {
         console.error(`Error listing files recursively in ${folderPath}:`, error)
         return []

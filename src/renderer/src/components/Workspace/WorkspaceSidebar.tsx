@@ -60,6 +60,7 @@ export function WorkspaceSidebar({ onFileOpen }: WorkspaceSidebarProps) {
           workspaceId={expandedWorkspace.id}
           onFileOpen={onFileOpen}
           selectedPath={activeTab?.path}
+          showHiddenFiles={expandedWorkspace.showHiddenFiles}
         />
       )}
     </div>

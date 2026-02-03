@@ -7,12 +7,15 @@ import { initTempRoot } from './utils/temp-dir-manager'
 import { didCrashLastSession, createRunningMarker, clearRunningMarker, findOrphanedDrafts } from './utils/crash-recovery'
 import { setCrashRecoveryInfo } from './ipc/crash-recovery-handler'
 
-function getFilePathFromArgs(): string | null {
+// Module-level reference so second-instance handler can access it
+let mainWindow: BrowserWindow | null = null
+
+function getFilePathFromArgs(argv?: string[]): string | null {
   // process.argv structure in Electron:
   // [0]: electron executable
   // [1]: app path (main.js)
   // [2+]: custom arguments
-  const args = process.argv.slice(2)
+  const args = (argv || process.argv).slice(2)
 
   for (const arg of args) {
     // Skip flags and look for markdown file paths
@@ -23,9 +26,9 @@ function getFilePathFromArgs(): string | null {
   return null
 }
 
-function createWindow(): void {
+function createWindow(): BrowserWindow {
   // Create the browser window
-  const mainWindow = new BrowserWindow({
+  const win = new BrowserWindow({
     width: 1200,
     height: 800,
     show: false,
@@ -40,9 +43,9 @@ function createWindow(): void {
     }
   })
 
-  mainWindow.on('ready-to-show', async () => {
+  win.on('ready-to-show', async () => {
     if (process.env.NODE_ENV !== 'test') {
-      mainWindow.show()
+      win.show()
     }
 
     // Check for file path in command-line arguments
@@ -50,14 +53,14 @@ function createWindow(): void {
     if (filePath) {
       try {
         const content = await readFile(filePath, 'utf-8')
-        mainWindow.webContents.send('file:openFromPath', { path: filePath, content })
+        win.webContents.send('file:openFromPath', { path: filePath, content })
       } catch (error) {
         console.error('Error reading file from command line:', error)
       }
     }
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
@@ -68,10 +71,35 @@ function createWindow(): void {
   // HMR for renderer based on electron-vite cli
   // Load the remote URL for development or the local html file for production
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    win.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  return win
+}
+
+// Single-instance lock: if another instance is already running,
+// send the file path to the existing instance and quit
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', async (_event, argv) => {
+    // Another instance was launched - extract file path from its args
+    const filePath = getFilePathFromArgs(argv)
+    if (filePath && mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        const content = await readFile(filePath, 'utf-8')
+        mainWindow.webContents.send('file:openFromPath', { path: filePath, content })
+      } catch (error) {
+        console.error('Error reading file from second instance:', error)
+      }
+      // Focus the existing window
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
 }
 
 // This method will be called when Electron has finished initialization
@@ -104,7 +132,7 @@ app.whenReady().then(async () => {
   // Register IPC handlers
   registerAllHandlers()
 
-  createWindow()
+  mainWindow = createWindow()
 
   // Register global shortcuts to toggle DevTools (works even when DevTools has focus)
   // Try F12 first, fall back to Ctrl+Shift+I if F12 is reserved
@@ -133,7 +161,9 @@ app.whenReady().then(async () => {
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      mainWindow = createWindow()
+    }
   })
 })
 
