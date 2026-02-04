@@ -17,20 +17,7 @@ function getDefaultBindings(): ShortcutBindings {
 
 // Built-in presets
 export const builtInPresets: Record<string, ShortcutBindings> = {
-  default: getDefaultBindings(),
-  vim: {
-    // Vim-style bindings (basic - true vim mode would need monaco-vim)
-    ...getDefaultBindings(),
-    // Override some bindings with vim-style alternatives
-    'file.save': 'Ctrl+S', // :w in vim, but keep Ctrl+S for convenience
-    'edit.undo': 'Ctrl+Z',
-    'edit.redo': 'Ctrl+Shift+Z', // Vim uses Ctrl+R, but that conflicts
-    'markdown.bold': 'Ctrl+B',
-    'markdown.italic': 'Ctrl+I',
-    // Navigation - vim-style would use hjkl but that conflicts with typing
-    'nav.nextTab': 'Ctrl+Tab',
-    'nav.prevTab': 'Ctrl+Shift+Tab'
-  }
+  default: getDefaultBindings()
 }
 
 export interface SettingsState {

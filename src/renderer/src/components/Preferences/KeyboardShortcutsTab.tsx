@@ -152,21 +152,6 @@ export function KeyboardShortcutsTab() {
 
   return (
     <div className="shortcuts-tab">
-      {/* Vim mode toggle */}
-      <div className="vim-mode-toggle">
-        <label className="vim-mode-label">
-          <input
-            type="checkbox"
-            checked={vimEnabled}
-            onChange={handleVimModeToggle}
-          />
-          <span>Vim Mode</span>
-        </label>
-        <span className="vim-mode-description">
-          Modal editing with NORMAL, INSERT, and VISUAL modes. Supports hjkl navigation, operators, text objects, and ex commands (:w, :q, :wq).
-        </span>
-      </div>
-
       {/* Controls */}
       <div className="shortcuts-controls">
         <div className="shortcuts-preset-select">
@@ -207,6 +192,18 @@ export function KeyboardShortcutsTab() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Vim mode toggle */}
+      <div className="vim-mode-toggle">
+        <label className="vim-mode-label">
+          <input
+            type="checkbox"
+            checked={vimEnabled}
+            onChange={handleVimModeToggle}
+          />
+          <span>Vim Mode</span>
+        </label>
       </div>
 
       {/* Read-only notice for built-in presets */}
