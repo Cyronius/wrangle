@@ -35,7 +35,9 @@ wrangle path/to/file.md
 - **Diagrams** - Create flowcharts, sequence diagrams, and more with Mermaid
 - **Multi-tab Interface** - Work with multiple files simultaneously
 - **Smart Image Handling** - Drag-and-drop images with automatic asset management
-- **Dark/Light Themes** - Choose your preferred visual style
+- **14 Built-in Themes** - Includes Dracula, Nord, Tokyo Night, Catppuccin, and more, plus custom theme creation
+- **Multi-Workspace Support** - Manage multiple projects with per-workspace session persistence
+- **WYSIWYG Editing** - Select text in the preview pane to apply formatting directly
 
 ---
 
@@ -93,9 +95,23 @@ wrangle path/to/file.md
 - **Temp File Management** - Intelligent temporary file cleanup
 
 ### Themes
-- **Light Theme** - Clean, bright interface for daytime work
-- **Dark Theme** - Easy on the eyes for low-light environments
+- **14 Built-in Themes** - Choose from a curated selection of popular themes:
+  - *Light*: Lightish, Solarized Light
+  - *Dark*: Dark, Balanced Grey, Ayu Mirage, Catppuccin Mocha, Dracula, Material Palenight, Monokai Pro, Night Owl, Nord, One Dark Pro, Solarized Dark, Tokyo Night
+- **Custom Theme Creation** - Create your own themes with the built-in CSS editor
 - **Theme Persistence** - Your preference is remembered
+
+### Workspaces
+- **Multi-Folder Projects** - Open folders as workspaces for project-based organization
+- **File Tree Navigation** - Browse and open files directly from the workspace sidebar
+- **Color-Coded Indicators** - Each workspace has a customizable color for easy identification
+- **Session Persistence** - Open tabs, scroll positions, and view modes saved per workspace
+- **Multi-Pane Editing** - View multiple workspaces side-by-side
+
+### WYSIWYG Editing
+- **Preview Selection Formatting** - Select text in the preview pane and apply formatting via toolbar or shortcuts
+- **Active Format Detection** - Toolbar buttons highlight when cursor is within formatted text
+- **Toggle Behavior** - Click a format button to apply; click again to remove
 
 ---
 
@@ -214,13 +230,15 @@ wrangle/
 │           │   ├── Preview/     # Markdown preview
 │           │   ├── Tabs/        # Tab management UI
 │           │   ├── Layout/      # Split layout
+│           │   ├── Workspace/   # Workspace sidebar and file tree
 │           │   └── UI/          # Toolbar components
 │           ├── hooks/           # Custom React hooks
 │           ├── store/           # Redux store
 │           │   ├── index.ts
 │           │   ├── tabsSlice.ts
 │           │   ├── layoutSlice.ts
-│           │   └── themeSlice.ts
+│           │   ├── workspacesSlice.ts
+│           │   └── settingsSlice.ts
 │           ├── utils/
 │           │   ├── markdown-commands.ts
 │           │   └── markdown-renderer.ts
@@ -275,7 +293,7 @@ All communication between main and renderer uses IPC channels:
 
 #### State Management
 
-Redux Toolkit manages application state with three slices:
+Redux Toolkit manages application state with four slices:
 
 ```typescript
 {
@@ -288,8 +306,15 @@ Redux Toolkit manages application state with three slices:
     splitRatio: number,    // Pane split ratio (0.2-0.8)
     previewSync: boolean   // Scroll sync enabled
   },
-  theme: {
-    currentTheme: 'light' | 'dark'
+  workspaces: {
+    workspaces: WorkspaceState[],  // Open workspaces
+    activeWorkspaceId: string      // Currently active workspace
+  },
+  settings: {
+    theme: {
+      current: string,             // Current theme name
+      customThemes: Record         // User-created themes
+    }
   }
 }
 ```
