@@ -1,0 +1,25 @@
+.vim-status-bar {
+  height: 24px;
+  padding: 0 8px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 24px;
+  background-color: var(--bg-secondary, #1e1e1e);
+  color: var(--text-secondary, #cccccc);
+  border-top: 1px solid var(--border-color, #333);
+  display: flex;
+  align-items: center;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.vim-status-bar input {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  outline: none;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}

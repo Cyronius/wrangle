@@ -35,7 +35,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@monaco-editor/react": "^4.6.0",
     "@reduxjs/toolkit": "^2.0.1",
-    "allotment": "^1.20.0",    
+    "allotment": "^1.20.0",
     "electron-store": "^8.2.0",
     "electron-updater": "^6.1.7",
     "gray-matter": "^4.0.3",
@@ -47,6 +47,7 @@
     "marked-highlight": "^2.1.0",
     "mermaid": "^10.7.0",
     "monaco-editor": "^0.45.0",
+    "monaco-vim": "^0.4.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hotkeys-hook": "^4.4.1",
@@ -65,11 +66,11 @@
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^28.3.3",
     "electron-builder": "^24.13.3",
     "electron-vite": "^2.0.0",
     "typescript": "^5.3.3",
-    "vite": "^5.0.10",
-    "electron": "^28.3.3"
+    "vite": "^5.0.10"
   },
   "build": {
     "appId": "com.wrangle.app",
@@ -82,7 +83,9 @@
       "out/**/*"
     ],
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "src/assets/W.png"
     },
     "nsis": {

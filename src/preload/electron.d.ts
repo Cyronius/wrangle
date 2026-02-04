@@ -44,6 +44,9 @@ export interface SettingsSchema {
     previewSyncLocked: boolean
     splitRatio: number
   }
+  editor: {
+    vimMode: boolean
+  }
 }
 
 export interface ElectronAPI {

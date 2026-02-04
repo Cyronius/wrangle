@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, memo } from 'react'
 import { Allotment } from 'allotment'
 import { MonacoEditor } from '../Editor/MonacoEditor'
+import { VimStatusBar } from '../Editor/VimStatusBar'
 import { MarkdownPreview, MarkdownPreviewHandle } from '../Preview/MarkdownPreview'
 import { SyncLockIcon } from './SyncLockIcon'
 import { SourceMap } from '../../utils/source-map'
@@ -19,6 +20,8 @@ interface EditorLayoutProps {
   onCursorPositionChange?: (position: { lineNumber: number; column: number }) => void
   onScrollTopChange?: (scrollTop: number) => void
   onPreviewSelectionChange?: (selection: { start: number; end: number } | null) => void
+  // Vim status bar ref for vim mode integration
+  vimStatusBarRef?: React.RefObject<HTMLDivElement | null>
   // Optional overrides for multi-pane mode
   viewModeOverride?: 'split' | 'editor-only' | 'preview-only'
   splitRatioOverride?: number
@@ -81,6 +84,7 @@ export const EditorLayout = memo(function EditorLayout({
   onCursorPositionChange,
   onScrollTopChange,
   onPreviewSelectionChange,
+  vimStatusBarRef,
   viewModeOverride,
   splitRatioOverride,
   onSplitRatioChange
@@ -183,8 +187,11 @@ export const EditorLayout = memo(function EditorLayout({
   // Render based on view mode
   if (viewMode === 'editor-only') {
     return (
-      <div style={{ height: '100%', width: '100%' }}>
-        <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} onCursorPositionChange={onCursorPositionChange} onScrollTopChange={onScrollTopChange} />
+      <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} onCursorPositionChange={onCursorPositionChange} onScrollTopChange={onScrollTopChange} />
+        </div>
+        <VimStatusBar ref={vimStatusBarRef} />
       </div>
     )
   }
@@ -203,6 +210,10 @@ export const EditorLayout = memo(function EditorLayout({
           zoomLevel={zoomLevel}
           onSelectionChange={onPreviewSelectionChange}
         />
+        {/* Hidden vim status bar - keeps ref valid */}
+        <div style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0, pointerEvents: 'none' }}>
+          <VimStatusBar ref={vimStatusBarRef} />
+        </div>
       </div>
     )
   }
@@ -213,6 +224,8 @@ export const EditorLayout = memo(function EditorLayout({
 
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, overflow: 'hidden' }}>
       <Allotment
         onChange={handleSplitChange}
         defaultSizes={[editorSize, previewSize]}
@@ -242,6 +255,9 @@ export const EditorLayout = memo(function EditorLayout({
           />
         </Allotment.Pane>
       </Allotment>
+        </div>
+        <VimStatusBar ref={vimStatusBarRef} />
+      </div>
       <SyncLockIcon />
     </div>
   )

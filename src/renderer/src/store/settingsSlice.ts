@@ -62,6 +62,11 @@ export interface SettingsState {
       height: number
     }
   }
+
+  // Editor settings
+  editor: {
+    vimMode: boolean
+  }
 }
 
 const initialState: SettingsState = {
@@ -79,6 +84,9 @@ const initialState: SettingsState = {
   layout: {
     previewSyncLocked: false,
     splitRatio: 0.5
+  },
+  editor: {
+    vimMode: false
   }
 }
 
@@ -108,6 +116,17 @@ export const saveShortcutSettings = createAsyncThunk(
   async (shortcuts: SettingsState['shortcuts']) => {
     await window.electron.settings.set('shortcuts', shortcuts)
     return shortcuts
+  }
+)
+
+// Async thunk to save editor settings
+export const saveEditorSettings = createAsyncThunk(
+  'settings/saveEditor',
+  async (_: void, { getState }) => {
+    const state = getState() as { settings: SettingsState }
+    const editor = state.settings.editor
+    await window.electron.settings.set('editor', editor)
+    return editor
   }
 )
 
@@ -195,6 +214,11 @@ const settingsSlice = createSlice({
     },
     setPreferencesDialogBounds(state, action: PayloadAction<{ x: number; y: number; width: number; height: number }>) {
       state.layout.preferencesDialog = action.payload
+    },
+
+    // Editor actions
+    setVimMode(state, action: PayloadAction<boolean>) {
+      state.editor.vimMode = action.payload
     }
   },
   extraReducers: (builder) => {
@@ -221,6 +245,9 @@ const settingsSlice = createSlice({
         if (action.payload.layout) {
           state.layout = action.payload.layout
         }
+        if (action.payload.editor) {
+          state.editor = action.payload.editor
+        }
       })
       .addCase(loadSettings.rejected, (state, action) => {
         state.loading = false
@@ -238,6 +265,10 @@ const settingsSlice = createSlice({
       .addCase(saveLayoutSettings.fulfilled, (state, action) => {
         state.layout = action.payload
       })
+      // Save editor
+      .addCase(saveEditorSettings.fulfilled, (state, action) => {
+        state.editor = action.payload
+      })
   }
 })
 
@@ -254,7 +285,8 @@ export const {
   deleteCustomPreset,
   setPreviewSyncLocked,
   setSettingsSplitRatio,
-  setPreferencesDialogBounds
+  setPreferencesDialogBounds,
+  setVimMode
 } = settingsSlice.actions
 
 export default settingsSlice.reducer
@@ -280,6 +312,11 @@ export function selectCurrentBindings(state: { settings: SettingsState }): Short
 // Selector to check if current preset is built-in (read-only)
 export function selectIsBuiltInPreset(state: { settings: SettingsState }): boolean {
   return !!builtInPresets[state.settings.shortcuts.currentPreset]
+}
+
+// Selector to get vim mode state
+export function selectVimMode(state: { settings: SettingsState }): boolean {
+  return state.settings.editor?.vimMode ?? false
 }
 
 // Selector to get all available preset names

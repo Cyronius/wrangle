@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef as useReactRef } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState, AppDispatch } from './store/store'
 import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, setWorkspaceSidebar, toggleMultiPane, setFocusedPane, addVisiblePane } from './store/layoutSlice'
@@ -33,6 +33,7 @@ import { useImageDrop } from './hooks/useImageDrop'
 import { useEditorPane } from './hooks/useEditorPane'
 import { useSessionPersistence } from './hooks/useSessionPersistence'
 import { useWindowDrag } from './hooks/useWindowDrag'
+import { useVimMode } from './hooks/useVimMode'
 import { getMonacoThemeName } from './utils/monaco-theme-generator'
 import * as monaco from 'monaco-editor'
 
@@ -449,6 +450,19 @@ function AppContent() {
       await handleSaveAs()
     }
   }, [activeTab, content, dispatch, handleSaveAs])
+
+  // Vim mode integration
+  const vimStatusBarRef = useReactRef<HTMLDivElement>(null)
+  useVimMode({
+    editorRef,
+    statusBarRef: vimStatusBarRef,
+    activeTabId: activeTab?.id ?? null,
+    handlers: {
+      onSave: handleSave,
+      onCloseTab: handleCloseTab,
+      onOpen: handleOpen
+    }
+  })
 
   // Global keyboard shortcuts (capture phase to fire before Monaco)
   useEffect(() => {
@@ -960,6 +974,7 @@ function AppContent() {
                 onCursorPositionChange={handleCursorPositionChange}
                 onScrollTopChange={handleScrollTopChange}
                 onPreviewSelectionChange={setPreviewSelection}
+                vimStatusBarRef={vimStatusBarRef}
               />
             </div>
           </>

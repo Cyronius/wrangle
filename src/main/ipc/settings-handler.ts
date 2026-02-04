@@ -15,6 +15,9 @@ interface SettingsSchema {
     previewSyncLocked: boolean
     splitRatio: number
   }
+  editor: {
+    vimMode: boolean
+  }
 }
 
 // Default settings values
@@ -30,6 +33,9 @@ const defaults: SettingsSchema = {
   layout: {
     previewSyncLocked: false,
     splitRatio: 0.5
+  },
+  editor: {
+    vimMode: false
   }
 }
 

@@ -727,6 +727,20 @@ export const commands: CommandDefinition[] = [
     readOnly: true,
     bindingDisplay: 'Escape',
     execute: () => {}
+  },
+  {
+    id: 'editor.toggleVimMode',
+    label: 'Toggle Vim Mode',
+    category: 'edit',
+    defaultBinding: null,
+    execute: (ctx) => {
+      // Dynamic import to avoid circular dependency
+      const { setVimMode, saveEditorSettings } = require('../store/settingsSlice')
+      const state = ctx.getState() as { settings: { editor: { vimMode: boolean } } }
+      const current = state.settings?.editor?.vimMode ?? false
+      ctx.dispatch(setVimMode(!current))
+      ctx.dispatch(saveEditorSettings())
+    }
   }
 ]
 

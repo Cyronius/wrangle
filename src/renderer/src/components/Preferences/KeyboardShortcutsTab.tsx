@@ -5,12 +5,15 @@ import {
   selectCurrentBindings,
   selectIsBuiltInPreset,
   selectAllPresetNames,
+  selectVimMode,
   builtInPresets,
   setCurrentPreset,
+  setVimMode,
   addCustomPreset,
   updateShortcutBinding,
   deleteCustomPreset,
   saveShortcutSettings,
+  saveEditorSettings,
   ShortcutBindings
 } from '../../store/settingsSlice'
 import { commands, categories, categoryLabels, CommandDefinition } from '../../commands/registry'
@@ -23,6 +26,7 @@ export function KeyboardShortcutsTab() {
   const bindings = useSelector(selectCurrentBindings)
   const isBuiltIn = useSelector(selectIsBuiltInPreset)
   const presetNames = useSelector(selectAllPresetNames)
+  const vimEnabled = useSelector(selectVimMode)
   const { currentPreset, customPresets } = useSelector(
     (state: RootState) => state.settings.shortcuts
   )
@@ -141,8 +145,28 @@ export function KeyboardShortcutsTab() {
     return findConflicts(binding, bindings, commandId)
   }
 
+  const handleVimModeToggle = () => {
+    dispatch(setVimMode(!vimEnabled))
+    dispatch(saveEditorSettings())
+  }
+
   return (
     <div className="shortcuts-tab">
+      {/* Vim mode toggle */}
+      <div className="vim-mode-toggle">
+        <label className="vim-mode-label">
+          <input
+            type="checkbox"
+            checked={vimEnabled}
+            onChange={handleVimModeToggle}
+          />
+          <span>Vim Mode</span>
+        </label>
+        <span className="vim-mode-description">
+          Modal editing with NORMAL, INSERT, and VISUAL modes. Supports hjkl navigation, operators, text objects, and ex commands (:w, :q, :wq).
+        </span>
+      </div>
+
       {/* Controls */}
       <div className="shortcuts-controls">
         <div className="shortcuts-preset-select">
