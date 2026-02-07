@@ -323,21 +323,25 @@ function AppContent() {
   }, [workspaces, activeWorkspaceId])
 
   const handleOpen = useCallback(async () => {
-    const fileData = await window.electron.file.open()
-    if (fileData) {
+    const files = await window.electron.file.open()
+    if (files.length === 0) return
+
+    let lastTabId: string | null = null
+
+    for (const fileData of files) {
       // Check if file is already open
       const existingTab = tabs.find(t => t.path === fileData.path)
       if (existingTab) {
-        dispatch(setActiveTab(existingTab.id))
-        return
+        lastTabId = existingTab.id
+        continue
       }
 
       // Detect workspace based on file path
       const workspaceId = detectWorkspaceForPath(fileData.path)
 
-      // Create new tab
+      // Create new tab with unique ID
       const filename = fileData.path.split(/[\\/]/).pop() || 'Untitled'
-      const newTabId = `tab-${Date.now()}`
+      const newTabId = `tab-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
       dispatch(addTab({
         id: newTabId,
         workspaceId,
@@ -346,7 +350,12 @@ function AppContent() {
         path: fileData.path,
         isDirty: false
       }))
-      dispatch(setActiveTab(newTabId))
+      lastTabId = newTabId
+    }
+
+    // Activate the last opened/found tab
+    if (lastTabId) {
+      dispatch(setActiveTab(lastTabId))
     }
   }, [tabs, dispatch, detectWorkspaceForPath])
 
@@ -708,7 +717,7 @@ function AppContent() {
     return unsubscribe
   }, [activeTab, content, dispatch, handleAddWorkspace])
 
-  // Image drop support
+  // Image and markdown file drop support
   const { isDragging } = useImageDrop({
     editorRef,
     tabId: activeTab?.id,
@@ -720,6 +729,39 @@ function AppContent() {
           id: activeTab.id,
           isDirty: true
         }))
+      }
+    },
+    workspaces,
+    activeWorkspaceId,
+    tabs,
+    onMarkdownFilesOpen: (files) => {
+      let lastTabId: string | null = null
+
+      for (const fileData of files) {
+        // Check if file is already open
+        const existingTab = tabs.find(t => t.path === fileData.path)
+        if (existingTab) {
+          lastTabId = existingTab.id
+          continue
+        }
+
+        // Create new tab with the file content
+        const filename = fileData.path.split(/[\\/]/).pop() || 'Untitled'
+        const newTabId = `tab-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+        dispatch(addTab({
+          id: newTabId,
+          workspaceId: fileData.workspaceId,
+          filename,
+          content: fileData.content,
+          path: fileData.path,
+          isDirty: false
+        }))
+        lastTabId = newTabId
+      }
+
+      // Activate the last opened/found tab
+      if (lastTabId) {
+        dispatch(setActiveTab(lastTabId))
       }
     }
   })

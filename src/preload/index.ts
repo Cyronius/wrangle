@@ -25,7 +25,9 @@ const electronAPI: ElectronAPI = {
       ipcRenderer.invoke('file:moveTempFiles', tabId, savedPath),
     cleanupTemp: (tabId: string) => ipcRenderer.invoke('file:cleanupTemp', tabId),
     readImageAsDataURL: (imagePath: string) =>
-      ipcRenderer.invoke('file:readImageAsDataURL', imagePath)
+      ipcRenderer.invoke('file:readImageAsDataURL', imagePath),
+    copyToWorkspace: (sourcePath: string, workspaceRootPath: string) =>
+      ipcRenderer.invoke('file:copyToWorkspace', sourcePath, workspaceRootPath)
   },
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),

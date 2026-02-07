@@ -51,7 +51,7 @@ export interface SettingsSchema {
 
 export interface ElectronAPI {
   file: {
-    open: () => Promise<FileData | null>
+    open: () => Promise<FileData[]>
     readByPath: (filePath: string) => Promise<FileData | null>
     save: (path: string, content: string) => Promise<boolean>
     saveAs: (content: string, suggestedName?: string) => Promise<string | null>
@@ -65,6 +65,7 @@ export interface ElectronAPI {
     moveTempFiles: (tabId: string, savedPath: string) => Promise<boolean>
     cleanupTemp: (tabId: string) => Promise<boolean>
     readImageAsDataURL: (imagePath: string) => Promise<string | null>
+    copyToWorkspace: (sourcePath: string, workspaceRootPath: string) => Promise<string | null>
   }
   window: {
     minimize: () => void

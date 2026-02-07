@@ -309,6 +309,26 @@
   text-align: center;
   color: var(--text-muted);
   font-size: 12px;
+  min-height: 100px;
+}
+
+/* ===== File Tree Drop Target ===== */
+.file-tree.drop-target {
+  background-color: rgba(77, 170, 252, 0.1);
+  outline: 2px dashed var(--accent-color);
+  outline-offset: -2px;
+}
+
+.file-tree-drop-indicator {
+  position: sticky;
+  top: 0;
+  padding: 8px 12px;
+  background: var(--accent-color);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  z-index: 10;
 }
 
 /* ===== File Tree Item ===== */

@@ -74,10 +74,10 @@ async function isBinaryFile(filePath: string): Promise<boolean> {
 }
 
 export function registerFileHandlers(): void {
-  // Handle file open
+  // Handle file open (supports multiple selection)
   ipcMain.handle('file:open', async () => {
     const result = await dialog.showOpenDialog({
-      properties: ['openFile'],
+      properties: ['openFile', 'multiSelections'],
       filters: [
         { name: 'Markdown Files', extensions: ['md', 'markdown', 'mdown', 'mkd', 'mdwn'] },
         { name: 'Text Files', extensions: ['txt'] },
@@ -86,21 +86,20 @@ export function registerFileHandlers(): void {
     })
 
     if (result.canceled || result.filePaths.length === 0) {
-      return null
+      return []
     }
 
-    try {
-      const filePath = result.filePaths[0]
-      const content = await readFile(filePath, 'utf-8')
-      return {
-        path: filePath,
-        content
-      } as FileData
-    } catch (error) {
-      console.error('Error reading file:', error)
-      dialog.showErrorBox('File Read Error', `Could not read file: ${error}`)
-      return null
+    const files: FileData[] = []
+    for (const filePath of result.filePaths) {
+      try {
+        const content = await readFile(filePath, 'utf-8')
+        files.push({ path: filePath, content })
+      } catch (error) {
+        console.error('Error reading file:', filePath, error)
+        // Continue with other files
+      }
     }
+    return files
   })
 
   // Handle reading a file by path (for workspace file tree)
@@ -208,6 +207,35 @@ export function registerFileHandlers(): void {
       } catch (error) {
         console.error('Error copying image:', error)
         dialog.showErrorBox('Image Copy Error', `Could not copy image: ${error}`)
+        return null
+      }
+    }
+  )
+
+  // Handle copying a file to a workspace folder
+  ipcMain.handle(
+    'file:copyToWorkspace',
+    async (_event, sourcePath: string, workspaceRootPath: string) => {
+      try {
+        const filename = path.basename(sourcePath)
+        const ext = path.extname(filename)
+        const baseName = path.basename(filename, ext)
+
+        // Check for conflicts and add number suffix if needed
+        let targetFilename = filename
+        let targetPath = path.join(workspaceRootPath, targetFilename)
+        let counter = 1
+
+        while (existsSync(targetPath)) {
+          targetFilename = `${baseName}_${counter}${ext}`
+          targetPath = path.join(workspaceRootPath, targetFilename)
+          counter++
+        }
+
+        await copyFile(sourcePath, targetPath)
+        return targetPath
+      } catch (error) {
+        console.error('Error copying file to workspace:', error)
         return null
       }
     }
