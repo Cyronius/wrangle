@@ -11,7 +11,7 @@ import {
   toggleVisibleInTabBar,
   setVisibleInTabBar
 } from '../../store/workspacesSlice'
-import { setWorkspaceSidebar, setFocusedPane, addVisiblePane } from '../../store/layoutSlice'
+import { setWorkspaceSidebar, setFocusedPane } from '../../store/layoutSlice'
 import { WorkspaceState } from '../../../../shared/workspace-types'
 import { useEdgeScroll } from '../../hooks/useEdgeScroll'
 import {
@@ -83,8 +83,6 @@ export function WorkspaceBar() {
   const workspaces = useSelector(selectAllWorkspaces)
   const activeWorkspaceId = useSelector(selectActiveWorkspaceId)
   const showWorkspaceSidebar = useSelector((state: RootState) => state.layout.showWorkspaceSidebar)
-  const multiPaneEnabled = useSelector((state: RootState) => state.layout.multiPaneEnabled)
-  const visiblePanes = useSelector((state: RootState) => state.layout.visiblePanes)
   const containerRef = useRef<HTMLDivElement>(null)
   const itemsRef = useRef<HTMLDivElement>(null)
   const [canScrollUp, setCanScrollUp] = useState(false)
@@ -144,44 +142,33 @@ export function WorkspaceBar() {
   }, [canScrollUp, canScrollDown, stopScroll])
 
   const handleWorkspaceClick = (workspace: WorkspaceState) => {
-    if (multiPaneEnabled) {
-      // In multi-pane mode: focus existing pane or add as new pane
-      if (visiblePanes.includes(workspace.id)) {
-        dispatch(setFocusedPane(workspace.id))
-        dispatch(setActiveWorkspace(workspace.id))
-      } else {
-        dispatch(addVisiblePane(workspace.id))
-        dispatch(setActiveWorkspace(workspace.id))
-      }
-      // WTB-001: Ensure workspace is visible in tab bar when clicked
-      dispatch(setVisibleInTabBar({ id: workspace.id, visible: true }))
-    } else {
-      // Single-pane mode
-      if (workspace.id === activeWorkspaceId) {
-        // WTB-001: Clicking active workspace hides it from tab bar
-        // and activates the next visible workspace
-        dispatch(toggleVisibleInTabBar(workspace.id))
+    if (workspace.id === activeWorkspaceId) {
+      // WTB-001: Clicking active workspace toggles its visibility in tab bar
+      dispatch(toggleVisibleInTabBar(workspace.id))
 
-        // Find next visible workspace to activate
+      // If hiding, activate the next visible workspace
+      if (workspace.visibleInTabBar) {
         const nextVisible = workspaces.find(
           (w) => w.id !== workspace.id && w.visibleInTabBar
         )
         if (nextVisible) {
           dispatch(setActiveWorkspace(nextVisible.id))
           dispatch(expandWorkspaceExclusive(nextVisible.id))
+          dispatch(setFocusedPane(nextVisible.id))
         }
-
-        // Toggle sidebar visibility
-        if (workspace.isExpanded && showWorkspaceSidebar) {
-          dispatch(setWorkspaceSidebar(false))
-        }
-      } else {
-        // WTB-001: Clicking inactive workspace shows it and activates it
-        dispatch(setVisibleInTabBar({ id: workspace.id, visible: true }))
-        dispatch(setActiveWorkspace(workspace.id))
-        dispatch(expandWorkspaceExclusive(workspace.id))
-        dispatch(setWorkspaceSidebar(true))
       }
+
+      // Toggle sidebar visibility
+      if (workspace.isExpanded && showWorkspaceSidebar) {
+        dispatch(setWorkspaceSidebar(false))
+      }
+    } else {
+      // Clicking inactive workspace: show it and activate it
+      dispatch(setVisibleInTabBar({ id: workspace.id, visible: true }))
+      dispatch(setActiveWorkspace(workspace.id))
+      dispatch(expandWorkspaceExclusive(workspace.id))
+      dispatch(setWorkspaceSidebar(true))
+      dispatch(setFocusedPane(workspace.id))
     }
   }
 
@@ -226,14 +213,8 @@ export function WorkspaceBar() {
     // Switch to the new workspace and expand it exclusively
     dispatch(setActiveWorkspace(result.config.id))
     dispatch(expandWorkspaceExclusive(result.config.id))
-
-    if (multiPaneEnabled) {
-      // Add as new pane in multi-pane mode
-      dispatch(addVisiblePane(result.config.id))
-    } else {
-      // Show sidebar for new workspace in single-pane mode
-      dispatch(setWorkspaceSidebar(true))
-    }
+    dispatch(setFocusedPane(result.config.id))
+    dispatch(setWorkspaceSidebar(true))
   }
 
   return (

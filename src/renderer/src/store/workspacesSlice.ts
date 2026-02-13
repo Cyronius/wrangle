@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, createSelector, PayloadAction } from '@reduxjs/toolkit'
 import {
   WorkspaceId,
   WorkspaceState,
@@ -168,6 +168,12 @@ export const selectNonDefaultWorkspaces = (state: RootState) => {
 export const selectVisibleWorkspaces = (state: RootState) => {
   return state.workspaces.workspaces.filter((w) => w.visibleInTabBar)
 }
+
+// Memoized selector for visible workspace IDs (used for multi-pane derivation)
+export const selectVisibleWorkspaceIds = createSelector(
+  [(state: RootState) => state.workspaces.workspaces],
+  (workspaces) => workspaces.filter((w) => w.visibleInTabBar).map((w) => w.id)
+)
 
 // Find workspace that contains a given file path
 export const selectWorkspaceForPath = (state: RootState, filePath: string | undefined) => {

@@ -14,10 +14,11 @@ export interface AppSession {
   openWorkspaces: string[] // Array of workspace root paths
   activeWorkspacePath: string | null
   lastSavedAt: number
-  // Multi-pane mode state
-  multiPaneEnabled?: boolean
-  visiblePaneWorkspacePaths?: string[] // Workspace paths for visible panes
+  visibleWorkspacePaths?: string[] // Workspaces with visibleInTabBar=true
   focusedPaneWorkspacePath?: string | null
+  // Deprecated fields (kept for backwards compatibility on load)
+  multiPaneEnabled?: boolean
+  visiblePaneWorkspacePaths?: string[]
 }
 
 export interface OrphanedDraft {

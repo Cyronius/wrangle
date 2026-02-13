@@ -44,8 +44,6 @@ export function useSessionPersistence() {
   const activeWorkspaceId = useSelector((state: RootState) => state.workspaces.activeWorkspaceId)
   const viewMode = useSelector((state: RootState) => state.layout.viewMode)
   const splitRatio = useSelector((state: RootState) => state.layout.splitRatio)
-  const multiPaneEnabled = useSelector((state: RootState) => state.layout.multiPaneEnabled)
-  const visiblePanes = useSelector((state: RootState) => state.layout.visiblePanes)
   const focusedPaneId = useSelector((state: RootState) => state.layout.focusedPaneId)
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -57,8 +55,6 @@ export function useSessionPersistence() {
   const activeWorkspaceIdRef = useRef(activeWorkspaceId)
   const viewModeRef = useRef(viewMode)
   const splitRatioRef = useRef(splitRatio)
-  const multiPaneEnabledRef = useRef(multiPaneEnabled)
-  const visiblePanesRef = useRef(visiblePanes)
   const focusedPaneIdRef = useRef(focusedPaneId)
 
   tabsRef.current = tabs
@@ -67,8 +63,6 @@ export function useSessionPersistence() {
   activeWorkspaceIdRef.current = activeWorkspaceId
   viewModeRef.current = viewMode
   splitRatioRef.current = splitRatio
-  multiPaneEnabledRef.current = multiPaneEnabled
-  visiblePanesRef.current = visiblePanes
   focusedPaneIdRef.current = focusedPaneId
 
   const saveAllSessions = useCallback(async () => {
@@ -78,8 +72,6 @@ export function useSessionPersistence() {
     const currentActiveWorkspaceId = activeWorkspaceIdRef.current
     const currentViewMode = viewModeRef.current
     const currentSplitRatio = splitRatioRef.current
-    const currentMultiPaneEnabled = multiPaneEnabledRef.current
-    const currentVisiblePanes = visiblePanesRef.current
     const currentFocusedPaneId = focusedPaneIdRef.current
 
     // Save session for each workspace
@@ -96,17 +88,17 @@ export function useSessionPersistence() {
       }
     }
 
-    // Save app-level session (which workspaces are open + multi-pane state)
+    // Save app-level session
     const openWorkspaces = currentWorkspaces
       .filter(w => w.id !== DEFAULT_WORKSPACE_ID && w.rootPath)
       .map(w => w.rootPath!)
 
     const activeWorkspace = currentWorkspaces.find(w => w.id === currentActiveWorkspaceId)
 
-    // Resolve workspace IDs to paths for multi-pane persistence
-    const visiblePaneWorkspacePaths = currentVisiblePanes
-      .map(id => currentWorkspaces.find(w => w.id === id)?.rootPath)
-      .filter((p): p is string => p != null)
+    // Persist which workspaces are visible in tab bar
+    const visibleWorkspacePaths = currentWorkspaces
+      .filter(w => w.visibleInTabBar && w.rootPath)
+      .map(w => w.rootPath!)
 
     const focusedPaneWorkspace = currentFocusedPaneId
       ? currentWorkspaces.find(w => w.id === currentFocusedPaneId)
@@ -116,8 +108,7 @@ export function useSessionPersistence() {
       openWorkspaces,
       activeWorkspacePath: activeWorkspace?.rootPath || null,
       lastSavedAt: Date.now(),
-      multiPaneEnabled: currentMultiPaneEnabled,
-      visiblePaneWorkspacePaths,
+      visibleWorkspacePaths,
       focusedPaneWorkspacePath: focusedPaneWorkspace?.rootPath || null
     })
   }, [])
@@ -136,7 +127,7 @@ export function useSessionPersistence() {
   useEffect(() => {
     if (!ready) return
     scheduleSave()
-  }, [tabs, activeTabIdByWorkspace, workspaces, activeWorkspaceId, viewMode, splitRatio, multiPaneEnabled, visiblePanes, focusedPaneId, scheduleSave, ready])
+  }, [tabs, activeTabIdByWorkspace, workspaces, activeWorkspaceId, viewMode, splitRatio, focusedPaneId, scheduleSave, ready])
 
   // Periodic unconditional save every 30 seconds
   useEffect(() => {

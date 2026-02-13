@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef as useReactRef } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState, AppDispatch } from './store/store'
-import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, setWorkspaceSidebar, toggleMultiPane, setFocusedPane, addVisiblePane } from './store/layoutSlice'
+import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, setWorkspaceSidebar, setFocusedPane } from './store/layoutSlice'
 import {
   addTab,
   updateTab,
@@ -13,7 +13,7 @@ import {
   markSessionRestored,
   moveTabToWorkspace
 } from './store/tabsSlice'
-import { selectActiveWorkspaceId, selectAllWorkspaces, addWorkspace, setActiveWorkspace } from './store/workspacesSlice'
+import { selectActiveWorkspaceId, selectAllWorkspaces, selectVisibleWorkspaceIds, addWorkspace, setActiveWorkspace, setVisibleInTabBar } from './store/workspacesSlice'
 import { loadSettings, setCurrentTheme } from './store/settingsSlice'
 import { DEFAULT_WORKSPACE_ID } from '../../shared/workspace-types'
 import { EditorLayout } from './components/Layout/EditorLayout'
@@ -50,9 +50,11 @@ function AppContent() {
   const theme = useSelector((state: RootState) => state.settings.theme.current)
   const showOutline = useSelector((state: RootState) => state.layout.showOutline)
   const showWorkspaceSidebar = useSelector((state: RootState) => state.layout.showWorkspaceSidebar)
-  const multiPaneEnabled = useSelector((state: RootState) => state.layout.multiPaneEnabled)
   const focusedPaneId = useSelector((state: RootState) => state.layout.focusedPaneId)
+  const paneWidthRatios = useSelector((state: RootState) => state.layout.paneWidthRatios)
   const workspaces = useSelector(selectAllWorkspaces)
+  const visibleWorkspaceIds = useSelector(selectVisibleWorkspaceIds)
+  const isMultiPane = visibleWorkspaceIds.length >= 2
   const expandedWorkspace = workspaces.find((w) => w.isExpanded)
 
   // Editor pane hook - manages content, cursor/scroll tracking, auto-save
@@ -188,25 +190,25 @@ function AppContent() {
             }
           }
 
-          // Restore multi-pane mode
-          if (appSession.multiPaneEnabled && appSession.visiblePaneWorkspacePaths) {
-            for (const panePath of appSession.visiblePaneWorkspacePaths) {
-              const paneConfig = await window.electron.workspace.loadConfig(panePath)
-              if (paneConfig) {
-                dispatch(addVisiblePane(paneConfig.id))
+          // Restore workspace visibility from session
+          if (appSession.visibleWorkspacePaths) {
+            const visiblePaths = new Set(appSession.visibleWorkspacePaths)
+            for (const workspacePath of appSession.openWorkspaces) {
+              const config = await window.electron.workspace.loadConfig(workspacePath)
+              if (config) {
+                dispatch(setVisibleInTabBar({
+                  id: config.id,
+                  visible: visiblePaths.has(workspacePath)
+                }))
               }
             }
-            // Set focused pane
-            if (appSession.focusedPaneWorkspacePath) {
-              const focusedConfig = await window.electron.workspace.loadConfig(appSession.focusedPaneWorkspacePath)
-              if (focusedConfig) {
-                dispatch(setFocusedPane(focusedConfig.id))
-              }
-            }
-            // Enable multi-pane (visiblePanes already populated)
-            const paneIds = store.getState().layout.visiblePanes
-            if (paneIds.length > 0) {
-              dispatch(toggleMultiPane(paneIds))
+          }
+
+          // Restore focused pane
+          if (appSession.focusedPaneWorkspacePath) {
+            const focusedConfig = await window.electron.workspace.loadConfig(appSession.focusedPaneWorkspacePath)
+            if (focusedConfig) {
+              dispatch(setFocusedPane(focusedConfig.id))
             }
           }
         }
@@ -554,13 +556,14 @@ function AppContent() {
       // Ctrl+Shift+PageDown: Next pane (multi-pane) or next workspace (single-pane)
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'PageDown') {
         e.preventDefault()
-        if (multiPaneEnabled) {
-          const visiblePanes = store.getState().layout.visiblePanes
-          const currentIndex = visiblePanes.indexOf(focusedPaneId || '')
-          const nextIndex = (currentIndex + 1) % visiblePanes.length
-          if (visiblePanes[nextIndex]) {
-            dispatch(setFocusedPane(visiblePanes[nextIndex]))
-            dispatch(setActiveWorkspace(visiblePanes[nextIndex]))
+        const visibleIds = store.getState().workspaces.workspaces
+          .filter(w => w.visibleInTabBar).map(w => w.id)
+        if (visibleIds.length >= 2) {
+          const currentIndex = visibleIds.indexOf(focusedPaneId || '')
+          const nextIndex = (currentIndex + 1) % visibleIds.length
+          if (visibleIds[nextIndex]) {
+            dispatch(setFocusedPane(visibleIds[nextIndex]))
+            dispatch(setActiveWorkspace(visibleIds[nextIndex]))
           }
         } else if (workspaces.length > 1) {
           const currentIndex = workspaces.findIndex(w => w.id === activeWorkspaceId)
@@ -572,13 +575,14 @@ function AppContent() {
       // Ctrl+Shift+PageUp: Previous pane (multi-pane) or prev workspace (single-pane)
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'PageUp') {
         e.preventDefault()
-        if (multiPaneEnabled) {
-          const visiblePanes = store.getState().layout.visiblePanes
-          const currentIndex = visiblePanes.indexOf(focusedPaneId || '')
-          const prevIndex = currentIndex <= 0 ? visiblePanes.length - 1 : currentIndex - 1
-          if (visiblePanes[prevIndex]) {
-            dispatch(setFocusedPane(visiblePanes[prevIndex]))
-            dispatch(setActiveWorkspace(visiblePanes[prevIndex]))
+        const visibleIds = store.getState().workspaces.workspaces
+          .filter(w => w.visibleInTabBar).map(w => w.id)
+        if (visibleIds.length >= 2) {
+          const currentIndex = visibleIds.indexOf(focusedPaneId || '')
+          const prevIndex = currentIndex <= 0 ? visibleIds.length - 1 : currentIndex - 1
+          if (visibleIds[prevIndex]) {
+            dispatch(setFocusedPane(visibleIds[prevIndex]))
+            dispatch(setActiveWorkspace(visibleIds[prevIndex]))
           }
         } else if (workspaces.length > 1) {
           const currentIndex = workspaces.findIndex(w => w.id === activeWorkspaceId)
@@ -693,7 +697,7 @@ function AppContent() {
     }
     window.addEventListener('keydown', handleKeyDown, { capture: true })
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
-  }, [handleNewFile, handleCloseTab, handleOpen, handleSave, handleSaveAs, dispatch, activeWorkspaceId, multiPaneEnabled, focusedPaneId, previewSelection])
+  }, [handleNewFile, handleCloseTab, handleOpen, handleSave, handleSaveAs, dispatch, activeWorkspaceId, focusedPaneId, previewSelection])
 
   // Menu command handler
   useEffect(() => {
@@ -729,11 +733,6 @@ function AppContent() {
         case 'workspace:openFolder':
           handleAddWorkspace()
           break
-        case 'view:toggle-multi-pane': {
-          const workspaceIds = workspaces.map(w => w.id)
-          dispatch(toggleMultiPane(workspaceIds))
-          break
-        }
       }
     })
 
@@ -971,19 +970,18 @@ function AppContent() {
         onExportPdf={handleExportPdf}
         onOpenPreferences={() => setPreferencesOpen(true)}
       >
-        {!multiPaneEnabled && (
-          <TabBar
-            onCloseTab={async (tabId) => {
-              // Clean up temp directory if tab was never saved
-              const tabToClose = tabs.find((t) => t.id === tabId)
-              if (tabToClose && !tabToClose.path) {
-                await window.electron.file.cleanupTemp(tabId)
-              }
-            }}
-          />
-        )}
+        <TabBar
+          onCloseTab={async (tabId) => {
+            // Clean up temp directory if tab was never saved
+            const tabToClose = tabs.find((t) => t.id === tabId)
+            if (tabToClose && !tabToClose.path) {
+              await window.electron.file.cleanupTemp(tabId)
+            }
+          }}
+          paneWidthRatios={isMultiPane ? paneWidthRatios : undefined}
+        />
       </TitleBar>
-      {tabs.length > 0 && !multiPaneEnabled && <MarkdownToolbar editorRef={editorRef} previewSelection={previewSelection} />}
+      {tabs.length > 0 && !isMultiPane && <MarkdownToolbar editorRef={editorRef} previewSelection={previewSelection} />}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
         {/* Workspace bar - always visible */}
         <WorkspaceBar />
@@ -995,7 +993,7 @@ function AppContent() {
 
         {tabs.length === 0 ? (
           <EmptyState onNewFile={handleNewFile} onOpenFile={handleOpen} />
-        ) : multiPaneEnabled ? (
+        ) : isMultiPane ? (
           <>
             {showOutline && (
               <OutlineSidebar content={content} editorRef={editorRef} />

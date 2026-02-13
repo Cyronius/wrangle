@@ -27,6 +27,7 @@ interface TabGroupProps {
   activeTabId: string | null
   onTabClick: (tabId: string) => void
   onTabClose: (e: React.MouseEvent, tabId: string) => void
+  widthPercent?: number
 }
 
 interface SortableTabProps {
@@ -95,7 +96,8 @@ export function TabGroup({
   tabs,
   activeTabId,
   onTabClick,
-  onTabClose
+  onTabClose,
+  widthPercent
 }: TabGroupProps) {
   const dispatch = useDispatch()
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -126,10 +128,15 @@ export function TabGroup({
     return null
   }
 
+  const groupStyle: React.CSSProperties = {
+    '--workspace-color': workspaceColor,
+    ...(widthPercent != null ? { flex: `0 0 ${widthPercent}%` } : {})
+  } as React.CSSProperties
+
   return (
     <div
       className={`tab-group ${isCollapsed ? 'collapsed' : ''}`}
-      style={{ '--workspace-color': workspaceColor } as React.CSSProperties}
+      style={groupStyle}
       data-workspace-id={workspaceId}
     >
       {/* WTB-004: Header stays fixed (outside scrollable area) */}

@@ -650,20 +650,21 @@ export const commands: CommandDefinition[] = [
     defaultBinding: 'Ctrl+Shift+PageDown',
     execute: (ctx) => {
       const state = ctx.getState() as {
-        workspaces: { workspaces: { id: string }[]; activeWorkspaceId: string }
-        layout: { multiPaneEnabled: boolean; visiblePanes: string[]; focusedPaneId: string | null }
+        workspaces: { workspaces: { id: string; visibleInTabBar: boolean }[]; activeWorkspaceId: string }
+        layout: { focusedPaneId: string | null }
       }
       const { setActiveWorkspace } = require('../store/workspacesSlice')
       const { setFocusedPane } = require('../store/layoutSlice')
       const { workspaces, activeWorkspaceId } = state.workspaces
-      const { multiPaneEnabled, visiblePanes, focusedPaneId } = state.layout
+      const { focusedPaneId } = state.layout
 
-      if (multiPaneEnabled) {
-        const currentIndex = visiblePanes.indexOf(focusedPaneId || '')
-        const nextIndex = (currentIndex + 1) % visiblePanes.length
-        if (visiblePanes[nextIndex]) {
-          ctx.dispatch(setFocusedPane(visiblePanes[nextIndex]))
-          ctx.dispatch(setActiveWorkspace(visiblePanes[nextIndex]))
+      const visibleIds = workspaces.filter(w => w.visibleInTabBar).map(w => w.id)
+      if (visibleIds.length >= 2) {
+        const currentIndex = visibleIds.indexOf(focusedPaneId || '')
+        const nextIndex = (currentIndex + 1) % visibleIds.length
+        if (visibleIds[nextIndex]) {
+          ctx.dispatch(setFocusedPane(visibleIds[nextIndex]))
+          ctx.dispatch(setActiveWorkspace(visibleIds[nextIndex]))
         }
       } else if (workspaces.length > 1) {
         const currentIndex = workspaces.findIndex((w: { id: string }) => w.id === activeWorkspaceId)
@@ -679,20 +680,21 @@ export const commands: CommandDefinition[] = [
     defaultBinding: 'Ctrl+Shift+PageUp',
     execute: (ctx) => {
       const state = ctx.getState() as {
-        workspaces: { workspaces: { id: string }[]; activeWorkspaceId: string }
-        layout: { multiPaneEnabled: boolean; visiblePanes: string[]; focusedPaneId: string | null }
+        workspaces: { workspaces: { id: string; visibleInTabBar: boolean }[]; activeWorkspaceId: string }
+        layout: { focusedPaneId: string | null }
       }
       const { setActiveWorkspace } = require('../store/workspacesSlice')
       const { setFocusedPane } = require('../store/layoutSlice')
       const { workspaces, activeWorkspaceId } = state.workspaces
-      const { multiPaneEnabled, visiblePanes, focusedPaneId } = state.layout
+      const { focusedPaneId } = state.layout
 
-      if (multiPaneEnabled) {
-        const currentIndex = visiblePanes.indexOf(focusedPaneId || '')
-        const prevIndex = currentIndex <= 0 ? visiblePanes.length - 1 : currentIndex - 1
-        if (visiblePanes[prevIndex]) {
-          ctx.dispatch(setFocusedPane(visiblePanes[prevIndex]))
-          ctx.dispatch(setActiveWorkspace(visiblePanes[prevIndex]))
+      const visibleIds = workspaces.filter(w => w.visibleInTabBar).map(w => w.id)
+      if (visibleIds.length >= 2) {
+        const currentIndex = visibleIds.indexOf(focusedPaneId || '')
+        const prevIndex = currentIndex <= 0 ? visibleIds.length - 1 : currentIndex - 1
+        if (visibleIds[prevIndex]) {
+          ctx.dispatch(setFocusedPane(visibleIds[prevIndex]))
+          ctx.dispatch(setActiveWorkspace(visibleIds[prevIndex]))
         }
       } else if (workspaces.length > 1) {
         const currentIndex = workspaces.findIndex((w: { id: string }) => w.id === activeWorkspaceId)

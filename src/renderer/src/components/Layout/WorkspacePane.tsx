@@ -8,7 +8,6 @@ import { useImageDrop } from '../../hooks/useImageDrop'
 import { updateTab } from '../../store/tabsSlice'
 import { getMonacoThemeName } from '../../utils/monaco-theme-generator'
 import { EditorLayout } from './EditorLayout'
-import { PaneTabBar } from './PaneTabBar'
 import type { WorkspaceId } from '../../../../shared/workspace-types'
 
 interface WorkspacePaneProps {
@@ -69,12 +68,12 @@ export function WorkspacePane({ workspaceId, isFocused, onFocus }: WorkspacePane
       onClick={handlePaneClick}
       onFocus={handlePaneClick}
     >
-      <PaneTabBar
-        workspaceId={workspaceId}
-        workspaceName={workspace.name}
-        workspaceColor={workspace.color}
-        isFocused={isFocused}
-      />
+      <div
+        className={`workspace-pane-header ${isFocused ? 'workspace-pane-header-focused' : ''}`}
+        style={{ backgroundColor: workspace.color }}
+      >
+        <span className="workspace-pane-header-name">{workspace.name}</span>
+      </div>
       <div className="workspace-pane-content">
         {isDragging && (
           <div className="workspace-pane-drop-overlay">

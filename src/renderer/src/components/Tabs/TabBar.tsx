@@ -11,6 +11,7 @@ import {
   selectActiveWorkspaceId,
   setActiveWorkspace
 } from '../../store/workspacesSlice'
+import { setFocusedPane } from '../../store/layoutSlice'
 import { TabGroup } from './TabGroup'
 import { TabBarOverflow } from './TabBarOverflow'
 import type { RootState } from '../../store/store'
@@ -23,9 +24,10 @@ const OVERFLOW_BUTTON_WIDTH = 50
 
 interface TabBarProps {
   onCloseTab?: (tabId: string) => void
+  paneWidthRatios?: number[]
 }
 
-export function TabBar({ onCloseTab }: TabBarProps) {
+export function TabBar({ onCloseTab, paneWidthRatios }: TabBarProps) {
   const dispatch = useDispatch()
   const tabs = useSelector(selectAllTabs)
   const workspaces = useSelector(selectAllWorkspaces)
@@ -118,6 +120,7 @@ export function TabBar({ onCloseTab }: TabBarProps) {
   const handleTabClick = (tabId: string, workspaceId: WorkspaceId) => {
     dispatch(setActiveTab(tabId))
     dispatch(setActiveWorkspace(workspaceId))
+    dispatch(setFocusedPane(workspaceId))
   }
 
   const handleTabClose = (e: React.MouseEvent, tabId: string) => {
@@ -144,9 +147,17 @@ export function TabBar({ onCloseTab }: TabBarProps) {
     return null
   }
 
+  // Compute per-group width percentages from pane ratios
+  const widthPercents = useMemo(() => {
+    if (!paneWidthRatios || paneWidthRatios.length !== visibleWorkspaces.length) {
+      return null // equal widths (default flex: 1 1 0)
+    }
+    return paneWidthRatios.map((r) => r * 100)
+  }, [paneWidthRatios, visibleWorkspaces.length])
+
   return (
     <div className="tab-bar" ref={tabBarRef}>
-      {visibleWorkspaces.map((workspace) => {
+      {visibleWorkspaces.map((workspace, i) => {
         const workspaceTabs = tabsByWorkspace.get(workspace.id) || []
         return (
           <TabGroupWrapper
@@ -157,6 +168,7 @@ export function TabBar({ onCloseTab }: TabBarProps) {
             tabs={workspaceTabs}
             onTabClick={(tabId) => handleTabClick(tabId, workspace.id)}
             onTabClose={handleTabClose}
+            widthPercent={widthPercents ? widthPercents[i] : undefined}
           />
         )
       })}
@@ -175,7 +187,8 @@ function TabGroupWrapper({
   workspaceColor,
   tabs,
   onTabClick,
-  onTabClose
+  onTabClose,
+  widthPercent
 }: {
   workspaceId: WorkspaceId
   workspaceName: string
@@ -183,6 +196,7 @@ function TabGroupWrapper({
   tabs: ReturnType<typeof selectAllTabs>
   onTabClick: (tabId: string) => void
   onTabClose: (e: React.MouseEvent, tabId: string) => void
+  widthPercent?: number
 }) {
   // WTB-009: Each workspace independently tracks its own active tab
   // The active indicator shows on the active tab of EVERY visible workspace
@@ -199,6 +213,7 @@ function TabGroupWrapper({
       activeTabId={activeTabId}
       onTabClick={onTabClick}
       onTabClose={onTabClose}
+      widthPercent={widthPercent}
     />
   )
 }

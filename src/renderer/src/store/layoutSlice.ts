@@ -10,12 +10,11 @@ interface LayoutState {
   zoomLevel: number // 0 = 100%, positive = zoom in, negative = zoom out
   showOutline: boolean
   showWorkspaceSidebar: boolean
-  // Multi-pane mode
-  multiPaneEnabled: boolean
+  // Multi-pane state (derived from visible workspaces, not toggled)
   focusedPaneId: WorkspaceId | null
-  visiblePanes: WorkspaceId[]
   paneViewModes: Record<WorkspaceId, ViewMode>
   paneSplitRatios: Record<WorkspaceId, number>
+  paneWidthRatios: number[] // relative widths from Allotment onChange
 }
 
 const initialState: LayoutState = {
@@ -25,11 +24,10 @@ const initialState: LayoutState = {
   zoomLevel: 0,
   showOutline: false,
   showWorkspaceSidebar: false,
-  multiPaneEnabled: false,
   focusedPaneId: null,
-  visiblePanes: [],
   paneViewModes: {},
-  paneSplitRatios: {}
+  paneSplitRatios: {},
+  paneWidthRatios: []
 }
 
 const layoutSlice = createSlice({
@@ -63,46 +61,17 @@ const layoutSlice = createSlice({
     setWorkspaceSidebar(state, action: PayloadAction<boolean>) {
       state.showWorkspaceSidebar = action.payload
     },
-    // Multi-pane reducers
-    toggleMultiPane(state, action: PayloadAction<WorkspaceId[] | undefined>) {
-      state.multiPaneEnabled = !state.multiPaneEnabled
-      if (state.multiPaneEnabled) {
-        // When enabling, populate visiblePanes with provided workspaces
-        if (action.payload && action.payload.length > 0) {
-          state.visiblePanes = action.payload
-          state.focusedPaneId = action.payload[0]
-        }
-      } else {
-        // When disabling, keep focusedPaneId as active workspace
-        state.visiblePanes = []
-        state.focusedPaneId = null
-      }
-    },
     setFocusedPane(state, action: PayloadAction<WorkspaceId>) {
       state.focusedPaneId = action.payload
-    },
-    addVisiblePane(state, action: PayloadAction<WorkspaceId>) {
-      if (!state.visiblePanes.includes(action.payload)) {
-        state.visiblePanes.push(action.payload)
-      }
-      state.focusedPaneId = action.payload
-    },
-    removeVisiblePane(state, action: PayloadAction<WorkspaceId>) {
-      state.visiblePanes = state.visiblePanes.filter(id => id !== action.payload)
-      // If we removed the focused pane, focus the first remaining
-      if (state.focusedPaneId === action.payload) {
-        state.focusedPaneId = state.visiblePanes[0] ?? null
-      }
-      // If no panes left, disable multi-pane mode
-      if (state.visiblePanes.length === 0) {
-        state.multiPaneEnabled = false
-      }
     },
     setPaneViewMode(state, action: PayloadAction<{ paneId: WorkspaceId; viewMode: ViewMode }>) {
       state.paneViewModes[action.payload.paneId] = action.payload.viewMode
     },
     setPaneSplitRatio(state, action: PayloadAction<{ paneId: WorkspaceId; ratio: number }>) {
       state.paneSplitRatios[action.payload.paneId] = Math.max(0.2, Math.min(0.8, action.payload.ratio))
+    },
+    setPaneWidthRatios(state, action: PayloadAction<number[]>) {
+      state.paneWidthRatios = action.payload
     }
   }
 })
@@ -111,7 +80,7 @@ export const {
   setViewMode, setSplitRatio, togglePreviewSync,
   zoomIn, zoomOut, resetZoom,
   toggleOutline, toggleWorkspaceSidebar, setWorkspaceSidebar,
-  toggleMultiPane, setFocusedPane, addVisiblePane, removeVisiblePane,
-  setPaneViewMode, setPaneSplitRatio
+  setFocusedPane,
+  setPaneViewMode, setPaneSplitRatio, setPaneWidthRatios
 } = layoutSlice.actions
 export default layoutSlice.reducer
