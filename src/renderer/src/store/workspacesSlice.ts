@@ -19,7 +19,8 @@ const defaultWorkspace: WorkspaceState = {
   color: WORKSPACE_COLORS[0],
   rootPath: null,
   isExpanded: true,
-  showHiddenFiles: true
+  showHiddenFiles: true,
+  visibleInTabBar: true // WTB-001: Default workspace is always visible
 }
 
 const initialState: WorkspacesState = {
@@ -41,7 +42,10 @@ const workspacesSlice = createSlice({
         state.activeWorkspaceId = existing.id
         return
       }
-      state.workspaces.push(action.payload)
+      state.workspaces.push({
+        ...action.payload,
+        visibleInTabBar: action.payload.visibleInTabBar ?? true
+      })
       state.activeWorkspaceId = action.payload.id
     },
 
@@ -101,10 +105,15 @@ const workspacesSlice = createSlice({
     loadWorkspaces(state, action: PayloadAction<WorkspaceState[]>) {
       // Ensure default workspace is always present
       const hasDefault = action.payload.some((w) => w.id === DEFAULT_WORKSPACE_ID)
+      // WTB-001: Ensure visibleInTabBar defaults to true for all loaded workspaces
+      const workspacesWithDefaults = action.payload.map(w => ({
+        ...w,
+        visibleInTabBar: w.visibleInTabBar ?? true
+      }))
       if (hasDefault) {
-        state.workspaces = action.payload
+        state.workspaces = workspacesWithDefaults
       } else {
-        state.workspaces = [defaultWorkspace, ...action.payload]
+        state.workspaces = [defaultWorkspace, ...workspacesWithDefaults]
       }
     },
 
@@ -114,6 +123,22 @@ const workspacesSlice = createSlice({
       if (oldIndex === newIndex) return
       const [moved] = state.workspaces.splice(oldIndex, 1)
       state.workspaces.splice(newIndex, 0, moved)
+    },
+
+    // WTB-001: Toggle workspace visibility in tab bar
+    toggleVisibleInTabBar(state, action: PayloadAction<WorkspaceId>) {
+      const workspace = state.workspaces.find((w) => w.id === action.payload)
+      if (workspace) {
+        workspace.visibleInTabBar = !workspace.visibleInTabBar
+      }
+    },
+
+    // WTB-001: Explicitly set workspace visibility in tab bar
+    setVisibleInTabBar(state, action: PayloadAction<{ id: WorkspaceId; visible: boolean }>) {
+      const workspace = state.workspaces.find((w) => w.id === action.payload.id)
+      if (workspace) {
+        workspace.visibleInTabBar = action.payload.visible
+      }
     }
   }
 })
@@ -137,6 +162,11 @@ export const selectDefaultWorkspace = (state: RootState) => {
 
 export const selectNonDefaultWorkspaces = (state: RootState) => {
   return state.workspaces.workspaces.filter((w) => w.id !== DEFAULT_WORKSPACE_ID)
+}
+
+// WTB-001: Select workspaces that are visible in the tab bar
+export const selectVisibleWorkspaces = (state: RootState) => {
+  return state.workspaces.workspaces.filter((w) => w.visibleInTabBar)
 }
 
 // Find workspace that contains a given file path
@@ -169,7 +199,9 @@ export const {
   expandWorkspaceExclusive,
   collapseAllWorkspaces,
   loadWorkspaces,
-  reorderWorkspaces
+  reorderWorkspaces,
+  toggleVisibleInTabBar,
+  setVisibleInTabBar
 } = workspacesSlice.actions
 
 export default workspacesSlice.reducer

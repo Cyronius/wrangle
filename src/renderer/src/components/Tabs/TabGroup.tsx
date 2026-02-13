@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useDispatch } from 'react-redux'
 import { TabGroupHeader } from './TabGroupHeader'
 import { Tab } from './Tab'
@@ -32,11 +32,12 @@ interface TabGroupProps {
 interface SortableTabProps {
   tab: TabDocument
   isActive: boolean
+  workspaceColor: string // WTB-005: Pass workspace color to Tab
   onTabClick: () => void
   onTabClose: (e: React.MouseEvent) => void
 }
 
-function SortableTab({ tab, isActive, onTabClick, onTabClose }: SortableTabProps) {
+function SortableTab({ tab, isActive, workspaceColor, onTabClick, onTabClose }: SortableTabProps) {
   const {
     attributes,
     listeners,
@@ -46,6 +47,25 @@ function SortableTab({ tab, isActive, onTabClick, onTabClose }: SortableTabProps
     isDragging
   } = useSortable({ id: tab.id })
 
+  const elementRef = useRef<HTMLDivElement | null>(null)
+
+  // WTB-008: Auto-scroll to active tab when it becomes active
+  useEffect(() => {
+    if (isActive && elementRef.current) {
+      elementRef.current.scrollIntoView({
+        behavior: 'smooth',
+        inline: 'nearest',
+        block: 'nearest'
+      })
+    }
+  }, [isActive])
+
+  // Combine refs: dnd-kit's setNodeRef + our elementRef for scrolling
+  const combinedRef = useCallback((node: HTMLDivElement | null) => {
+    setNodeRef(node)
+    elementRef.current = node
+  }, [setNodeRef])
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -54,12 +74,13 @@ function SortableTab({ tab, isActive, onTabClick, onTabClose }: SortableTabProps
   }
 
   return (
-    <div ref={setNodeRef} style={style} className="sortable-tab-wrapper" {...attributes} {...listeners}>
+    <div ref={combinedRef} style={style} className="sortable-tab-wrapper" {...attributes} {...listeners}>
       <Tab
         id={tab.id}
         filename={tab.displayTitle || tab.filename}
         isDirty={tab.isDirty}
         isActive={isActive}
+        workspaceColor={workspaceColor}
         onClick={onTabClick}
         onClose={onTabClose}
         title={tab.path || tab.filename}
@@ -111,33 +132,38 @@ export function TabGroup({
       style={{ '--workspace-color': workspaceColor } as React.CSSProperties}
       data-workspace-id={workspaceId}
     >
+      {/* WTB-004: Header stays fixed (outside scrollable area) */}
       <TabGroupHeader
         color={workspaceColor}
         isCollapsed={isCollapsed}
         onToggleCollapse={toggleCollapse}
       />
       {!isCollapsed && (
-        <div className="tab-group-tabs">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={tabs.map(t => t.id)}
-              strategy={horizontalListSortingStrategy}
+        /* WTB-003/004: Scrollable wrapper - tabs scroll independently per workspace */
+        <div className="tab-group-scrollable">
+          <div className="tab-group-tabs">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
             >
-              {tabs.map((tab) => (
-                <SortableTab
-                  key={tab.id}
-                  tab={tab}
-                  isActive={tab.id === activeTabId}
-                  onTabClick={() => onTabClick(tab.id)}
-                  onTabClose={(e) => onTabClose(e, tab.id)}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
+              <SortableContext
+                items={tabs.map(t => t.id)}
+                strategy={horizontalListSortingStrategy}
+              >
+                {tabs.map((tab) => (
+                  <SortableTab
+                    key={tab.id}
+                    tab={tab}
+                    isActive={tab.id === activeTabId}
+                    workspaceColor={workspaceColor}
+                    onTabClick={() => onTabClick(tab.id)}
+                    onTabClose={(e) => onTabClose(e, tab.id)}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          </div>
         </div>
       )}
     </div>

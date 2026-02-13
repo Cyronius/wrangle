@@ -21,11 +21,14 @@
   align-items: stretch;
   overflow: hidden;
   margin-left: 16px;
+  flex: 1;
+  min-width: 0;
   -webkit-app-region: no-drag;
 }
 
 .title-bar-spacer {
-  flex: 1;
+  min-width: 40px;
+  flex: 0 0 auto;
   -webkit-app-region: drag;
 }
 
@@ -34,6 +37,8 @@
   border-bottom: none;
   background-color: transparent;
   height: 100%;
+  width: 100%;
+  min-width: 0;
 }
 
 /* Menu Bar Styles */

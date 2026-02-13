@@ -10,7 +10,8 @@ import {
   nextTab,
   previousTab,
   selectAllTabs,
-  markSessionRestored
+  markSessionRestored,
+  moveTabToWorkspace
 } from './store/tabsSlice'
 import { selectActiveWorkspaceId, selectAllWorkspaces, addWorkspace, setActiveWorkspace } from './store/workspacesSlice'
 import { loadSettings, setCurrentTheme } from './store/settingsSlice'
@@ -141,7 +142,8 @@ function AppContent() {
               color: config.color,
               rootPath: workspacePath,
               isExpanded: false,
-              showHiddenFiles: config.showHiddenFiles !== false
+              showHiddenFiles: config.showHiddenFiles !== false,
+              visibleInTabBar: true
             }))
 
             // Load workspace session (tabs)
@@ -249,6 +251,26 @@ function AppContent() {
       } catch (error) {
         console.error('Failed to restore session:', error)
       }
+
+      // WTB-001: Reassign tabs to correct workspaces based on file paths.
+      // Tabs may have been saved with wrong workspaceId if they were opened
+      // while a different workspace was active (bug in old handleFileOpenFromTree).
+      const allTabs = store.getState().tabs.tabs
+      const allWorkspaces = store.getState().workspaces.workspaces
+      for (const tab of allTabs) {
+        if (!tab.path) continue
+        const normalizedPath = tab.path.replace(/\\/g, '/')
+        for (const ws of allWorkspaces) {
+          if (ws.rootPath) {
+            const normalizedRoot = ws.rootPath.replace(/\\/g, '/')
+            if (normalizedPath.startsWith(normalizedRoot + '/') && ws.id !== tab.workspaceId) {
+              dispatch(moveTabToWorkspace({ tabId: tab.id, newWorkspaceId: ws.id }))
+              break
+            }
+          }
+        }
+      }
+
       dispatch(markSessionRestored())
     }
 
@@ -373,8 +395,9 @@ function AppContent() {
       const fileData = await window.electron.file.readByPath(filePath)
       if (!fileData) return
 
-      // Use the expanded workspace's ID for the file
-      const workspaceId = expandedWorkspace?.id || activeWorkspaceId
+      // WTB-001: Use path-based detection to ensure tab goes to correct workspace
+      // This ensures tabs are properly associated even if another workspace is expanded
+      const workspaceId = detectWorkspaceForPath(filePath)
 
       // Create new tab
       const filename = filePath.split(/[\\/]/).pop() || 'Untitled'
@@ -391,7 +414,7 @@ function AppContent() {
     } catch (error) {
       console.error('Failed to open file:', error)
     }
-  }, [tabs, dispatch, expandedWorkspace, activeWorkspaceId])
+  }, [tabs, dispatch, detectWorkspaceForPath])
 
   // Handle adding a new workspace from folder
   const handleAddWorkspace = useCallback(async () => {

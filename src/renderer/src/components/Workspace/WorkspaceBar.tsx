@@ -7,7 +7,9 @@ import {
   addWorkspace,
   expandWorkspaceExclusive,
   setActiveWorkspace,
-  reorderWorkspaces
+  reorderWorkspaces,
+  toggleVisibleInTabBar,
+  setVisibleInTabBar
 } from '../../store/workspacesSlice'
 import { setWorkspaceSidebar, setFocusedPane, addVisiblePane } from '../../store/layoutSlice'
 import { WorkspaceState } from '../../../../shared/workspace-types'
@@ -151,11 +153,31 @@ export function WorkspaceBar() {
         dispatch(addVisiblePane(workspace.id))
         dispatch(setActiveWorkspace(workspace.id))
       }
+      // WTB-001: Ensure workspace is visible in tab bar when clicked
+      dispatch(setVisibleInTabBar({ id: workspace.id, visible: true }))
     } else {
-      // Single-pane mode: toggle sidebar
-      if (workspace.isExpanded && showWorkspaceSidebar) {
-        dispatch(setWorkspaceSidebar(false))
+      // Single-pane mode
+      if (workspace.id === activeWorkspaceId) {
+        // WTB-001: Clicking active workspace hides it from tab bar
+        // and activates the next visible workspace
+        dispatch(toggleVisibleInTabBar(workspace.id))
+
+        // Find next visible workspace to activate
+        const nextVisible = workspaces.find(
+          (w) => w.id !== workspace.id && w.visibleInTabBar
+        )
+        if (nextVisible) {
+          dispatch(setActiveWorkspace(nextVisible.id))
+          dispatch(expandWorkspaceExclusive(nextVisible.id))
+        }
+
+        // Toggle sidebar visibility
+        if (workspace.isExpanded && showWorkspaceSidebar) {
+          dispatch(setWorkspaceSidebar(false))
+        }
       } else {
+        // WTB-001: Clicking inactive workspace shows it and activates it
+        dispatch(setVisibleInTabBar({ id: workspace.id, visible: true }))
         dispatch(setActiveWorkspace(workspace.id))
         dispatch(expandWorkspaceExclusive(workspace.id))
         dispatch(setWorkspaceSidebar(true))
@@ -196,7 +218,8 @@ export function WorkspaceBar() {
         color: result.config.color,
         rootPath: result.path,
         isExpanded: true,
-        showHiddenFiles: result.config.showHiddenFiles !== false
+        showHiddenFiles: result.config.showHiddenFiles !== false,
+        visibleInTabBar: true // WTB-001: New workspaces are visible by default
       })
     )
 

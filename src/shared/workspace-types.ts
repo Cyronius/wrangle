@@ -42,6 +42,7 @@ export interface WorkspaceState {
   rootPath: string | null // null for default workspace
   isExpanded: boolean
   showHiddenFiles: boolean
+  visibleInTabBar: boolean // WTB-001: Whether workspace tabs appear in tab bar
 }
 
 // File tree node for directory listing

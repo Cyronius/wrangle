@@ -1,10 +1,13 @@
 .tab-bar {
+  /* WTB-006: Minimum workspace width variable */
+  --tab-group-min-width: 140px;
+
   display: flex;
   align-items: stretch;
   background-color: var(--tab-bar-bg);
   border-bottom: 1px solid var(--border-color);
-  overflow-x: auto;
-  overflow-y: hidden;
+  /* WTB-003: Tab bar itself does NOT scroll - only individual workspace groups scroll */
+  overflow: hidden;
   height: 36px;
   flex-shrink: 0;
 }
@@ -104,6 +107,12 @@
 .tab-group {
   display: flex;
   align-items: stretch;
+  /* WTB-002: Equal space allocation per workspace */
+  flex: 1 1 0;
+  /* WTB-006: Minimum width constraint */
+  min-width: var(--tab-group-min-width);
+  /* Contain the scrollable tabs area */
+  overflow: hidden;
 }
 
 .tab-group + .tab-group {
@@ -130,10 +139,40 @@
 }
 
 
+/* WTB-004: Scrollable container - header stays fixed, tabs scroll inside this */
+.tab-group-scrollable {
+  flex: 1;
+  /* WTB-003: Independent horizontal scrolling per workspace */
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: flex;
+  scroll-behavior: smooth;
+}
+
+/* Scrollbar styling for tab group scrollable area */
+.tab-group-scrollable::-webkit-scrollbar {
+  height: 3px;
+}
+
+.tab-group-scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tab-group-scrollable::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+
+.tab-group-scrollable::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
 /* Tab Group Tabs Container */
 .tab-group-tabs {
   display: flex;
   align-items: stretch;
+  /* Don't shrink tabs - let scrolling handle overflow */
+  flex: 0 0 auto;
 }
 
 .sortable-tab-wrapper {
@@ -142,3 +181,79 @@
   min-width: 0;
 }
 
+/* WTB-007: Overflow Dropdown */
+.tab-bar-overflow {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.tab-bar-overflow-trigger {
+  padding: 4px 12px;
+  background: var(--tab-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-color);
+  margin: 4px 8px;
+  transition: background-color 0.15s ease;
+}
+
+.tab-bar-overflow-trigger:hover {
+  background: var(--tab-hover-bg);
+}
+
+.tab-bar-overflow-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 200px;
+  background: var(--dropdown-bg, var(--tab-bar-bg));
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.tab-bar-overflow-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-color);
+  font-size: 13px;
+  transition: background-color 0.15s ease;
+}
+
+.tab-bar-overflow-item:hover {
+  background: var(--tab-hover-bg);
+}
+
+.tab-bar-overflow-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.tab-bar-overflow-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-bar-overflow-count {
+  font-size: 11px;
+  color: var(--text-color-muted);
+}
