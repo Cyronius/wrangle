@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { useDispatch } from 'react-redux'
 import { TabGroupHeader } from './TabGroupHeader'
 import { Tab } from './Tab'
@@ -100,7 +100,6 @@ export function TabGroup({
   widthPercent
 }: TabGroupProps) {
   const dispatch = useDispatch()
-  const [isCollapsed, setIsCollapsed] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -119,10 +118,6 @@ export function TabGroup({
     }
   }
 
-  const toggleCollapse = () => {
-    setIsCollapsed(!isCollapsed)
-  }
-
   // Don't render empty groups
   if (tabs.length === 0) {
     return null
@@ -135,44 +130,38 @@ export function TabGroup({
 
   return (
     <div
-      className={`tab-group ${isCollapsed ? 'collapsed' : ''}`}
+      className="tab-group"
       style={groupStyle}
       data-workspace-id={workspaceId}
     >
       {/* WTB-004: Header stays fixed (outside scrollable area) */}
-      <TabGroupHeader
-        color={workspaceColor}
-        isCollapsed={isCollapsed}
-        onToggleCollapse={toggleCollapse}
-      />
-      {!isCollapsed && (
-        /* WTB-003/004: Scrollable wrapper - tabs scroll independently per workspace */
-        <div className="tab-group-scrollable">
-          <div className="tab-group-tabs">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
+      <TabGroupHeader color={workspaceColor} />
+      {/* WTB-003/004: Scrollable wrapper - tabs scroll independently per workspace */}
+      <div className="tab-group-scrollable">
+        <div className="tab-group-tabs">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={tabs.map(t => t.id)}
+              strategy={horizontalListSortingStrategy}
             >
-              <SortableContext
-                items={tabs.map(t => t.id)}
-                strategy={horizontalListSortingStrategy}
-              >
-                {tabs.map((tab) => (
-                  <SortableTab
-                    key={tab.id}
-                    tab={tab}
-                    isActive={tab.id === activeTabId}
-                    workspaceColor={workspaceColor}
-                    onTabClick={() => onTabClick(tab.id)}
-                    onTabClose={(e) => onTabClose(e, tab.id)}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
-          </div>
+              {tabs.map((tab) => (
+                <SortableTab
+                  key={tab.id}
+                  tab={tab}
+                  isActive={tab.id === activeTabId}
+                  workspaceColor={workspaceColor}
+                  onTabClick={() => onTabClick(tab.id)}
+                  onTabClose={(e) => onTabClose(e, tab.id)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
         </div>
-      )}
+      </div>
     </div>
   )
 }

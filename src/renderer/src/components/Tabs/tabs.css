@@ -120,22 +120,12 @@
   border-left: 1px solid var(--border-color);
 }
 
-/* Tab Group Header - Colored bar with collapse icon */
+/* Tab Group Header - Colored workspace indicator bar */
 .tab-group-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  user-select: none;
   width: 16px;
   align-self: stretch;
-  color: rgba(255, 255, 255, 0.85);
   border-radius: 4px 0 0 4px;
   margin: 4px 0;
-}
-
-.tab-group-header:hover {
-  opacity: 0.85;
 }
 
 
