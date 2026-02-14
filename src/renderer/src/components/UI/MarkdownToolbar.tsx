@@ -2,14 +2,16 @@ import { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { markdownCommands, MarkdownCommand } from '../../utils/markdown-commands'
 import { RootState } from '../../store/store'
-import { setViewMode, ViewMode, toggleOutline } from '../../store/layoutSlice'
+import { setViewMode, setPaneViewMode, ViewMode } from '../../store/layoutSlice'
 import * as monaco from 'monaco-editor'
-import { SquarePen, PanelsLeftRight, BookOpenText, ListTree } from 'lucide-react'
 import './toolbar.css'
 
 interface MarkdownToolbarProps {
   editorRef?: React.RefObject<monaco.editor.IStandaloneCodeEditor>
   previewSelection?: { start: number; end: number } | null
+  workspaceId?: string
+  compact?: boolean
+  className?: string
 }
 
 interface ToolbarButton {
@@ -49,21 +51,6 @@ const headingButtons: ToolbarButton[] = [
   { command: 'heading6', label: 'H6', title: 'Heading 6' }
 ]
 
-const iconSize = 14
-
-interface ViewModeButton {
-  mode: ViewMode
-  label: string
-  title: string
-  icon: React.ReactNode
-}
-
-const viewModeButtons: ViewModeButton[] = [
-  { mode: 'editor-only', label: 'Editor', title: 'Editor Only (Ctrl+1)', icon: <SquarePen size={iconSize} /> },
-  { mode: 'split', label: 'Split', title: 'Split View (Ctrl+2)', icon: <PanelsLeftRight size={iconSize} /> },
-  { mode: 'preview-only', label: 'Preview', title: 'Preview Only (Ctrl+3)', icon: <BookOpenText size={iconSize} /> }
-]
-
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown', '.mdown', '.mkd', '.mdwn'])
 
 function isMarkdownFile(filePath?: string): boolean {
@@ -72,25 +59,36 @@ function isMarkdownFile(filePath?: string): boolean {
   return MARKDOWN_EXTENSIONS.has(ext)
 }
 
-export function MarkdownToolbar({ editorRef, previewSelection }: MarkdownToolbarProps) {
+export function MarkdownToolbar({ editorRef, previewSelection, workspaceId, compact, className }: MarkdownToolbarProps) {
   const dispatch = useDispatch()
-  const viewMode = useSelector((state: RootState) => state.layout.viewMode)
-  const showOutline = useSelector((state: RootState) => state.layout.showOutline)
+  const globalViewMode = useSelector((state: RootState) => state.layout.viewMode)
+  const paneViewMode = useSelector((state: RootState) =>
+    workspaceId ? state.layout.paneViewModes[workspaceId] : undefined
+  )
+  const viewMode = paneViewMode || globalViewMode
   const activeTabPath = useSelector((state: RootState) => {
-    const workspaceId = state.workspaces.activeWorkspaceId
-    const activeTabId = state.tabs.activeTabIdByWorkspace[workspaceId]
+    const wsId = workspaceId || state.workspaces.activeWorkspaceId
+    const activeTabId = state.tabs.activeTabIdByWorkspace[wsId]
     const tab = state.tabs.tabs.find(t => t.id === activeTabId)
     return tab?.path
   })
   const isMarkdown = isMarkdownFile(activeTabPath)
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set())
 
+  const dispatchViewMode = (mode: ViewMode) => {
+    if (workspaceId) {
+      dispatch(setPaneViewMode({ paneId: workspaceId, viewMode: mode }))
+    } else {
+      dispatch(setViewMode(mode))
+    }
+  }
+
   // Force editor-only mode for non-markdown files
   useEffect(() => {
     if (!isMarkdown && viewMode !== 'editor-only') {
-      dispatch(setViewMode('editor-only'))
+      dispatchViewMode('editor-only')
     }
-  }, [isMarkdown, viewMode, dispatch])
+  }, [isMarkdown, viewMode])
 
   // Track cursor position and detect active formatting
   useEffect(() => {
@@ -106,7 +104,6 @@ export function MarkdownToolbar({ editorRef, previewSelection }: MarkdownToolbar
       const active = new Set<string>()
 
       // Check line-start formatting (headings, lists, etc.)
-      // Check headings from most specific to least (h6 → h1) to avoid false matches
       if (/^######\s/.test(lineContent)) active.add('heading6')
       else if (/^#####\s/.test(lineContent)) active.add('heading5')
       else if (/^####\s/.test(lineContent)) active.add('heading4')
@@ -132,7 +129,6 @@ export function MarkdownToolbar({ editorRef, previewSelection }: MarkdownToolbar
       }
 
       // Italic: check for single * (but not **)
-      // This is tricky because * is used for both bold and italic
       const italicPattern = /(?<!\*)\*(?!\*)/g
       const italicBeforeMatches = (beforeCursor.match(italicPattern) || []).length
       const italicAfterMatches = (afterCursor.match(italicPattern) || []).length
@@ -159,7 +155,6 @@ export function MarkdownToolbar({ editorRef, previewSelection }: MarkdownToolbar
 
       // Link: cursor is within [...](...) pattern
       if (/\[.*?\]\(.*?\)/.test(lineContent)) {
-        // Check if cursor is inside a link
         const linkPattern = /\[([^\]]*)\]\(([^)]*)\)/g
         let match
         while ((match = linkPattern.exec(lineContent)) !== null) {
@@ -223,8 +218,14 @@ export function MarkdownToolbar({ editorRef, previewSelection }: MarkdownToolbar
     }
   }
 
+  const toolbarClasses = [
+    'markdown-toolbar',
+    compact ? 'compact' : '',
+    className || ''
+  ].filter(Boolean).join(' ')
+
   return (
-    <div className="markdown-toolbar">
+    <div className={toolbarClasses}>
       {/* Text styling group: Bold, Italic, Strikethrough, Inline Code */}
       <div className="toolbar-group">
         {textStylingButtons.map((btn) => (
@@ -268,37 +269,6 @@ export function MarkdownToolbar({ editorRef, previewSelection }: MarkdownToolbar
           </button>
         ))}
       </div>
-
-      {isMarkdown && (
-        <>
-          <div className="toolbar-separator" />
-
-          {/* View mode group: Editor, Split, Preview */}
-          <div className="toolbar-group view-mode-group">
-            {viewModeButtons.map((btn) => (
-              <button
-                key={btn.mode}
-                className={`toolbar-button view-mode-button ${viewMode === btn.mode ? 'active' : ''}`}
-                onClick={() => dispatch(setViewMode(btn.mode))}
-                title={btn.title}
-              >
-                {btn.icon}
-              </button>
-            ))}
-          </div>
-
-          <div className="toolbar-separator" />
-
-          {/* Outline toggle button */}
-          <button
-            className={`toolbar-button ${showOutline ? 'active' : ''}`}
-            onClick={() => dispatch(toggleOutline())}
-            title="Toggle Outline (Ctrl+Shift+O)"
-          >
-            <ListTree size={iconSize} />
-          </button>
-        </>
-      )}
     </div>
   )
 }

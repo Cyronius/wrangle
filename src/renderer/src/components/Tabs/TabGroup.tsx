@@ -27,7 +27,6 @@ interface TabGroupProps {
   activeTabId: string | null
   onTabClick: (tabId: string) => void
   onTabClose: (e: React.MouseEvent, tabId: string) => void
-  widthPercent?: number
 }
 
 interface SortableTabProps {
@@ -94,8 +93,7 @@ export function TabGroup({
   tabs,
   activeTabId,
   onTabClick,
-  onTabClose,
-  widthPercent
+  onTabClose
 }: TabGroupProps) {
   const dispatch = useDispatch()
 
@@ -122,8 +120,7 @@ export function TabGroup({
   }
 
   const groupStyle: React.CSSProperties = {
-    '--workspace-color': workspaceColor,
-    ...(widthPercent != null ? { flex: `0 0 ${widthPercent}%` } : {})
+    '--workspace-color': workspaceColor
   } as React.CSSProperties
 
   return (

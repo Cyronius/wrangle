@@ -5,14 +5,15 @@
   display: flex;
   align-items: stretch;
   background-color: var(--tab-bar-bg);
-  border-bottom: 1px solid var(--border-color);
   /* WTB-003: Tab bar itself does NOT scroll - only individual workspace groups scroll */
   overflow: hidden;
   height: 36px;
   flex-shrink: 0;
+  -webkit-app-region: drag;
 }
 
 .tab {
+  -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -40,7 +41,62 @@
   border-top: 2px solid var(--workspace-color);
   border-left: 2px solid var(--workspace-color);
   border-right: 2px solid var(--workspace-color);
+  border-bottom: 2px solid var(--tab-active-bg);
   border-radius: 8px 8px 0 0;
+  position: relative;
+  z-index: 1;
+  margin-bottom: -2px;
+}
+
+/* Layer 1: Fill blocks — cover descenders with active tab bg */
+.tab.active::before,
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  width: 14px;
+  height: 12px;
+  z-index: 2;
+  background: var(--tab-active-bg);
+}
+
+.tab.active::before { left: -14px; }
+.tab.active::after { right: -14px; }
+
+/* Inner wrapper for second set of pseudo-elements */
+.tab-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Layer 2: Curved flares — tab-bar-bg with border-radius carves out the concave shape */
+.tab.active .tab-body::before,
+.tab.active .tab-body::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  width: 12px;
+  height: 14px;
+  z-index: 3;
+  pointer-events: none;
+  background: var(--tab-bar-bg);
+}
+
+.tab.active .tab-body::before {
+  left: -14px;
+  border-right: 2px solid var(--workspace-color);
+  border-bottom: 2px solid var(--workspace-color);
+  border-bottom-right-radius: 12px;
+}
+
+.tab.active .tab-body::after {
+  right: -14px;
+  border-left: 2px solid var(--workspace-color);
+  border-bottom: 2px solid var(--workspace-color);
+  border-bottom-left-radius: 12px;
 }
 
 .tab-label {
@@ -117,27 +173,32 @@
   min-width: var(--tab-group-min-width);
   /* Contain the scrollable tabs area */
   overflow: hidden;
+  /* Blank space in the tab group acts as a window drag handle */
+  -webkit-app-region: drag;
 }
 
-/* WTB-010: Gap matches Allotment sash width (8px) for alignment */
-.tab-group + .tab-group {
-  margin-left: 8px;
+/* Inside workspace panes (column layout), tab group has fixed height for vertical alignment */
+.workspace-pane > .tab-group {
+  flex: 0 0 auto;
+  min-width: 0;
+  height: 36px;
 }
 
-/* WTB-010: Left spacer for aligning tab groups with editor panes */
-.tab-bar-left-spacer {
-  flex-shrink: 0;
-  pointer-events: none;
-}
 
 /* WTB-004: Scrollable container - tabs scroll inside this */
 .tab-group-scrollable {
-  flex: 1;
+  /* Only take as much width as tab content needs; shrink when constrained.
+     Blank space stays in .tab-group (draggable) instead of inside this
+     scrollable element (where Chromium blocks -webkit-app-region: drag). */
+  flex: 0 1 auto;
+  -webkit-app-region: no-drag;
   /* WTB-003: Independent horizontal scrolling per workspace */
   overflow-x: auto;
   overflow-y: hidden;
   display: flex;
   scroll-behavior: smooth;
+  /* Room for active tab's negative margin to extend into */
+  padding-bottom: 2px;
 }
 
 /* Scrollbar styling for tab group scrollable area */
@@ -164,6 +225,8 @@
   align-items: stretch;
   /* Don't shrink tabs - let scrolling handle overflow */
   flex: 0 0 auto;
+  /* Room for active tab's inverse curves (10px + 2px border) */
+  padding: 0 12px;
 }
 
 .sortable-tab-wrapper {
@@ -178,6 +241,7 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  -webkit-app-region: no-drag;
 }
 
 .tab-bar-overflow-trigger {

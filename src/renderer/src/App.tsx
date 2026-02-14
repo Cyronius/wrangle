@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef as useReactRef } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState, AppDispatch } from './store/store'
-import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, setWorkspaceSidebar, setFocusedPane } from './store/layoutSlice'
+import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, setFocusedPane } from './store/layoutSlice'
 import {
   addTab,
   updateTab,
@@ -16,16 +16,16 @@ import {
 import { selectActiveWorkspaceId, selectAllWorkspaces, selectVisibleWorkspaceIds, addWorkspace, setActiveWorkspace, setVisibleInTabBar } from './store/workspacesSlice'
 import { loadSettings, setCurrentTheme } from './store/settingsSlice'
 import { DEFAULT_WORKSPACE_ID } from '../../shared/workspace-types'
+import { Allotment } from 'allotment'
 import { EditorLayout } from './components/Layout/EditorLayout'
 import { TabBar } from './components/Tabs/TabBar'
 import { MarkdownToolbar } from './components/UI/MarkdownToolbar'
-import { TitleBar } from './components/TitleBar/TitleBar'
+import { Sidebar } from './components/Sidebar/Sidebar'
+import { WorkspaceBar } from './components/Workspace/WorkspaceBar'
+import { WindowControls } from './components/UI/WindowControls'
 import { ThemeProvider } from './components/ThemeProvider'
-import { OutlineSidebar } from './components/Outline/OutlineSidebar'
 import { PreferencesDialog } from './components/Preferences/PreferencesDialog'
 import { EmptyState } from './components/EmptyState'
-import { WorkspaceBar } from './components/Workspace/WorkspaceBar'
-import { WorkspaceSidebar } from './components/Workspace/WorkspaceSidebar'
 import { MultiPaneContainer } from './components/Layout/MultiPaneContainer'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
 import { CommandDefinition } from './commands/registry'
@@ -48,20 +48,11 @@ function AppContent() {
   const tabs = useSelector(selectAllTabs)
   const activeWorkspaceId = useSelector(selectActiveWorkspaceId)
   const theme = useSelector((state: RootState) => state.settings.theme.current)
-  const showOutline = useSelector((state: RootState) => state.layout.showOutline)
-  const showWorkspaceSidebar = useSelector((state: RootState) => state.layout.showWorkspaceSidebar)
+  const showToolbar = useSelector((state: RootState) => state.layout.showToolbar)
   const focusedPaneId = useSelector((state: RootState) => state.layout.focusedPaneId)
-  const paneWidthRatios = useSelector((state: RootState) => state.layout.paneWidthRatios)
   const workspaces = useSelector(selectAllWorkspaces)
   const visibleWorkspaceIds = useSelector(selectVisibleWorkspaceIds)
   const isMultiPane = visibleWorkspaceIds.length >= 2
-  const expandedWorkspace = workspaces.find((w) => w.isExpanded)
-
-  // Sidebar offset for tab bar alignment in multi-pane mode
-  // WorkspaceBar = 36px + 1px border = 37px; WorkspaceSidebar = 250px + 1px border = 251px
-  const sidebarOffset = isMultiPane
-    ? 37 + (showWorkspaceSidebar && expandedWorkspace ? 251 : 0)
-    : undefined
 
   // Editor pane hook - manages content, cursor/scroll tracking, auto-save
   const {
@@ -424,7 +415,7 @@ function AppContent() {
     }
   }, [tabs, dispatch, detectWorkspaceForPath])
 
-  // Handle adding a new workspace from folder
+  // Handle adding a new workspace from folder (called from native menu)
   const handleAddWorkspace = useCallback(async () => {
     const usedColors = workspaces.map((w) => w.color)
     const result = await window.electron.workspace.openFolder(usedColors)
@@ -437,10 +428,12 @@ function AppContent() {
         color: result.config.color,
         rootPath: result.path,
         isExpanded: true,
-        showHiddenFiles: result.config.showHiddenFiles !== false
+        showHiddenFiles: result.config.showHiddenFiles !== false,
+        visibleInTabBar: true
       })
     )
-    dispatch(setWorkspaceSidebar(true))
+    dispatch(setActiveWorkspace(result.config.id))
+    dispatch(setFocusedPane(result.config.id))
   }, [workspaces, dispatch])
 
   const handleSaveAs = useCallback(async () => {
@@ -960,96 +953,123 @@ function AppContent() {
   // Monaco theme based on app theme
   const monacoTheme = getMonacoThemeName(theme)
 
+  // Active workspace color for single-pane toolbar bar
+  const activeWorkspace = workspaces.find(w => w.id === activeWorkspaceId)
+  const activeWorkspaceColor = activeWorkspace?.color || 'var(--toolbar-bg)'
+  const isDefaultOnly = workspaces.length <= 1
+
   return (
-    <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'row' }}>
       {showDragOverlay && <div className="window-drag-overlay" />}
-      <TitleBar
-        onFileNew={handleNewFile}
-        onFileOpen={handleOpen}
-        onFileSave={handleSave}
-        onFileSaveAs={handleSaveAs}
-        onCloseTab={handleCloseTab}
-        onEditUndo={handleUndo}
-        onEditRedo={handleRedo}
-        onCopyRichText={handleCopyRichText}
-        onExportHtml={handleExportHtml}
-        onExportPdf={handleExportPdf}
-        onOpenPreferences={() => setPreferencesOpen(true)}
-      >
-        <TabBar
-          onCloseTab={async (tabId) => {
-            // Clean up temp directory if tab was never saved
-            const tabToClose = tabs.find((t) => t.id === tabId)
-            if (tabToClose && !tabToClose.path) {
-              await window.electron.file.cleanupTemp(tabId)
-            }
-          }}
-          paneWidthRatios={isMultiPane ? paneWidthRatios : undefined}
-          sidebarOffset={sidebarOffset}
-        />
-      </TitleBar>
-      {tabs.length > 0 && !isMultiPane && <MarkdownToolbar editorRef={editorRef} previewSelection={previewSelection} />}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
-        {/* Workspace bar - always visible */}
-        <WorkspaceBar />
-
-        {/* Workspace sidebar - shown when a workspace is expanded */}
-        {showWorkspaceSidebar && expandedWorkspace && (
-          <WorkspaceSidebar onFileOpen={handleFileOpenFromTree} />
-        )}
-
-        {tabs.length === 0 ? (
-          <EmptyState onNewFile={handleNewFile} onOpenFile={handleOpen} />
-        ) : isMultiPane ? (
-          <>
-            {showOutline && (
-              <OutlineSidebar content={content} editorRef={editorRef} />
+      <WorkspaceBar />
+      <Allotment>
+        <Allotment.Pane minSize={180} preferredSize={250} maxSize={500}>
+          <Sidebar
+            onFileNew={handleNewFile}
+            onFileOpen={handleOpen}
+            onFileSave={handleSave}
+            onFileSaveAs={handleSaveAs}
+            onCloseTab={handleCloseTab}
+            onEditUndo={handleUndo}
+            onEditRedo={handleRedo}
+            onCopyRichText={handleCopyRichText}
+            onExportHtml={handleExportHtml}
+            onExportPdf={handleExportPdf}
+            onOpenPreferences={() => setPreferencesOpen(true)}
+            onFileOpenFromTree={handleFileOpenFromTree}
+            onAddWorkspace={handleAddWorkspace}
+            content={content}
+            editorRef={editorRef}
+          />
+        </Allotment.Pane>
+        <Allotment.Pane>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0 }}>
+            {/* Tab row with window controls - hidden when multi-pane is active (controls move into last pane) */}
+            {(!isMultiPane || tabs.length === 0) && (
+              <div className="tab-row">
+                {!isMultiPane && tabs.length > 0 && (
+                  <TabBar
+                    onCloseTab={async (tabId) => {
+                      const tabToClose = tabs.find((t) => t.id === tabId)
+                      if (tabToClose && !tabToClose.path) {
+                        await window.electron.file.cleanupTemp(tabId)
+                      }
+                    }}
+                  />
+                )}
+                <div className="tab-row-drag-spacer" />
+                <WindowControls />
+              </div>
             )}
-            <MultiPaneContainer />
-          </>
-        ) : (
-          <>
-            {showOutline && (
-              <OutlineSidebar content={content} editorRef={editorRef} />
-            )}
-            <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-              {isDragging && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(77, 170, 252, 0.1)',
-                    border: '2px dashed var(--accent-color)',
-                    zIndex: 1000,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '24px',
-                    color: 'var(--accent-color)',
-                    pointerEvents: 'none'
-                  }}
-                >
-                  Drop images here
+
+            {/* Content area */}
+            <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
+              {tabs.length === 0 ? (
+                <EmptyState onNewFile={handleNewFile} onOpenFile={handleOpen} />
+              ) : isMultiPane ? (
+                <MultiPaneContainer />
+              ) : (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  {/* Colored workspace bar with embedded markdown toolbar */}
+                  {tabs.length > 0 && (
+                    <div
+                      className="workspace-toolbar-bar"
+                      style={{ backgroundColor: activeWorkspaceColor }}
+                    >
+                      {!isDefaultOnly && (
+                        <span className="workspace-toolbar-bar-name">{activeWorkspace?.name || ''}</span>
+                      )}
+                      {showToolbar && (
+                        <MarkdownToolbar
+                          editorRef={editorRef}
+                          previewSelection={previewSelection}
+                          compact
+                          className="workspace-toolbar-bar-tools"
+                        />
+                      )}
+                    </div>
+                  )}
+                  <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                    {isDragging && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          backgroundColor: 'rgba(77, 170, 252, 0.1)',
+                          border: '2px dashed var(--accent-color)',
+                          zIndex: 1000,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '24px',
+                          color: 'var(--accent-color)',
+                          pointerEvents: 'none'
+                        }}
+                      >
+                        Drop images here
+                      </div>
+                    )}
+                    <EditorLayout
+                      content={content}
+                      onChange={handleChange}
+                      baseDir={baseDir}
+                      theme={monacoTheme}
+                      editorRef={editorRef}
+                      onCursorPositionChange={handleCursorPositionChange}
+                      onScrollTopChange={handleScrollTopChange}
+                      onPreviewSelectionChange={setPreviewSelection}
+                      vimStatusBarRef={vimStatusBarRef}
+                    />
+                  </div>
                 </div>
               )}
-              <EditorLayout
-                content={content}
-                onChange={handleChange}
-                baseDir={baseDir}
-                theme={monacoTheme}
-                editorRef={editorRef}
-                onCursorPositionChange={handleCursorPositionChange}
-                onScrollTopChange={handleScrollTopChange}
-                onPreviewSelectionChange={setPreviewSelection}
-                vimStatusBarRef={vimStatusBarRef}
-              />
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </Allotment.Pane>
+      </Allotment>
       <PreferencesDialog
         isOpen={preferencesOpen}
         onClose={() => setPreferencesOpen(false)}

@@ -9,12 +9,14 @@ interface LayoutState {
   previewSync: boolean
   zoomLevel: number // 0 = 100%, positive = zoom in, negative = zoom out
   showOutline: boolean
+  showToolbar: boolean
+  showExplorer: boolean
   showWorkspaceSidebar: boolean
   // Multi-pane state (derived from visible workspaces, not toggled)
   focusedPaneId: WorkspaceId | null
   paneViewModes: Record<WorkspaceId, ViewMode>
   paneSplitRatios: Record<WorkspaceId, number>
-  paneWidthRatios: number[] // relative widths from Allotment onChange
+  paneSizes: number[] // raw pixel widths from Allotment onChange
 }
 
 const initialState: LayoutState = {
@@ -23,11 +25,13 @@ const initialState: LayoutState = {
   previewSync: true,
   zoomLevel: 0,
   showOutline: false,
+  showToolbar: true,
+  showExplorer: true,
   showWorkspaceSidebar: false,
   focusedPaneId: null,
   paneViewModes: {},
   paneSplitRatios: {},
-  paneWidthRatios: []
+  paneSizes: []
 }
 
 const layoutSlice = createSlice({
@@ -55,6 +59,12 @@ const layoutSlice = createSlice({
     toggleOutline(state) {
       state.showOutline = !state.showOutline
     },
+    toggleToolbar(state) {
+      state.showToolbar = !state.showToolbar
+    },
+    toggleExplorer(state) {
+      state.showExplorer = !state.showExplorer
+    },
     toggleWorkspaceSidebar(state) {
       state.showWorkspaceSidebar = !state.showWorkspaceSidebar
     },
@@ -70,8 +80,8 @@ const layoutSlice = createSlice({
     setPaneSplitRatio(state, action: PayloadAction<{ paneId: WorkspaceId; ratio: number }>) {
       state.paneSplitRatios[action.payload.paneId] = Math.max(0.2, Math.min(0.8, action.payload.ratio))
     },
-    setPaneWidthRatios(state, action: PayloadAction<number[]>) {
-      state.paneWidthRatios = action.payload
+    setPaneSizes(state, action: PayloadAction<number[]>) {
+      state.paneSizes = action.payload
     }
   }
 })
@@ -79,8 +89,8 @@ const layoutSlice = createSlice({
 export const {
   setViewMode, setSplitRatio, togglePreviewSync,
   zoomIn, zoomOut, resetZoom,
-  toggleOutline, toggleWorkspaceSidebar, setWorkspaceSidebar,
+  toggleOutline, toggleToolbar, toggleExplorer, toggleWorkspaceSidebar, setWorkspaceSidebar,
   setFocusedPane,
-  setPaneViewMode, setPaneSplitRatio, setPaneWidthRatios
+  setPaneViewMode, setPaneSplitRatio, setPaneSizes
 } = layoutSlice.actions
 export default layoutSlice.reducer

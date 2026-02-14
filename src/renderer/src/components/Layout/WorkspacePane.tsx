@@ -1,29 +1,36 @@
 import { useCallback } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store/store'
-import { setPaneSplitRatio, ViewMode } from '../../store/layoutSlice'
-import { selectWorkspaceById } from '../../store/workspacesSlice'
+import { setFocusedPane, setPaneSplitRatio, ViewMode } from '../../store/layoutSlice'
+import { selectWorkspaceById, setActiveWorkspace } from '../../store/workspacesSlice'
 import { useEditorPane } from '../../hooks/useEditorPane'
 import { useImageDrop } from '../../hooks/useImageDrop'
-import { updateTab } from '../../store/tabsSlice'
+import { updateTab, closeTab, setActiveTab, selectTabsByWorkspace, selectActiveTabIdByWorkspace } from '../../store/tabsSlice'
 import { getMonacoThemeName } from '../../utils/monaco-theme-generator'
 import { EditorLayout } from './EditorLayout'
+import { TabGroup } from '../Tabs/TabGroup'
+import { MarkdownToolbar } from '../UI/MarkdownToolbar'
+import { WindowControls } from '../UI/WindowControls'
 import type { WorkspaceId } from '../../../../shared/workspace-types'
 
 interface WorkspacePaneProps {
   workspaceId: WorkspaceId
   isFocused: boolean
   onFocus: () => void
+  showWindowControls?: boolean
 }
 
-export function WorkspacePane({ workspaceId, isFocused, onFocus }: WorkspacePaneProps) {
+export function WorkspacePane({ workspaceId, isFocused, onFocus, showWindowControls }: WorkspacePaneProps) {
   const dispatch = useDispatch()
   const workspace = useSelector((state: RootState) => selectWorkspaceById(state, workspaceId))
+  const workspaceTabs = useSelector((state: RootState) => selectTabsByWorkspace(state, workspaceId))
+  const activeTabId = useSelector((state: RootState) => selectActiveTabIdByWorkspace(state, workspaceId))
   const paneViewMode = useSelector((state: RootState) => state.layout.paneViewModes[workspaceId])
   const paneSplitRatio = useSelector((state: RootState) => state.layout.paneSplitRatios[workspaceId])
   const globalViewMode = useSelector((state: RootState) => state.layout.viewMode)
   const globalSplitRatio = useSelector((state: RootState) => state.layout.splitRatio)
   const theme = useSelector((state: RootState) => state.settings.theme.current)
+  const showToolbar = useSelector((state: RootState) => state.layout.showToolbar)
 
   const {
     editorRef,
@@ -54,6 +61,28 @@ export function WorkspacePane({ workspaceId, isFocused, onFocus }: WorkspacePane
     }
   }, [isFocused, onFocus])
 
+  const handleTabClick = useCallback((tabId: string) => {
+    dispatch(setActiveTab(tabId))
+    dispatch(setActiveWorkspace(workspaceId))
+    dispatch(setFocusedPane(workspaceId))
+  }, [dispatch, workspaceId])
+
+  const handleTabClose = useCallback((e: React.MouseEvent, tabId: string) => {
+    e.stopPropagation()
+    const tab = workspaceTabs.find((t) => t.id === tabId)
+    if (tab?.isDirty) {
+      const shouldClose = window.confirm(
+        `"${tab.filename}" has unsaved changes. Close anyway?`
+      )
+      if (!shouldClose) return
+    }
+    // Clean up temp directory if tab was never saved
+    if (tab && !tab.path) {
+      window.electron.file.cleanupTemp(tabId)
+    }
+    dispatch(closeTab(tabId))
+  }, [dispatch, workspaceTabs])
+
   // Use per-pane settings if set, otherwise fall back to global
   const viewMode: ViewMode = paneViewMode || globalViewMode
   const splitRatio = paneSplitRatio ?? globalSplitRatio
@@ -68,11 +97,33 @@ export function WorkspacePane({ workspaceId, isFocused, onFocus }: WorkspacePane
       onClick={handlePaneClick}
       onFocus={handlePaneClick}
     >
+      <div className="workspace-pane-tab-row">
+        {workspaceTabs.length > 0 && (
+          <TabGroup
+            workspaceId={workspaceId}
+            workspaceName={workspace.name}
+            workspaceColor={workspace.color}
+            tabs={workspaceTabs}
+            activeTabId={activeTabId}
+            onTabClick={handleTabClick}
+            onTabClose={handleTabClose}
+          />
+        )}
+        {showWindowControls && <WindowControls />}
+      </div>
       <div
-        className={`workspace-pane-header ${isFocused ? 'workspace-pane-header-focused' : ''}`}
-        style={{ backgroundColor: workspace.color }}
+        className="workspace-toolbar-bar"
+        style={{ backgroundColor: workspace.color, opacity: isFocused ? 1 : 0.85 }}
       >
-        <span className="workspace-pane-header-name">{workspace.name}</span>
+        <span className="workspace-toolbar-bar-name">{workspace.name}</span>
+        {showToolbar && (
+          <MarkdownToolbar
+            editorRef={editorRef}
+            workspaceId={workspaceId}
+            compact
+            className="workspace-toolbar-bar-tools"
+          />
+        )}
       </div>
       <div className="workspace-pane-content">
         {isDragging && (

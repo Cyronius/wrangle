@@ -60,6 +60,85 @@ code {
   --scrollbar-thumb-hover: #4e4e4e;
 }
 
+/* Tab row: contains TabBar + drag spacer */
+.tab-row {
+  display: flex;
+  align-items: stretch;
+  background-color: var(--tab-bar-bg);
+  flex-shrink: 0;
+}
+
+.tab-row-drag-spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
+  -webkit-app-region: drag;
+}
+
+/* Window controls (inline in tab row) */
+.window-controls {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 0;
+  height: 36px;
+  padding: 0 4px;
+  -webkit-app-region: no-drag;
+}
+
+.window-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.window-control-btn svg {
+  width: 10px;
+  height: 10px;
+}
+
+.window-control-btn:hover {
+  background-color: var(--button-hover-bg);
+  color: var(--text-color);
+}
+
+.window-control-btn.close:hover {
+  background-color: #e81123;
+  color: white;
+}
+
+/* Colored workspace toolbar bar (single-pane and multi-pane) */
+.workspace-toolbar-bar {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.workspace-toolbar-bar-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.workspace-toolbar-bar-tools {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Alt+drag window movement overlay */
 .window-drag-overlay {
   position: fixed;
@@ -69,22 +148,16 @@ code {
   cursor: grab;
 }
 
-/* When drag overlay is active, override no-drag regions so Alt+drag works everywhere */
-.window-drag-overlay ~ .title-bar .title-bar-menus,
-.window-drag-overlay ~ .title-bar .menu-bar,
-.window-drag-overlay ~ .title-bar .title-bar-tabs,
-.window-drag-overlay ~ .title-bar .window-controls {
-  -webkit-app-region: drag;
-  pointer-events: none;
-}
-
 /* Print styles - only show preview content */
 @media print {
-  .title-bar,
+  .sidebar,
+  .workspace-bar,
+  .window-controls,
   .markdown-toolbar,
   .tab-bar,
+  .tab-row,
+  .workspace-toolbar-bar,
   .monaco-editor,
-  .outline-sidebar,
   [class*="allotment"] {
     display: none !important;
   }

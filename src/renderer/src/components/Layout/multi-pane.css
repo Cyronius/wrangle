@@ -52,25 +52,14 @@
   pointer-events: none;
 }
 
-/* Thin workspace header for each pane */
-.workspace-pane-header {
-  height: 20px;
+/* Tab row within each workspace pane (mirrors .tab-row in global.css) */
+.workspace-pane-tab-row {
   display: flex;
-  align-items: center;
-  padding: 0 8px;
+  align-items: stretch;
+  height: 36px;
   flex-shrink: 0;
-  opacity: 0.85;
+  background-color: var(--tab-bar-bg);
+  -webkit-app-region: drag;
 }
 
-.workspace-pane-header-focused {
-  opacity: 1;
-}
-
-.workspace-pane-header-name {
-  font-size: 10px;
-  font-weight: 600;
-  color: #fff;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
-}
+/* Workspace toolbar bar height is defined in global.css (.workspace-toolbar-bar) */

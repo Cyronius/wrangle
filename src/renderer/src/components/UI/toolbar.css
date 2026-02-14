@@ -100,27 +100,55 @@
   background: var(--scrollbar-thumb-hover);
 }
 
-/* View mode toggle group */
-.view-mode-group .view-mode-button {
-  font-size: 12px;
-  padding: 4px 10px;
-}
-
-.view-mode-group .view-mode-button.active {
-  background-color: var(--accent-color);
-  color: white;
-  border-color: var(--accent-color);
-  box-shadow: none;
-}
-
-.view-mode-group .view-mode-button.active:hover {
-  background-color: var(--accent-color);
-  opacity: 0.9;
-}
-
 /* Heading buttons group */
 .heading-group .heading-button {
   font-size: 11px;
   padding: 4px 6px;
   min-width: 26px;
+}
+
+/* Compact mode for embedding in colored workspace bars */
+.markdown-toolbar.compact {
+  padding: 0;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.markdown-toolbar.compact::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.markdown-toolbar.compact .toolbar-button {
+  height: 24px;
+  min-width: 26px;
+  padding: 2px 6px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.markdown-toolbar.compact .toolbar-button:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.markdown-toolbar.compact .toolbar-button.active {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: none;
+}
+
+.markdown-toolbar.compact .toolbar-separator {
+  height: 16px;
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.markdown-toolbar.compact .heading-group .heading-button {
+  font-size: 10px;
+  padding: 2px 4px;
+  min-width: 22px;
 }

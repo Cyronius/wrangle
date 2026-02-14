@@ -15,17 +15,19 @@ export function Tab({ filename, isDirty, isActive, onClick, onClose, title }: Ta
       onClick={onClick}
       title={title || filename}
     >
-      <span className="tab-label">
-        {filename}
-        {isDirty && <span className="dirty-indicator">●</span>}
+      <span className="tab-body">
+        <span className="tab-label">
+          {filename}
+          {isDirty && <span className="dirty-indicator">●</span>}
+        </span>
+        <button
+          className="tab-close"
+          onClick={onClose}
+          aria-label="Close tab"
+        >
+          ×
+        </button>
       </span>
-      <button
-        className="tab-close"
-        onClick={onClose}
-        aria-label="Close tab"
-      >
-        ×
-      </button>
     </div>
   )
 }
