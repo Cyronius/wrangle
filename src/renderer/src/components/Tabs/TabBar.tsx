@@ -25,9 +25,10 @@ const OVERFLOW_BUTTON_WIDTH = 50
 interface TabBarProps {
   onCloseTab?: (tabId: string) => void
   paneWidthRatios?: number[]
+  sidebarOffset?: number
 }
 
-export function TabBar({ onCloseTab, paneWidthRatios }: TabBarProps) {
+export function TabBar({ onCloseTab, paneWidthRatios, sidebarOffset }: TabBarProps) {
   const dispatch = useDispatch()
   const tabs = useSelector(selectAllTabs)
   const workspaces = useSelector(selectAllWorkspaces)
@@ -36,24 +37,35 @@ export function TabBar({ onCloseTab, paneWidthRatios }: TabBarProps) {
   // WTB-007: Ref and state for overflow detection
   const tabBarRef = useRef<HTMLDivElement>(null)
   const [maxVisibleWorkspaces, setMaxVisibleWorkspaces] = useState(Infinity)
+  // WTB-010: Spacer width for aligning tab groups with editor panes
+  const [spacerWidth, setSpacerWidth] = useState(0)
 
   // WTB-007: Calculate how many workspaces can fit
-  const calculateMaxVisible = useCallback(() => {
+  // WTB-010: Also compute left spacer for pane alignment
+  const recalculate = useCallback(() => {
     if (!tabBarRef.current) return
     const tabBarWidth = tabBarRef.current.clientWidth
     const availableWidth = tabBarWidth - OVERFLOW_BUTTON_WIDTH
     const max = Math.floor(availableWidth / MIN_WORKSPACE_WIDTH)
     setMaxVisibleWorkspaces(Math.max(1, max))
-  }, [])
+
+    // Compute spacer to align tab groups with editor panes below
+    if (sidebarOffset != null) {
+      const tabBarLeft = tabBarRef.current.getBoundingClientRect().left
+      setSpacerWidth(Math.max(0, sidebarOffset - tabBarLeft))
+    } else {
+      setSpacerWidth(0)
+    }
+  }, [sidebarOffset])
 
   useEffect(() => {
-    calculateMaxVisible()
-    const observer = new ResizeObserver(calculateMaxVisible)
+    recalculate()
+    const observer = new ResizeObserver(recalculate)
     if (tabBarRef.current) {
       observer.observe(tabBarRef.current)
     }
     return () => observer.disconnect()
-  }, [calculateMaxVisible])
+  }, [recalculate])
 
   // Group tabs by workspace
   const tabsByWorkspace = useMemo(() => {
@@ -157,6 +169,10 @@ export function TabBar({ onCloseTab, paneWidthRatios }: TabBarProps) {
 
   return (
     <div className="tab-bar" ref={tabBarRef}>
+      {/* WTB-010: Left spacer to align tab groups with editor panes */}
+      {spacerWidth > 0 && (
+        <div className="tab-bar-left-spacer" style={{ width: spacerWidth }} />
+      )}
       {visibleWorkspaces.map((workspace, i) => {
         const workspaceTabs = tabsByWorkspace.get(workspace.id) || []
         return (

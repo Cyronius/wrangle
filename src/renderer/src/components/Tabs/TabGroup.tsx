@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useDispatch } from 'react-redux'
-import { TabGroupHeader } from './TabGroupHeader'
+
 import { Tab } from './Tab'
 import type { TabDocument } from '../../store/tabsSlice'
 import { reorderTabs } from '../../store/tabsSlice'
@@ -33,12 +33,11 @@ interface TabGroupProps {
 interface SortableTabProps {
   tab: TabDocument
   isActive: boolean
-  workspaceColor: string // WTB-005: Pass workspace color to Tab
   onTabClick: () => void
   onTabClose: (e: React.MouseEvent) => void
 }
 
-function SortableTab({ tab, isActive, workspaceColor, onTabClick, onTabClose }: SortableTabProps) {
+function SortableTab({ tab, isActive, onTabClick, onTabClose }: SortableTabProps) {
   const {
     attributes,
     listeners,
@@ -81,7 +80,6 @@ function SortableTab({ tab, isActive, workspaceColor, onTabClick, onTabClose }: 
         filename={tab.displayTitle || tab.filename}
         isDirty={tab.isDirty}
         isActive={isActive}
-        workspaceColor={workspaceColor}
         onClick={onTabClick}
         onClose={onTabClose}
         title={tab.path || tab.filename}
@@ -134,8 +132,6 @@ export function TabGroup({
       style={groupStyle}
       data-workspace-id={workspaceId}
     >
-      {/* WTB-004: Header stays fixed (outside scrollable area) */}
-      <TabGroupHeader color={workspaceColor} />
       {/* WTB-003/004: Scrollable wrapper - tabs scroll independently per workspace */}
       <div className="tab-group-scrollable">
         <div className="tab-group-tabs">
@@ -153,7 +149,6 @@ export function TabGroup({
                   key={tab.id}
                   tab={tab}
                   isActive={tab.id === activeTabId}
-                  workspaceColor={workspaceColor}
                   onTabClick={() => onTabClick(tab.id)}
                   onTabClose={(e) => onTabClose(e, tab.id)}
                 />

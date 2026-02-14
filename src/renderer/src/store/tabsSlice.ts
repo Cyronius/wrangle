@@ -35,6 +35,8 @@ const tabsSlice = createSlice({
   initialState,
   reducers: {
     addTab(state, action: PayloadAction<TabDocument>) {
+      // Guard against duplicate tab IDs (can happen during session restore)
+      if (state.tabs.some((t) => t.id === action.payload.id)) return
       state.tabs.push(action.payload)
       // Set as active tab for its workspace
       state.activeTabIdByWorkspace[action.payload.workspaceId] = action.payload.id

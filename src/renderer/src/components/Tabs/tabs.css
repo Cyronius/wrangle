@@ -17,26 +17,30 @@
   align-items: center;
   gap: 8px;
   padding: 0 12px;
-  margin: 4px 0;
+  margin: 4px 0 0 0;
   background-color: var(--tab-bg);
-  border-right: 1px solid var(--border-color);
-  border-bottom: 2px solid transparent;
+  /* WTB-011: Reserve space for active tab borders */
+  border: 2px solid transparent;
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
   min-width: 100px;
   max-width: 200px;
   transition: background-color 0.15s ease, border-color 0.15s ease;
-  border-radius: 4px 4px 0 0;
+  border-radius: 8px 8px 0 0;
 }
 
 .tab:hover {
   background-color: var(--tab-hover-bg);
 }
 
+/* WTB-011: Curved overline active tab indicator */
 .tab.active {
   background-color: var(--tab-active-bg);
-  border-bottom: 3px solid var(--accent-color);
+  border-top: 2px solid var(--workspace-color);
+  border-left: 2px solid var(--workspace-color);
+  border-right: 2px solid var(--workspace-color);
+  border-radius: 8px 8px 0 0;
 }
 
 .tab-label {
@@ -115,21 +119,18 @@
   overflow: hidden;
 }
 
+/* WTB-010: Gap matches Allotment sash width (8px) for alignment */
 .tab-group + .tab-group {
   margin-left: 8px;
-  border-left: 1px solid var(--border-color);
 }
 
-/* Tab Group Header - Colored workspace indicator bar */
-.tab-group-header {
-  width: 16px;
-  align-self: stretch;
-  border-radius: 4px 0 0 4px;
-  margin: 4px 0;
+/* WTB-010: Left spacer for aligning tab groups with editor panes */
+.tab-bar-left-spacer {
+  flex-shrink: 0;
+  pointer-events: none;
 }
 
-
-/* WTB-004: Scrollable container - header stays fixed, tabs scroll inside this */
+/* WTB-004: Scrollable container - tabs scroll inside this */
 .tab-group-scrollable {
   flex: 1;
   /* WTB-003: Independent horizontal scrolling per workspace */

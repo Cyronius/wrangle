@@ -57,6 +57,12 @@ function AppContent() {
   const isMultiPane = visibleWorkspaceIds.length >= 2
   const expandedWorkspace = workspaces.find((w) => w.isExpanded)
 
+  // Sidebar offset for tab bar alignment in multi-pane mode
+  // WorkspaceBar = 36px + 1px border = 37px; WorkspaceSidebar = 250px + 1px border = 251px
+  const sidebarOffset = isMultiPane
+    ? 37 + (showWorkspaceSidebar && expandedWorkspace ? 251 : 0)
+    : undefined
+
   // Editor pane hook - manages content, cursor/scroll tracking, auto-save
   const {
     editorRef,
@@ -979,6 +985,7 @@ function AppContent() {
             }
           }}
           paneWidthRatios={isMultiPane ? paneWidthRatios : undefined}
+          sidebarOffset={sidebarOffset}
         />
       </TitleBar>
       {tabs.length > 0 && !isMultiPane && <MarkdownToolbar editorRef={editorRef} previewSelection={previewSelection} />}
