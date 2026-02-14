@@ -143,10 +143,6 @@ export function TabBar({ onCloseTab, paneWidthRatios }: TabBarProps) {
     dispatch(closeTab(tabId))
   }
 
-  if (tabs.length === 0) {
-    return null
-  }
-
   // Compute per-group width percentages from pane ratios
   const widthPercents = useMemo(() => {
     if (!paneWidthRatios || paneWidthRatios.length !== visibleWorkspaces.length) {
@@ -154,6 +150,10 @@ export function TabBar({ onCloseTab, paneWidthRatios }: TabBarProps) {
     }
     return paneWidthRatios.map((r) => r * 100)
   }, [paneWidthRatios, visibleWorkspaces.length])
+
+  if (tabs.length === 0) {
+    return null
+  }
 
   return (
     <div className="tab-bar" ref={tabBarRef}>
