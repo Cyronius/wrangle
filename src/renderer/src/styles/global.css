@@ -115,7 +115,7 @@ code {
 
 /* Colored workspace toolbar bar (single-pane and multi-pane) */
 .workspace-toolbar-bar {
-  height: 36px;
+  height: 24px;
   display: flex;
   align-items: center;
   padding: 0 10px;
@@ -132,11 +132,6 @@ code {
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
   white-space: nowrap;
   flex-shrink: 0;
-}
-
-.workspace-toolbar-bar-tools {
-  flex: 1;
-  min-width: 0;
 }
 
 /* Alt+drag window movement overlay */

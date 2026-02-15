@@ -143,6 +143,8 @@
   top: -4px;
   left: 100%;
   min-width: 160px;
+  max-height: 650px;
+  overflow-y: auto;
   background-color: var(--dropdown-bg, var(--toolbar-bg));
   border: 1px solid var(--border-color);
   border-radius: 4px;

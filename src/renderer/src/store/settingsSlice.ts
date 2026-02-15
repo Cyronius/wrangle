@@ -42,6 +42,7 @@ export interface SettingsState {
   layout: {
     previewSyncLocked: boolean
     splitRatio: number
+    sidebarPaneSizes?: number[]
     preferencesDialog?: {
       x: number
       y: number
@@ -202,6 +203,9 @@ const settingsSlice = createSlice({
     setPreferencesDialogBounds(state, action: PayloadAction<{ x: number; y: number; width: number; height: number }>) {
       state.layout.preferencesDialog = action.payload
     },
+    setSidebarPaneSizes(state, action: PayloadAction<number[]>) {
+      state.layout.sidebarPaneSizes = action.payload
+    },
 
     // Editor actions
     setVimMode(state, action: PayloadAction<boolean>) {
@@ -273,6 +277,7 @@ export const {
   setPreviewSyncLocked,
   setSettingsSplitRatio,
   setPreferencesDialogBounds,
+  setSidebarPaneSizes,
   setVimMode
 } = settingsSlice.actions
 

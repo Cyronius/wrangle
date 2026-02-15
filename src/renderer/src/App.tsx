@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef as useReactRef } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState, AppDispatch } from './store/store'
-import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, setFocusedPane } from './store/layoutSlice'
+import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, toggleExplorer, toggleToolbar, setFocusedPane } from './store/layoutSlice'
 import {
   addTab,
   updateTab,
@@ -637,9 +637,25 @@ function AppContent() {
         }
       }
       // Ctrl+Shift+O: Toggle outline
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'o') {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'O') {
         e.preventDefault()
+        e.stopPropagation()
         dispatch(toggleOutline())
+        return
+      }
+      // Ctrl+Shift+E: Toggle explorer
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'E') {
+        e.preventDefault()
+        e.stopPropagation()
+        dispatch(toggleExplorer())
+        return
+      }
+      // Ctrl+Shift+T: Toggle toolbar
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
+        e.preventDefault()
+        e.stopPropagation()
+        dispatch(toggleToolbar())
+        return
       }
       // F12: Toggle DevTools (fallback for when global shortcut fails)
       if (e.key === 'F12') {
@@ -1002,6 +1018,15 @@ function AppContent() {
               </div>
             )}
 
+            {/* Formatting toolbar strip */}
+            {showToolbar && tabs.length > 0 && (
+              <MarkdownToolbar
+                editorRef={editorRef}
+                previewSelection={previewSelection}
+                className="toolbar-strip"
+              />
+            )}
+
             {/* Content area */}
             <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
               {tabs.length === 0 ? (
@@ -1010,23 +1035,13 @@ function AppContent() {
                 <MultiPaneContainer />
               ) : (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                  {/* Colored workspace bar with embedded markdown toolbar */}
-                  {tabs.length > 0 && (
+                  {/* Colored workspace bar - only shown when multiple workspaces exist */}
+                  {tabs.length > 0 && !isDefaultOnly && (
                     <div
                       className="workspace-toolbar-bar"
                       style={{ backgroundColor: activeWorkspaceColor }}
                     >
-                      {!isDefaultOnly && (
-                        <span className="workspace-toolbar-bar-name">{activeWorkspace?.name || ''}</span>
-                      )}
-                      {showToolbar && (
-                        <MarkdownToolbar
-                          editorRef={editorRef}
-                          previewSelection={previewSelection}
-                          compact
-                          className="workspace-toolbar-bar-tools"
-                        />
-                      )}
+                      <span className="workspace-toolbar-bar-name">{activeWorkspace?.name || ''}</span>
                     </div>
                   )}
                   <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>

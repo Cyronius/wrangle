@@ -9,7 +9,6 @@ import { updateTab, closeTab, setActiveTab, selectTabsByWorkspace, selectActiveT
 import { getMonacoThemeName } from '../../utils/monaco-theme-generator'
 import { EditorLayout } from './EditorLayout'
 import { TabGroup } from '../Tabs/TabGroup'
-import { MarkdownToolbar } from '../UI/MarkdownToolbar'
 import { WindowControls } from '../UI/WindowControls'
 import type { WorkspaceId } from '../../../../shared/workspace-types'
 
@@ -30,8 +29,6 @@ export function WorkspacePane({ workspaceId, isFocused, onFocus, showWindowContr
   const globalViewMode = useSelector((state: RootState) => state.layout.viewMode)
   const globalSplitRatio = useSelector((state: RootState) => state.layout.splitRatio)
   const theme = useSelector((state: RootState) => state.settings.theme.current)
-  const showToolbar = useSelector((state: RootState) => state.layout.showToolbar)
-
   const {
     editorRef,
     content,
@@ -116,14 +113,6 @@ export function WorkspacePane({ workspaceId, isFocused, onFocus, showWindowContr
         style={{ backgroundColor: workspace.color, opacity: isFocused ? 1 : 0.85 }}
       >
         <span className="workspace-toolbar-bar-name">{workspace.name}</span>
-        {showToolbar && (
-          <MarkdownToolbar
-            editorRef={editorRef}
-            workspaceId={workspaceId}
-            compact
-            className="workspace-toolbar-bar-tools"
-          />
-        )}
       </div>
       <div className="workspace-pane-content">
         {isDragging && (

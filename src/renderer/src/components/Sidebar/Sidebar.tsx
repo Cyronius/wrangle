@@ -1,14 +1,15 @@
-import { useState, useEffect, useRef, memo } from 'react'
+import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
+import { Allotment } from 'allotment'
 import { RootState, AppDispatch } from '../../store/store'
 import { setViewMode, toggleOutline, toggleToolbar, toggleExplorer } from '../../store/layoutSlice'
-import { setCurrentTheme, saveThemeSettings } from '../../store/settingsSlice'
+import { setCurrentTheme, saveThemeSettings, setSidebarPaneSizes, saveLayoutSettings } from '../../store/settingsSlice'
 import {
-  selectAllWorkspaces
+  selectAllWorkspaces,
+  updateWorkspace
 } from '../../store/workspacesSlice'
 import { selectActiveTab } from '../../store/tabsSlice'
 import { DEFAULT_WORKSPACE_ID } from '../../../../shared/workspace-types'
-import { WorkspaceHeader } from '../Workspace/WorkspaceHeader'
 import { FileTree } from '../Workspace/FileTree'
 import { marked } from 'marked'
 import { builtInThemes } from '../../styles/themes'
@@ -140,6 +141,8 @@ export function Sidebar({
   const viewMode = useSelector((state: RootState) => state.layout.viewMode)
   const currentTheme = useSelector((state: RootState) => state.settings.theme.current)
   const customThemes = useSelector((state: RootState) => state.settings.theme.customThemes)
+  const layoutSettings = useSelector((state: RootState) => state.settings.layout)
+  const sidebarPaneSizes = layoutSettings.sidebarPaneSizes
   const activeTab = useSelector(selectActiveTab)
   const expandedWorkspace = workspaces.find((w) => w.isExpanded)
 
@@ -152,6 +155,9 @@ export function Sidebar({
   // Section collapse state
   const [explorerCollapsed, setExplorerCollapsed] = useState(false)
   const [outlineCollapsed, setOutlineCollapsed] = useState(false)
+
+  // Debounce ref for pane size persistence
+  const paneSaveTimeout = useRef<NodeJS.Timeout | null>(null)
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -175,6 +181,39 @@ export function Sidebar({
     setOpenMenu(null)
     setOpenSubmenu(null)
   }
+
+  // Handle hidden files toggle
+  const handleToggleHiddenFiles = useCallback(() => {
+    if (!expandedWorkspace) return
+    const newValue = !expandedWorkspace.showHiddenFiles
+    dispatch(updateWorkspace({ id: expandedWorkspace.id, changes: { showHiddenFiles: newValue } }))
+    if (expandedWorkspace.rootPath) {
+      window.electron.workspace.loadConfig(expandedWorkspace.rootPath).then((config) => {
+        if (config) {
+          window.electron.workspace.saveConfig(expandedWorkspace.rootPath!, {
+            ...config,
+            showHiddenFiles: newValue
+          })
+        }
+      })
+    }
+  }, [dispatch, expandedWorkspace])
+
+  // Handle Allotment pane size change (debounced persist)
+  const handlePaneSizeChange = useCallback((sizes: number[]) => {
+    if (paneSaveTimeout.current) clearTimeout(paneSaveTimeout.current)
+    paneSaveTimeout.current = setTimeout(() => {
+      dispatch(setSidebarPaneSizes(sizes))
+      dispatch(saveLayoutSettings({ ...layoutSettings, sidebarPaneSizes: sizes }))
+    }, 300)
+  }, [dispatch, layoutSettings])
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (paneSaveTimeout.current) clearTimeout(paneSaveTimeout.current)
+    }
+  }, [])
 
   // Menu definitions
   const menus: Record<string, MenuItem[]> = {
@@ -212,8 +251,8 @@ export function Sidebar({
       { label: 'Split View', shortcut: 'Ctrl+2', checked: viewMode === 'split', action: () => dispatch(setViewMode('split')) },
       { label: 'Preview Only', shortcut: 'Ctrl+3', checked: viewMode === 'preview-only', action: () => dispatch(setViewMode('preview-only')) },
       { separator: true, label: '' },
-      { label: 'Show Toolbar', checked: showToolbar, action: () => dispatch(toggleToolbar()) },
-      { label: 'Show Explorer', checked: showExplorer, action: () => dispatch(toggleExplorer()) },
+      { label: 'Show Toolbar', shortcut: 'Ctrl+Shift+T', checked: showToolbar, action: () => dispatch(toggleToolbar()) },
+      { label: 'Show Explorer', shortcut: 'Ctrl+Shift+E', checked: showExplorer, action: () => dispatch(toggleExplorer()) },
       { label: 'Show Outline', shortcut: 'Ctrl+Shift+O', checked: showOutline, action: () => dispatch(toggleOutline()) },
       { separator: true, label: '' },
       {
@@ -307,6 +346,8 @@ export function Sidebar({
   }
 
   const nonDefaultWorkspaces = workspaces.filter(w => w.id !== DEFAULT_WORKSPACE_ID)
+  const hasWorkspace = expandedWorkspace && expandedWorkspace.id !== DEFAULT_WORKSPACE_ID && expandedWorkspace.rootPath
+  const hasPanels = showExplorer || showOutline
 
   return (
     <div className="sidebar">
@@ -333,64 +374,100 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* Explorer section */}
-      {showExplorer && (
-        <div className={`sidebar-section sidebar-section-flex ${explorerCollapsed ? 'collapsed' : ''}`}>
-          <button
-            className="sidebar-section-header sidebar-section-toggle"
-            onClick={() => setExplorerCollapsed(!explorerCollapsed)}
-          >
-            <svg className={`sidebar-section-chevron ${explorerCollapsed ? '' : 'expanded'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-            <span className="sidebar-section-title">Explorer</span>
-          </button>
-          {!explorerCollapsed && (
-            <div className="sidebar-section-content">
-              {expandedWorkspace && expandedWorkspace.id !== DEFAULT_WORKSPACE_ID && expandedWorkspace.rootPath ? (
-                <>
-                  <WorkspaceHeader workspace={expandedWorkspace} />
-                  <FileTree
-                    rootPath={expandedWorkspace.rootPath}
-                    workspaceId={expandedWorkspace.id}
-                    onFileOpen={onFileOpenFromTree}
-                    selectedPath={activeTab?.path}
-                    showHiddenFiles={expandedWorkspace.showHiddenFiles}
-                  />
-                </>
-              ) : nonDefaultWorkspaces.length === 0 ? (
-                <div className="sidebar-section-empty">
-                  <button className="sidebar-add-folder-btn" onClick={onAddWorkspace}>
-                    Open Folder
-                  </button>
-                </div>
-              ) : (
-                <div className="sidebar-section-empty">
-                  Select a workspace above
-                </div>
-              )}
-            </div>
-          )}
+      {/* Workspace indicator */}
+      {hasWorkspace && (
+        <div className="sidebar-workspace-indicator">
+          <div
+            className="sidebar-workspace-color"
+            style={{ backgroundColor: expandedWorkspace.color }}
+          />
+          <span className="sidebar-workspace-name">{expandedWorkspace.name}</span>
         </div>
       )}
 
-      {/* Outline section */}
-      {showOutline && (
-        <div className={`sidebar-section sidebar-section-flex ${outlineCollapsed ? 'collapsed' : ''}`}>
-          <button
-            className="sidebar-section-header sidebar-section-toggle"
-            onClick={() => setOutlineCollapsed(!outlineCollapsed)}
+      {/* Resizable panels (Explorer + Outline) */}
+      {hasPanels && (
+        <div className="sidebar-panels">
+          <Allotment
+            vertical
+            onChange={handlePaneSizeChange}
+            defaultSizes={sidebarPaneSizes}
           >
-            <svg className={`sidebar-section-chevron ${outlineCollapsed ? '' : 'expanded'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-            <span className="sidebar-section-title">Outline</span>
-          </button>
-          {!outlineCollapsed && (
-            <div className="sidebar-section-content">
-              <OutlineContent content={content} editorRef={editorRef} />
-            </div>
-          )}
+            {showExplorer && (
+              <Allotment.Pane
+                minSize={28}
+                maxSize={explorerCollapsed ? 28 : undefined}
+              >
+                <div className="sidebar-section sidebar-section-allotment">
+                  <button
+                    className="sidebar-section-header sidebar-section-toggle"
+                    onClick={() => setExplorerCollapsed(!explorerCollapsed)}
+                  >
+                    <svg className={`sidebar-section-chevron ${explorerCollapsed ? '' : 'expanded'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                    <span className="sidebar-section-title">Explorer</span>
+                  </button>
+                  {!explorerCollapsed && (
+                    <div className="sidebar-section-content">
+                      {hasWorkspace ? (
+                        <>
+                          <label className="sidebar-hidden-files-toggle">
+                            <input
+                              type="checkbox"
+                              checked={expandedWorkspace.showHiddenFiles}
+                              onChange={handleToggleHiddenFiles}
+                            />
+                            Show hidden files
+                          </label>
+                          <FileTree
+                            rootPath={expandedWorkspace.rootPath!}
+                            workspaceId={expandedWorkspace.id}
+                            onFileOpen={onFileOpenFromTree}
+                            selectedPath={activeTab?.path}
+                            showHiddenFiles={expandedWorkspace.showHiddenFiles}
+                          />
+                        </>
+                      ) : nonDefaultWorkspaces.length === 0 ? (
+                        <div className="sidebar-section-empty">
+                          <button className="sidebar-add-folder-btn" onClick={onAddWorkspace}>
+                            Open Folder
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="sidebar-section-empty">
+                          Select a workspace above
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </Allotment.Pane>
+            )}
+            {showOutline && (
+              <Allotment.Pane
+                minSize={28}
+                maxSize={outlineCollapsed ? 28 : undefined}
+              >
+                <div className="sidebar-section sidebar-section-allotment">
+                  <button
+                    className="sidebar-section-header sidebar-section-toggle"
+                    onClick={() => setOutlineCollapsed(!outlineCollapsed)}
+                  >
+                    <svg className={`sidebar-section-chevron ${outlineCollapsed ? '' : 'expanded'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                    <span className="sidebar-section-title">Outline</span>
+                  </button>
+                  {!outlineCollapsed && (
+                    <div className="sidebar-section-content">
+                      <OutlineContent content={content} editorRef={editorRef} />
+                    </div>
+                  )}
+                </div>
+              </Allotment.Pane>
+            )}
+          </Allotment>
         </div>
       )}
     </div>

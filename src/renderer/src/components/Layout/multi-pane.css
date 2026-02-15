@@ -62,4 +62,8 @@
   -webkit-app-region: drag;
 }
 
+.workspace-pane-tab-row > .window-controls {
+  margin-left: auto;
+}
+
 /* Workspace toolbar bar height is defined in global.css (.workspace-toolbar-bar) */

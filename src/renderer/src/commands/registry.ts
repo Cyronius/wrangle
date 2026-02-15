@@ -383,6 +383,26 @@ export const commands: CommandDefinition[] = [
     }
   },
   {
+    id: 'view.explorer',
+    label: 'Toggle Explorer',
+    category: 'view',
+    defaultBinding: 'Ctrl+Shift+E',
+    execute: (ctx) => {
+      const { toggleExplorer } = require('../store/layoutSlice')
+      ctx.dispatch(toggleExplorer())
+    }
+  },
+  {
+    id: 'view.toolbar',
+    label: 'Toggle Toolbar',
+    category: 'view',
+    defaultBinding: 'Ctrl+Shift+T',
+    execute: (ctx) => {
+      const { toggleToolbar } = require('../store/layoutSlice')
+      ctx.dispatch(toggleToolbar())
+    }
+  },
+  {
     id: 'view.workspaceSidebar',
     label: 'Toggle Workspace Sidebar',
     category: 'view',
@@ -490,7 +510,7 @@ export const commands: CommandDefinition[] = [
     id: 'markdown.table',
     label: 'Insert Table',
     category: 'markdown',
-    defaultBinding: 'Ctrl+Shift+T',
+    defaultBinding: null,
     execute: (ctx) => {
       const table = `| Header 1 | Header 2 | Header 3 |
 | -------- | -------- | -------- |
