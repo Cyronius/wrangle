@@ -349,6 +349,14 @@
   background-color: var(--button-active-bg, rgba(77, 170, 252, 0.2));
 }
 
+.file-tree-item.open-in-editor .file-tree-name {
+  font-weight: 600;
+}
+
+.file-tree-item.multi-selected {
+  background-color: var(--button-active-bg, rgba(77, 170, 252, 0.15));
+}
+
 .file-tree-item.directory {
   font-weight: 500;
 }

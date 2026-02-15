@@ -12,6 +12,7 @@ interface MarkdownToolbarProps {
   workspaceId?: string
   compact?: boolean
   className?: string
+  getEditor?: () => monaco.editor.IStandaloneCodeEditor | null
 }
 
 interface ToolbarButton {
@@ -59,7 +60,12 @@ function isMarkdownFile(filePath?: string): boolean {
   return MARKDOWN_EXTENSIONS.has(ext)
 }
 
-export function MarkdownToolbar({ editorRef, previewSelection, workspaceId, compact, className }: MarkdownToolbarProps) {
+export function MarkdownToolbar({ editorRef, previewSelection, workspaceId, compact, className, getEditor }: MarkdownToolbarProps) {
+  const resolveEditor = (): monaco.editor.IStandaloneCodeEditor | null => {
+    if (getEditor) return getEditor()
+    return editorRef?.current ?? null
+  }
+
   const dispatch = useDispatch()
   const globalViewMode = useSelector((state: RootState) => state.layout.viewMode)
   const paneViewMode = useSelector((state: RootState) =>
@@ -92,8 +98,8 @@ export function MarkdownToolbar({ editorRef, previewSelection, workspaceId, comp
 
   // Track cursor position and detect active formatting
   useEffect(() => {
-    if (!editorRef?.current) return
-    const editor = editorRef.current
+    const editor = resolveEditor()
+    if (!editor) return
 
     const updateActiveFormats = () => {
       const selection = editor.getSelection()
@@ -187,11 +193,11 @@ export function MarkdownToolbar({ editorRef, previewSelection, workspaceId, comp
     updateActiveFormats() // Initial check
 
     return () => disposables.forEach(d => d.dispose())
-  }, [editorRef?.current])
+  }, [getEditor, editorRef?.current])
 
   const executeCommand = (command: MarkdownCommand) => {
-    if (!editorRef?.current) return
-    const editor = editorRef.current
+    const editor = resolveEditor()
+    if (!editor) return
 
     // If preview has selection, apply it to editor first (WYSIWYG editing)
     if (previewSelection) {
@@ -213,7 +219,7 @@ export function MarkdownToolbar({ editorRef, previewSelection, workspaceId, comp
     // Return focus to preview if in preview-only mode
     if (viewMode === 'preview-only') {
       setTimeout(() => {
-        editorRef.current?.getContainerDomNode()?.blur()
+        editor.getContainerDomNode()?.blur()
       }, 0)
     }
   }

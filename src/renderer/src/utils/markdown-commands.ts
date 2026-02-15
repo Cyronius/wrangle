@@ -127,12 +127,19 @@ function wrapSelection(
   }
 }
 
+// Exclusive groups: switching between members replaces rather than nesting
+const HEADING_PREFIXES = ['# ', '## ', '### ', '#### ', '##### ', '###### ']
+const LIST_PREFIXES = ['- ', '1. ', '- [ ] ']
+
 /**
- * Inserts text at the beginning of the current line
+ * Inserts text at the beginning of the current line.
+ * When exclusiveGroup is provided, switching between group members replaces
+ * the existing prefix rather than nesting (e.g., H1 on an H2 line → replaces).
  */
 function insertAtLineStart(
   editor: monaco.editor.IStandaloneCodeEditor,
-  text: string
+  text: string,
+  exclusiveGroup?: string[]
 ): void {
   const selection = editor.getSelection()
   const model = editor.getModel()
@@ -141,22 +148,38 @@ function insertAtLineStart(
   const lineNumber = selection.startLineNumber
   const lineContent = model.getLineContent(lineNumber)
 
-  // Check if line already starts with the text (toggle behavior)
+  if (exclusiveGroup) {
+    // Sort longest-first to avoid partial matches (e.g., '- [ ] ' before '- ')
+    const sorted = [...exclusiveGroup].sort((a, b) => b.length - a.length)
+    const currentPrefix = sorted.find(p => lineContent.startsWith(p))
+
+    if (currentPrefix === text) {
+      // Same prefix — toggle off (remove it)
+      editor.executeEdits('', [
+        { range: new monaco.Range(lineNumber, 1, lineNumber, currentPrefix.length + 1), text: '' }
+      ])
+    } else if (currentPrefix) {
+      // Different prefix in same group — replace it
+      editor.executeEdits('', [
+        { range: new monaco.Range(lineNumber, 1, lineNumber, currentPrefix.length + 1), text: text }
+      ])
+    } else {
+      // No prefix from this group — add the new prefix
+      editor.executeEdits('', [
+        { range: new monaco.Range(lineNumber, 1, lineNumber, 1), text: text }
+      ])
+    }
+    return
+  }
+
+  // Simple toggle for commands without exclusive groups
   if (lineContent.startsWith(text)) {
-    // Remove the prefix
     editor.executeEdits('', [
-      {
-        range: new monaco.Range(lineNumber, 1, lineNumber, text.length + 1),
-        text: ''
-      }
+      { range: new monaco.Range(lineNumber, 1, lineNumber, text.length + 1), text: '' }
     ])
   } else {
-    // Add the prefix
     editor.executeEdits('', [
-      {
-        range: new monaco.Range(lineNumber, 1, lineNumber, 1),
-        text: text
-      }
+      { range: new monaco.Range(lineNumber, 1, lineNumber, 1), text: text }
     ])
   }
 }
@@ -197,23 +220,23 @@ export const markdownCommands = {
 
   inlineCode: (editor) => wrapSelection(editor, '`'),
 
-  heading1: (editor) => insertAtLineStart(editor, '# '),
+  heading1: (editor) => insertAtLineStart(editor, '# ', HEADING_PREFIXES),
 
-  heading2: (editor) => insertAtLineStart(editor, '## '),
+  heading2: (editor) => insertAtLineStart(editor, '## ', HEADING_PREFIXES),
 
-  heading3: (editor) => insertAtLineStart(editor, '### '),
+  heading3: (editor) => insertAtLineStart(editor, '### ', HEADING_PREFIXES),
 
-  heading4: (editor) => insertAtLineStart(editor, '#### '),
+  heading4: (editor) => insertAtLineStart(editor, '#### ', HEADING_PREFIXES),
 
-  heading5: (editor) => insertAtLineStart(editor, '##### '),
+  heading5: (editor) => insertAtLineStart(editor, '##### ', HEADING_PREFIXES),
 
-  heading6: (editor) => insertAtLineStart(editor, '###### '),
+  heading6: (editor) => insertAtLineStart(editor, '###### ', HEADING_PREFIXES),
 
-  bulletList: (editor) => insertAtLineStart(editor, '- '),
+  bulletList: (editor) => insertAtLineStart(editor, '- ', LIST_PREFIXES),
 
-  numberedList: (editor) => insertAtLineStart(editor, '1. '),
+  numberedList: (editor) => insertAtLineStart(editor, '1. ', LIST_PREFIXES),
 
-  taskList: (editor) => insertAtLineStart(editor, '- [ ] '),
+  taskList: (editor) => insertAtLineStart(editor, '- [ ] ', LIST_PREFIXES),
 
   blockquote: (editor) => insertAtLineStart(editor, '> '),
 

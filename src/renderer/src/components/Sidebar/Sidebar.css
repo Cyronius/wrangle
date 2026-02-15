@@ -153,6 +153,27 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: text;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+.sidebar-workspace-name:hover {
+  background-color: var(--button-hover-bg);
+}
+
+.sidebar-workspace-name-input {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-color);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--accent-color);
+  outline: none;
+  padding: 0 2px;
+  min-width: 0;
+  flex: 1;
+  font-family: inherit;
 }
 
 /* Resizable panels container */

@@ -45,7 +45,7 @@
   border-radius: 8px 8px 0 0;
   position: relative;
   z-index: 1;
-  margin-bottom: -2px;
+  margin-bottom: -2px;  
 }
 
 /* Layer 1: Fill blocks — cover descenders with active tab bg */
@@ -57,7 +57,7 @@
   width: 14px;
   height: 12px;
   z-index: 2;
-  background: var(--tab-active-bg);
+  background: var(--tab-active-bg);  
 }
 
 .tab.active::before { left: -14px; }

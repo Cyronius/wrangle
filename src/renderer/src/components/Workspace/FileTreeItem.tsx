@@ -6,8 +6,10 @@ interface FileTreeItemProps {
   depth: number
   isExpanded: boolean
   isSelected: boolean
+  isOpen?: boolean
+  isMultiSelected?: boolean
   onToggle: () => void
-  onSelect: () => void
+  onSelect: (e: React.MouseEvent) => void
 }
 
 // Chevron icon for expand/collapse
@@ -98,6 +100,8 @@ export function FileTreeItem({
   depth,
   isExpanded,
   isSelected,
+  isOpen,
+  isMultiSelected,
   onToggle,
   onSelect
 }: FileTreeItemProps) {
@@ -108,7 +112,7 @@ export function FileTreeItem({
     if (node.isDirectory) {
       onToggle()
     } else {
-      onSelect()
+      onSelect(e)
     }
   }
 
@@ -117,7 +121,7 @@ export function FileTreeItem({
     if (node.isDirectory) {
       onToggle()
     } else {
-      onSelect()
+      onSelect(e)
     }
   }
 
@@ -129,7 +133,7 @@ export function FileTreeItem({
 
   return (
     <div
-      className={`file-tree-item ${node.isDirectory ? 'directory' : ''} ${isSelected ? 'selected' : ''}`}
+      className={`file-tree-item ${node.isDirectory ? 'directory' : ''} ${isSelected ? 'selected' : ''} ${isOpen ? 'open-in-editor' : ''} ${isMultiSelected ? 'multi-selected' : ''}`}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       role="treeitem"

@@ -12,13 +12,18 @@ interface FileTreeProps {
   selectedPath?: string
   showHiddenFiles?: boolean
   onFilesAdded?: () => void
+  openPaths?: Set<string>
 }
 
-export function FileTree({ rootPath, workspaceId, onFileOpen, selectedPath, showHiddenFiles, onFilesAdded }: FileTreeProps) {
+export function FileTree({ rootPath, workspaceId, onFileOpen, selectedPath, showHiddenFiles, onFilesAdded, openPaths }: FileTreeProps) {
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([])
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set([rootPath]))
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Multi-selection state
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
+  const [anchorPath, setAnchorPath] = useState<string | null>(null)
 
   // Drop handling state
   const [isDraggingOver, setIsDraggingOver] = useState(false)
@@ -78,13 +83,78 @@ export function FileTree({ rootPath, workspaceId, onFileOpen, selectedPath, show
     })
   }, [])
 
-  // Handle file selection
+  // Clear multi-selection when tree refreshes
+  useEffect(() => {
+    setSelectedPaths(new Set())
+    setAnchorPath(null)
+  }, [fileTree])
+
+  // Flatten visible file paths (files only, respecting expanded folders)
+  const flattenVisibleFiles = useCallback((nodes: FileTreeNode[]): string[] => {
+    const result: string[] = []
+    for (const node of nodes) {
+      if (!node.isDirectory) {
+        result.push(node.path)
+      }
+      if (node.isDirectory && expandedPaths.has(node.path) && node.children) {
+        result.push(...flattenVisibleFiles(node.children))
+      }
+    }
+    return result
+  }, [expandedPaths])
+
+  // Handle file selection with modifier key support
+  // Ctrl/Shift clicks only select visually (for future context menu actions).
+  // Plain click opens the file.
   const handleSelect = useCallback(
-    (path: string) => {
-      onFileOpen(path)
+    (path: string, e: React.MouseEvent) => {
+      const isCtrlOrMeta = e.ctrlKey || e.metaKey
+      const isShift = e.shiftKey
+
+      if (isShift && anchorPath) {
+        // Range select from anchor to clicked path
+        const flatPaths = flattenVisibleFiles(fileTree)
+        const anchorIdx = flatPaths.indexOf(anchorPath)
+        const targetIdx = flatPaths.indexOf(path)
+
+        if (anchorIdx !== -1 && targetIdx !== -1) {
+          const [start, end] = anchorIdx <= targetIdx
+            ? [anchorIdx, targetIdx]
+            : [targetIdx, anchorIdx]
+          setSelectedPaths(new Set(flatPaths.slice(start, end + 1)))
+        }
+      } else if (isCtrlOrMeta) {
+        // Toggle single path in selection
+        setSelectedPaths(prev => {
+          const next = new Set(prev)
+          if (next.has(path)) {
+            next.delete(path)
+          } else {
+            next.add(path)
+          }
+          return next
+        })
+        setAnchorPath(path)
+      } else {
+        // Plain click: clear selection, open single file
+        setSelectedPaths(new Set())
+        setAnchorPath(path)
+        onFileOpen(path)
+      }
     },
-    [onFileOpen]
+    [onFileOpen, anchorPath, flattenVisibleFiles, fileTree]
   )
+
+  // Open all multi-selected files on Enter
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && selectedPaths.size > 0) {
+      e.preventDefault()
+      for (const p of selectedPaths) {
+        onFileOpen(p)
+      }
+      setSelectedPaths(new Set())
+    }
+  }, [selectedPaths, onFileOpen])
 
   // Drop handlers
   const handleDragEnter = useCallback((e: React.DragEvent) => {
@@ -179,6 +249,8 @@ export function FileTree({ rootPath, workspaceId, onFileOpen, selectedPath, show
   const renderNode = (node: FileTreeNode, depth: number) => {
     const isExpanded = expandedPaths.has(node.path)
     const isSelected = selectedPath === node.path
+    const isOpen = !node.isDirectory && (openPaths?.has(node.path) ?? false)
+    const isMultiSelected = selectedPaths.has(node.path)
 
     return (
       <div key={node.path}>
@@ -187,8 +259,10 @@ export function FileTree({ rootPath, workspaceId, onFileOpen, selectedPath, show
           depth={depth}
           isExpanded={isExpanded}
           isSelected={isSelected}
+          isOpen={isOpen}
+          isMultiSelected={isMultiSelected}
           onToggle={() => handleToggle(node.path)}
-          onSelect={() => handleSelect(node.path)}
+          onSelect={(e: React.MouseEvent) => handleSelect(node.path, e)}
         />
         {node.isDirectory && isExpanded && node.children && (
           <div role="group">
@@ -226,6 +300,8 @@ export function FileTree({ rootPath, workspaceId, onFileOpen, selectedPath, show
       className={`file-tree ${isDraggingOver ? 'drop-target' : ''}`}
       role="tree"
       aria-label="File explorer"
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}

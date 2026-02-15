@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef as useReactRef } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState, AppDispatch } from './store/store'
-import { setViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, toggleExplorer, toggleToolbar, setFocusedPane } from './store/layoutSlice'
+import { setViewMode, setPaneViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, toggleExplorer, toggleToolbar, setFocusedPane } from './store/layoutSlice'
 import {
   addTab,
   updateTab,
@@ -19,7 +19,7 @@ import { DEFAULT_WORKSPACE_ID } from '../../shared/workspace-types'
 import { Allotment } from 'allotment'
 import { EditorLayout } from './components/Layout/EditorLayout'
 import { TabBar } from './components/Tabs/TabBar'
-import { MarkdownToolbar } from './components/UI/MarkdownToolbar'
+import { FloatingToolbar } from './components/UI/FloatingToolbar'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { WorkspaceBar } from './components/Workspace/WorkspaceBar'
 import { WindowControls } from './components/UI/WindowControls'
@@ -484,6 +484,10 @@ function AppContent() {
     }
   }, [activeTab, content, dispatch, handleSaveAs])
 
+  // Content area ref for floating toolbar bounds clamping
+  const contentAreaRef = useReactRef<HTMLDivElement>(null)
+
+
   // Vim mode integration
   const vimStatusBarRef = useReactRef<HTMLDivElement>(null)
   useVimMode({
@@ -504,21 +508,33 @@ function AppContent() {
       if ((e.ctrlKey || e.metaKey) && e.key === '1') {
         e.preventDefault()
         e.stopPropagation()
-        dispatch(setViewMode('editor-only'))
+        if (focusedPaneId) {
+          dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'editor-only' }))
+        } else {
+          dispatch(setViewMode('editor-only'))
+        }
         return
       }
       // Ctrl+2: Split view
       if ((e.ctrlKey || e.metaKey) && e.key === '2') {
         e.preventDefault()
         e.stopPropagation()
-        dispatch(setViewMode('split'))
+        if (focusedPaneId) {
+          dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'split' }))
+        } else {
+          dispatch(setViewMode('split'))
+        }
         return
       }
       // Ctrl+3: Preview only
       if ((e.ctrlKey || e.metaKey) && e.key === '3') {
         e.preventDefault()
         e.stopPropagation()
-        dispatch(setViewMode('preview-only'))
+        if (focusedPaneId) {
+          dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'preview-only' }))
+        } else {
+          dispatch(setViewMode('preview-only'))
+        }
         return
       }
       // Ctrl+N: New file
@@ -731,13 +747,25 @@ function AppContent() {
           handleSaveAs()
           break
         case 'view:editor-only':
-          dispatch(setViewMode('editor-only'))
+          if (focusedPaneId) {
+            dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'editor-only' }))
+          } else {
+            dispatch(setViewMode('editor-only'))
+          }
           break
         case 'view:split':
-          dispatch(setViewMode('split'))
+          if (focusedPaneId) {
+            dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'split' }))
+          } else {
+            dispatch(setViewMode('split'))
+          }
           break
         case 'view:preview-only':
-          dispatch(setViewMode('preview-only'))
+          if (focusedPaneId) {
+            dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'preview-only' }))
+          } else {
+            dispatch(setViewMode('preview-only'))
+          }
           break
         case 'theme:light':
           dispatch(setCurrentTheme('light'))
@@ -752,7 +780,7 @@ function AppContent() {
     })
 
     return unsubscribe
-  }, [activeTab, content, dispatch, handleAddWorkspace])
+  }, [activeTab, content, dispatch, focusedPaneId, handleAddWorkspace])
 
   // Image and markdown file drop support
   const { isDragging } = useImageDrop({
@@ -1018,17 +1046,8 @@ function AppContent() {
               </div>
             )}
 
-            {/* Formatting toolbar strip */}
-            {showToolbar && tabs.length > 0 && (
-              <MarkdownToolbar
-                editorRef={editorRef}
-                previewSelection={previewSelection}
-                className="toolbar-strip"
-              />
-            )}
-
             {/* Content area */}
-            <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
+            <div ref={contentAreaRef} style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
               {tabs.length === 0 ? (
                 <EmptyState onNewFile={handleNewFile} onOpenFile={handleOpen} />
               ) : isMultiPane ? (
@@ -1085,6 +1104,15 @@ function AppContent() {
           </div>
         </Allotment.Pane>
       </Allotment>
+      {showToolbar && tabs.length > 0 && (
+        <FloatingToolbar
+          editorRef={editorRef}
+          previewSelection={previewSelection}
+          containerRef={contentAreaRef}
+          activeTabId={activeTab?.id}
+          viewMode={viewMode}
+        />
+      )}
       <PreferencesDialog
         isOpen={preferencesOpen}
         onClose={() => setPreferencesOpen(false)}

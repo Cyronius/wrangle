@@ -20,6 +20,17 @@
   border-left-color: var(--pane-color);
 }
 
+.workspace-pane-focused .tab.active {
+  background-color: var(--pane-color);
+  transition: background-color 150ms ease-in-out;
+}
+
+.workspace-pane:not(.workspace-pane-focused) .tab.active,
+.workspace-pane:not(.workspace-pane-focused) .tab.active::before,
+.workspace-pane:not(.workspace-pane-focused) .tab.active::after {
+  box-shadow: none;
+}
+
 .workspace-pane-content {
   flex: 1;
   position: relative;

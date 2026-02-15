@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, memo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { Allotment } from 'allotment'
 import { RootState, AppDispatch } from '../../store/store'
@@ -8,7 +8,7 @@ import {
   selectAllWorkspaces,
   updateWorkspace
 } from '../../store/workspacesSlice'
-import { selectActiveTab } from '../../store/tabsSlice'
+import { selectActiveTab, selectAllTabs } from '../../store/tabsSlice'
 import { DEFAULT_WORKSPACE_ID } from '../../../../shared/workspace-types'
 import { FileTree } from '../Workspace/FileTree'
 import { marked } from 'marked'
@@ -144,7 +144,14 @@ export function Sidebar({
   const layoutSettings = useSelector((state: RootState) => state.settings.layout)
   const sidebarPaneSizes = layoutSettings.sidebarPaneSizes
   const activeTab = useSelector(selectActiveTab)
+  const allTabs = useSelector(selectAllTabs)
   const expandedWorkspace = workspaces.find((w) => w.isExpanded)
+
+  // Set of file paths currently open in tabs (for bolding in explorer)
+  const openPaths = useMemo(
+    () => new Set(allTabs.filter(t => t.path).map(t => t.path!)),
+    [allTabs]
+  )
 
   // Menu state
   const [openMenu, setOpenMenu] = useState<string | null>(null)
@@ -155,6 +162,11 @@ export function Sidebar({
   // Section collapse state
   const [explorerCollapsed, setExplorerCollapsed] = useState(false)
   const [outlineCollapsed, setOutlineCollapsed] = useState(false)
+
+  // Workspace name editing state
+  const [editingName, setEditingName] = useState(false)
+  const [editNameValue, setEditNameValue] = useState('')
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   // Debounce ref for pane size persistence
   const paneSaveTimeout = useRef<NodeJS.Timeout | null>(null)
@@ -198,6 +210,37 @@ export function Sidebar({
       })
     }
   }, [dispatch, expandedWorkspace])
+
+  // Handle workspace name rename
+  const handleStartRename = useCallback(() => {
+    if (!expandedWorkspace) return
+    setEditNameValue(expandedWorkspace.name)
+    setEditingName(true)
+    // Focus after React renders the input
+    setTimeout(() => nameInputRef.current?.select(), 0)
+  }, [expandedWorkspace])
+
+  const handleCommitRename = useCallback(() => {
+    if (!expandedWorkspace || !expandedWorkspace.rootPath) return
+    setEditingName(false)
+    const trimmed = editNameValue.trim()
+    // If empty, revert to folder basename
+    const newName = trimmed || expandedWorkspace.rootPath.split(/[/\\]/).filter(Boolean).pop() || 'Workspace'
+    if (newName === expandedWorkspace.name) return
+    dispatch(updateWorkspace({ id: expandedWorkspace.id, changes: { name: newName } }))
+    window.electron.workspace.loadConfig(expandedWorkspace.rootPath).then((config) => {
+      if (config) {
+        window.electron.workspace.saveConfig(expandedWorkspace.rootPath!, {
+          ...config,
+          name: newName
+        })
+      }
+    })
+  }, [dispatch, expandedWorkspace, editNameValue])
+
+  const handleCancelRename = useCallback(() => {
+    setEditingName(false)
+  }, [])
 
   // Handle Allotment pane size change (debounced persist)
   const handlePaneSizeChange = useCallback((sizes: number[]) => {
@@ -381,7 +424,27 @@ export function Sidebar({
             className="sidebar-workspace-color"
             style={{ backgroundColor: expandedWorkspace.color }}
           />
-          <span className="sidebar-workspace-name">{expandedWorkspace.name}</span>
+          {editingName ? (
+            <input
+              ref={nameInputRef}
+              className="sidebar-workspace-name-input"
+              value={editNameValue}
+              onChange={(e) => setEditNameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCommitRename()
+                if (e.key === 'Escape') handleCancelRename()
+              }}
+              onBlur={handleCommitRename}
+            />
+          ) : (
+            <span
+              className="sidebar-workspace-name"
+              onClick={handleStartRename}
+              title="Click to rename workspace"
+            >
+              {expandedWorkspace.name}
+            </span>
+          )}
         </div>
       )}
 
@@ -426,6 +489,7 @@ export function Sidebar({
                             onFileOpen={onFileOpenFromTree}
                             selectedPath={activeTab?.path}
                             showHiddenFiles={expandedWorkspace.showHiddenFiles}
+                            openPaths={openPaths}
                           />
                         </>
                       ) : nonDefaultWorkspaces.length === 0 ? (
