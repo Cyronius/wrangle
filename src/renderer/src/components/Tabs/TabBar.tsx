@@ -14,6 +14,7 @@ import {
 import { setFocusedPane } from '../../store/layoutSlice'
 import { TabGroup } from './TabGroup'
 import { TabBarOverflow } from './TabBarOverflow'
+import { TabContextMenu } from './TabContextMenu'
 import type { RootState } from '../../store/store'
 import type { WorkspaceId } from '../../../shared/workspace-types'
 import './tabs.css'
@@ -122,6 +123,21 @@ export function TabBar({ onCloseTab }: TabBarProps) {
     dispatch(setFocusedPane(workspaceId))
   }
 
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    tabId: string
+    position: { x: number; y: number }
+  } | null>(null)
+
+  const handleTabContextMenu = (e: React.MouseEvent, tabId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({
+      tabId,
+      position: { x: e.clientX, y: e.clientY }
+    })
+  }
+
   const handleTabClose = (e: React.MouseEvent, tabId: string) => {
     e.stopPropagation()
 
@@ -159,6 +175,7 @@ export function TabBar({ onCloseTab }: TabBarProps) {
             tabs={workspaceTabs}
             onTabClick={(tabId) => handleTabClick(tabId, workspace.id)}
             onTabClose={handleTabClose}
+            onTabContextMenu={handleTabContextMenu}
           />
         )
       })}
@@ -166,6 +183,13 @@ export function TabBar({ onCloseTab }: TabBarProps) {
         overflowWorkspaces={overflowWorkspaces}
         tabCountByWorkspace={tabCountByWorkspace}
       />
+      {contextMenu && (
+        <TabContextMenu
+          tabId={contextMenu.tabId}
+          position={contextMenu.position}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   )
 }
@@ -177,7 +201,8 @@ function TabGroupWrapper({
   workspaceColor,
   tabs,
   onTabClick,
-  onTabClose
+  onTabClose,
+  onTabContextMenu
 }: {
   workspaceId: WorkspaceId
   workspaceName: string
@@ -185,6 +210,7 @@ function TabGroupWrapper({
   tabs: ReturnType<typeof selectAllTabs>
   onTabClick: (tabId: string) => void
   onTabClose: (e: React.MouseEvent, tabId: string) => void
+  onTabContextMenu?: (e: React.MouseEvent, tabId: string) => void
 }) {
   // WTB-009: Each workspace independently tracks its own active tab
   // The active indicator shows on the active tab of EVERY visible workspace
@@ -201,6 +227,7 @@ function TabGroupWrapper({
       activeTabId={activeTabId}
       onTabClick={onTabClick}
       onTabClose={onTabClose}
+      onTabContextMenu={onTabContextMenu}
     />
   )
 }

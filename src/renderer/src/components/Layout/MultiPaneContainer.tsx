@@ -46,7 +46,6 @@ export function MultiPaneContainer() {
               workspaceId={workspaceId}
               isFocused={workspaceId === focusedPaneId}
               onFocus={() => handlePaneFocus(workspaceId)}
-              showWindowControls={index === visiblePaneIds.length - 1}
             />
           </Allotment.Pane>
         ))}

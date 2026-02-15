@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { useDispatch } from 'react-redux'
 
 import { Tab } from './Tab'
@@ -27,6 +27,7 @@ interface TabGroupProps {
   activeTabId: string | null
   onTabClick: (tabId: string) => void
   onTabClose: (e: React.MouseEvent, tabId: string) => void
+  onTabContextMenu?: (e: React.MouseEvent, tabId: string) => void
 }
 
 interface SortableTabProps {
@@ -34,9 +35,10 @@ interface SortableTabProps {
   isActive: boolean
   onTabClick: () => void
   onTabClose: (e: React.MouseEvent) => void
+  onTabContextMenu?: (e: React.MouseEvent) => void
 }
 
-function SortableTab({ tab, isActive, onTabClick, onTabClose }: SortableTabProps) {
+function SortableTab({ tab, isActive, onTabClick, onTabClose, onTabContextMenu }: SortableTabProps) {
   const {
     attributes,
     listeners,
@@ -73,7 +75,14 @@ function SortableTab({ tab, isActive, onTabClick, onTabClose }: SortableTabProps
   }
 
   return (
-    <div ref={combinedRef} style={style} className="sortable-tab-wrapper" {...attributes} {...listeners}>
+    <div
+      ref={combinedRef}
+      style={style}
+      className="sortable-tab-wrapper"
+      {...attributes}
+      {...listeners}
+      onContextMenu={onTabContextMenu}
+    >
       <Tab
         id={tab.id}
         filename={tab.displayTitle || tab.filename}
@@ -93,9 +102,13 @@ export function TabGroup({
   tabs,
   activeTabId,
   onTabClick,
-  onTabClose
+  onTabClose,
+  onTabContextMenu
 }: TabGroupProps) {
   const dispatch = useDispatch()
+  const scrollableRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -114,6 +127,40 @@ export function TabGroup({
     }
   }
 
+  // WTB-010: Check scroll overflow to show/hide arrow buttons
+  const checkScroll = useCallback(() => {
+    const el = scrollableRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 0)
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+  }, [])
+
+  useEffect(() => {
+    const el = scrollableRef.current
+    if (!el) return
+    checkScroll()
+    el.addEventListener('scroll', checkScroll)
+    const observer = new ResizeObserver(checkScroll)
+    observer.observe(el)
+    return () => {
+      el.removeEventListener('scroll', checkScroll)
+      observer.disconnect()
+    }
+  }, [checkScroll])
+
+  // Recheck when tabs are added/removed
+  useEffect(() => {
+    checkScroll()
+  }, [tabs.length, checkScroll])
+
+  const handleScrollLeft = useCallback(() => {
+    scrollableRef.current?.scrollBy({ left: -200, behavior: 'smooth' })
+  }, [])
+
+  const handleScrollRight = useCallback(() => {
+    scrollableRef.current?.scrollBy({ left: 200, behavior: 'smooth' })
+  }, [])
+
   // Don't render empty groups
   if (tabs.length === 0) {
     return null
@@ -130,7 +177,7 @@ export function TabGroup({
       data-workspace-id={workspaceId}
     >
       {/* WTB-003/004: Scrollable wrapper - tabs scroll independently per workspace */}
-      <div className="tab-group-scrollable">
+      <div className="tab-group-scrollable" ref={scrollableRef}>
         <div className="tab-group-tabs">
           <DndContext
             sensors={sensors}
@@ -148,12 +195,32 @@ export function TabGroup({
                   isActive={tab.id === activeTabId}
                   onTabClick={() => onTabClick(tab.id)}
                   onTabClose={(e) => onTabClose(e, tab.id)}
+                  onTabContextMenu={onTabContextMenu ? (e) => onTabContextMenu(e, tab.id) : undefined}
                 />
               ))}
             </SortableContext>
           </DndContext>
         </div>
       </div>
+      {/* WTB-010: Scroll arrow buttons replace native scrollbar */}
+      {canScrollLeft && (
+        <button
+          className="tab-group-scroll-btn tab-group-scroll-left"
+          onClick={handleScrollLeft}
+          aria-label="Scroll tabs left"
+        >
+          ‹
+        </button>
+      )}
+      {canScrollRight && (
+        <button
+          className="tab-group-scroll-btn tab-group-scroll-right"
+          onClick={handleScrollRight}
+          aria-label="Scroll tabs right"
+        >
+          ›
+        </button>
+      )}
     </div>
   )
 }

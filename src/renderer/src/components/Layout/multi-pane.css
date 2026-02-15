@@ -63,7 +63,7 @@
   pointer-events: none;
 }
 
-/* Tab row within each workspace pane (mirrors .tab-row in global.css) */
+/* Tab row within each workspace pane */
 .workspace-pane-tab-row {
   display: flex;
   align-items: stretch;
@@ -71,10 +71,6 @@
   flex-shrink: 0;
   background-color: var(--tab-bar-bg);
   -webkit-app-region: drag;
-}
-
-.workspace-pane-tab-row > .window-controls {
-  margin-left: auto;
 }
 
 /* Workspace toolbar bar height is defined in global.css (.workspace-toolbar-bar) */

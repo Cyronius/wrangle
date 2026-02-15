@@ -59,6 +59,21 @@ export function registerWindowHandlers(): void {
     window?.webContents.toggleDevTools()
   })
 
+  // Window position handlers for Alt+drag window movement
+  ipcMain.handle('window:getPosition', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (window) {
+      const [x, y] = window.getPosition()
+      return { x, y }
+    }
+    return { x: 0, y: 0 }
+  })
+
+  ipcMain.on('window:setPosition', (event, x: number, y: number) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    window?.setPosition(Math.round(x), Math.round(y))
+  })
+
   ipcMain.handle(
     'window:exportPdf',
     async (event, html: string, title: string) => {

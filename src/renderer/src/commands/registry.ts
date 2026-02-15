@@ -19,6 +19,7 @@ export interface CommandContext {
   dispatch: (action: unknown) => void
   getState: () => unknown
   previewSelection?: { start: number; end: number } | null
+  targetTabId?: string
   handlers: {
     onFileNew: () => void
     onFileOpen: () => void
@@ -762,6 +763,109 @@ export const commands: CommandDefinition[] = [
       const current = state.settings?.editor?.vimMode ?? false
       ctx.dispatch(setVimMode(!current))
       ctx.dispatch(saveEditorSettings())
+    }
+  },
+
+  // Tab context menu commands
+  {
+    id: 'tab.revealInExplorer',
+    label: 'Reveal in File Explorer',
+    category: 'file',
+    defaultBinding: null,
+    execute: (ctx) => {
+      const state = ctx.getState() as { tabs: { tabs: { id: string; path?: string }[] } }
+      const tabId = ctx.targetTabId
+      if (!tabId) return
+      const tab = state.tabs.tabs.find(t => t.id === tabId)
+      if (tab?.path) {
+        window.electron.shell.showItemInFolder(tab.path)
+      }
+    }
+  },
+  {
+    id: 'tab.copyPath',
+    label: 'Copy Path',
+    category: 'file',
+    defaultBinding: null,
+    execute: (ctx) => {
+      const state = ctx.getState() as { tabs: { tabs: { id: string; path?: string }[] } }
+      const tabId = ctx.targetTabId
+      if (!tabId) return
+      const tab = state.tabs.tabs.find(t => t.id === tabId)
+      if (tab?.path) {
+        navigator.clipboard.writeText(tab.path)
+      }
+    }
+  },
+  {
+    id: 'tab.copyRelativePath',
+    label: 'Copy Relative Path',
+    category: 'file',
+    defaultBinding: null,
+    execute: (ctx) => {
+      const state = ctx.getState() as {
+        tabs: { tabs: { id: string; path?: string; workspaceId: string; filename: string }[] }
+        workspaces: { workspaces: { id: string; rootPath: string | null }[] }
+      }
+      const tabId = ctx.targetTabId
+      if (!tabId) return
+      const tab = state.tabs.tabs.find(t => t.id === tabId)
+      if (!tab?.path) return
+      const workspace = state.workspaces.workspaces.find(w => w.id === tab.workspaceId)
+      if (workspace?.rootPath) {
+        const normalized = tab.path.replace(/\\/g, '/')
+        const normalizedRoot = workspace.rootPath.replace(/\\/g, '/')
+        const prefix = normalizedRoot.endsWith('/') ? normalizedRoot : normalizedRoot + '/'
+        const relative = normalized.startsWith(prefix)
+          ? normalized.slice(prefix.length)
+          : tab.path
+        navigator.clipboard.writeText(relative)
+      } else {
+        navigator.clipboard.writeText(tab.filename)
+      }
+    }
+  },
+  {
+    id: 'tab.closeToLeft',
+    label: 'Close Tabs to Left',
+    category: 'navigation',
+    defaultBinding: null,
+    execute: (ctx) => {
+      const { closeTabsToLeft } = require('../store/tabsSlice')
+      const tabId = ctx.targetTabId
+      if (tabId) {
+        ctx.dispatch(closeTabsToLeft(tabId))
+      }
+    }
+  },
+  {
+    id: 'tab.closeToRight',
+    label: 'Close Tabs to Right',
+    category: 'navigation',
+    defaultBinding: null,
+    execute: (ctx) => {
+      const { closeTabsToRight } = require('../store/tabsSlice')
+      const tabId = ctx.targetTabId
+      if (tabId) {
+        ctx.dispatch(closeTabsToRight(tabId))
+      }
+    }
+  },
+  {
+    id: 'tab.closeAll',
+    label: 'Close All Tabs',
+    category: 'navigation',
+    defaultBinding: null,
+    execute: (ctx) => {
+      const { closeTabsByWorkspace } = require('../store/tabsSlice')
+      const state = ctx.getState() as {
+        tabs: { tabs: { id: string; workspaceId: string }[] }
+        workspaces: { activeWorkspaceId: string }
+      }
+      const tabId = ctx.targetTabId
+      const tab = tabId ? state.tabs.tabs.find(t => t.id === tabId) : null
+      const workspaceId = tab?.workspaceId ?? state.workspaces.activeWorkspaceId
+      ctx.dispatch(closeTabsByWorkspace(workspaceId))
     }
   }
 ]

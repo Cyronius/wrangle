@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store/store'
 import { setFocusedPane, setPaneSplitRatio, ViewMode } from '../../store/layoutSlice'
@@ -9,17 +9,16 @@ import { updateTab, closeTab, setActiveTab, selectTabsByWorkspace, selectActiveT
 import { getMonacoThemeName } from '../../utils/monaco-theme-generator'
 import { EditorLayout } from './EditorLayout'
 import { TabGroup } from '../Tabs/TabGroup'
-import { WindowControls } from '../UI/WindowControls'
+import { TabContextMenu } from '../Tabs/TabContextMenu'
 import type { WorkspaceId } from '../../../../shared/workspace-types'
 
 interface WorkspacePaneProps {
   workspaceId: WorkspaceId
   isFocused: boolean
   onFocus: () => void
-  showWindowControls?: boolean
 }
 
-export function WorkspacePane({ workspaceId, isFocused, onFocus, showWindowControls }: WorkspacePaneProps) {
+export function WorkspacePane({ workspaceId, isFocused, onFocus }: WorkspacePaneProps) {
   const dispatch = useDispatch()
   const workspace = useSelector((state: RootState) => selectWorkspaceById(state, workspaceId))
   const workspaceTabs = useSelector((state: RootState) => selectTabsByWorkspace(state, workspaceId))
@@ -64,6 +63,21 @@ export function WorkspacePane({ workspaceId, isFocused, onFocus, showWindowContr
     dispatch(setFocusedPane(workspaceId))
   }, [dispatch, workspaceId])
 
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    tabId: string
+    position: { x: number; y: number }
+  } | null>(null)
+
+  const handleTabContextMenu = useCallback((e: React.MouseEvent, tabId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({
+      tabId,
+      position: { x: e.clientX, y: e.clientY }
+    })
+  }, [])
+
   const handleTabClose = useCallback((e: React.MouseEvent, tabId: string) => {
     e.stopPropagation()
     const tab = workspaceTabs.find((t) => t.id === tabId)
@@ -104,9 +118,9 @@ export function WorkspacePane({ workspaceId, isFocused, onFocus, showWindowContr
             activeTabId={activeTabId}
             onTabClick={handleTabClick}
             onTabClose={handleTabClose}
+            onTabContextMenu={handleTabContextMenu}
           />
         )}
-        {showWindowControls && <WindowControls />}
       </div>
       <div
         className="workspace-toolbar-bar"
@@ -141,6 +155,13 @@ export function WorkspacePane({ workspaceId, isFocused, onFocus, showWindowContr
           </div>
         )}
       </div>
+      {contextMenu && (
+        <TabContextMenu
+          tabId={contextMenu.tabId}
+          position={contextMenu.position}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   )
 }

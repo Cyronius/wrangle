@@ -40,7 +40,9 @@ const electronAPI: ElectronAPI = {
     print: () => ipcRenderer.send('window:print'),
     exportPdf: (html: string, title: string) => ipcRenderer.invoke('window:exportPdf', html, title),
     exportHtml: (html: string, title: string) => ipcRenderer.invoke('window:exportHtml', html, title),
-    toggleDevTools: () => ipcRenderer.send('window:toggleDevTools')
+    toggleDevTools: () => ipcRenderer.send('window:toggleDevTools'),
+    getPosition: () => ipcRenderer.invoke('window:getPosition'),
+    setPosition: (x: number, y: number) => ipcRenderer.send('window:setPosition', x, y)
   },
   settings: {
     getAll: () => ipcRenderer.invoke('settings:getAll'),
@@ -96,6 +98,9 @@ const electronAPI: ElectronAPI = {
         ipcRenderer.removeListener('workspace:folderChanged', subscription)
       }
     }
+  },
+  shell: {
+    showItemInFolder: (fullPath: string) => ipcRenderer.send('shell:showItemInFolder', fullPath)
   },
   crashRecovery: {
     check: (): Promise<CrashRecoveryInfo> => ipcRenderer.invoke('crashRecovery:check')

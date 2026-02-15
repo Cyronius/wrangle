@@ -3,6 +3,7 @@ import { registerWindowHandlers } from './window-handler'
 import { registerSettingsHandlers } from './settings-handler'
 import { registerWorkspaceHandlers } from './workspace-handler'
 import { registerCrashRecoveryHandlers } from './crash-recovery-handler'
+import { registerShellHandlers } from './shell-handler'
 
 export function registerAllHandlers(): void {
   registerFileHandlers()
@@ -10,4 +11,5 @@ export function registerAllHandlers(): void {
   registerSettingsHandlers()
   registerWorkspaceHandlers()
   registerCrashRecoveryHandlers()
+  registerShellHandlers()
 }

@@ -8,7 +8,8 @@
   /* WTB-003: Tab bar itself does NOT scroll - only individual workspace groups scroll */
   overflow: hidden;
   height: 36px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
   -webkit-app-region: drag;
 }
 
@@ -40,8 +41,7 @@
   background-color: var(--tab-active-bg);
   border-top: 2px solid var(--workspace-color);
   border-left: 2px solid var(--workspace-color);
-  border-right: 2px solid var(--workspace-color);
-  border-bottom: 2px solid var(--tab-active-bg);
+  border-right: 2px solid var(--workspace-color);  
   border-radius: 8px 8px 0 0;
   position: relative;
   z-index: 1;
@@ -56,8 +56,8 @@
   bottom: -4px;
   width: 14px;
   height: 12px;
-  z-index: 2;
-  background: var(--tab-active-bg);  
+  z-index: 2;  
+  background-color: var(--workspace-color);
 }
 
 .tab.active::before { left: -14px; }
@@ -175,6 +175,8 @@
   overflow: hidden;
   /* Blank space in the tab group acts as a window drag handle */
   -webkit-app-region: drag;
+  /* WTB-010: Positioning context for scroll arrow buttons */
+  position: relative;
 }
 
 /* Inside workspace panes (column layout), tab group has fixed height for vertical alignment */
@@ -199,24 +201,13 @@
   scroll-behavior: smooth;
   /* Room for active tab's negative margin to extend into */
   padding-bottom: 2px;
+  /* WTB-010: Hide native scrollbar - replaced by scroll arrow buttons */
+  scrollbar-width: none;
 }
 
-/* Scrollbar styling for tab group scrollable area */
+/* WTB-010: Hide native scrollbar (Chromium) */
 .tab-group-scrollable::-webkit-scrollbar {
-  height: 3px;
-}
-
-.tab-group-scrollable::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.tab-group-scrollable::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: 3px;
-}
-
-.tab-group-scrollable::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
+  display: none;
 }
 
 /* Tab Group Tabs Container */
@@ -233,6 +224,39 @@
   display: flex;
   align-items: stretch;
   min-width: 0;
+}
+
+/* WTB-010: Tab group scroll arrow buttons */
+.tab-group-scroll-btn {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  z-index: 5;
+  padding: 0;
+  font-size: 16px;
+  color: var(--text-color-muted);
+  -webkit-app-region: no-drag;
+  transition: color 0.15s ease;
+}
+
+.tab-group-scroll-left {
+  left: 0;
+  background: linear-gradient(to right, var(--tab-bar-bg) 40%, transparent 100%);
+}
+
+.tab-group-scroll-right {
+  right: 0;
+  background: linear-gradient(to left, var(--tab-bar-bg) 40%, transparent 100%);
+}
+
+.tab-group-scroll-btn:hover {
+  color: var(--text-color);
 }
 
 /* WTB-007: Overflow Dropdown */
@@ -311,4 +335,47 @@
 .tab-bar-overflow-count {
   font-size: 11px;
   color: var(--text-color-muted);
+}
+
+/* Tab context menu */
+.tab-context-menu {
+  position: fixed;
+  min-width: 200px;
+  background: var(--dropdown-bg, var(--tab-bar-bg));
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  overflow: hidden;
+  padding: 4px 0;
+  -webkit-app-region: no-drag;
+}
+
+.tab-context-menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-color);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.tab-context-menu-item:hover:not(:disabled) {
+  background: var(--tab-hover-bg);
+}
+
+.tab-context-menu-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.tab-context-menu-separator {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 0;
 }

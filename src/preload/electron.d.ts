@@ -80,6 +80,8 @@ export interface ElectronAPI {
     exportPdf: (html: string, title: string) => Promise<string | null>
     exportHtml: (html: string, title: string) => Promise<string | null>
     toggleDevTools: () => void
+    getPosition: () => Promise<{ x: number; y: number }>
+    setPosition: (x: number, y: number) => void
   }
   settings: {
     getAll: () => Promise<SettingsSchema>
@@ -126,6 +128,9 @@ export interface ElectronAPI {
     onFolderChanged: (
       callback: (folderPath: string, changes: FolderChange[]) => void
     ) => () => void
+  }
+  shell: {
+    showItemInFolder: (fullPath: string) => void
   }
   crashRecovery: {
     check: () => Promise<CrashRecoveryInfo>

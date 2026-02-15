@@ -184,6 +184,42 @@ const tabsSlice = createSlice({
       state.tabs.splice(adjustedTarget, 0, moved)
     },
 
+    // Close all tabs to the left of the target tab within the same workspace
+    closeTabsToLeft(state, action: PayloadAction<string>) {
+      const targetTab = state.tabs.find(t => t.id === action.payload)
+      if (!targetTab) return
+
+      const workspaceTabs = state.tabs.filter(t => t.workspaceId === targetTab.workspaceId)
+      const targetIndex = workspaceTabs.findIndex(t => t.id === action.payload)
+      if (targetIndex <= 0) return
+
+      const tabsToRemove = new Set(workspaceTabs.slice(0, targetIndex).map(t => t.id))
+      state.tabs = state.tabs.filter(t => !tabsToRemove.has(t.id))
+
+      const wsActiveTabId = state.activeTabIdByWorkspace[targetTab.workspaceId]
+      if (wsActiveTabId && tabsToRemove.has(wsActiveTabId)) {
+        state.activeTabIdByWorkspace[targetTab.workspaceId] = action.payload
+      }
+    },
+
+    // Close all tabs to the right of the target tab within the same workspace
+    closeTabsToRight(state, action: PayloadAction<string>) {
+      const targetTab = state.tabs.find(t => t.id === action.payload)
+      if (!targetTab) return
+
+      const workspaceTabs = state.tabs.filter(t => t.workspaceId === targetTab.workspaceId)
+      const targetIndex = workspaceTabs.findIndex(t => t.id === action.payload)
+      if (targetIndex === -1 || targetIndex >= workspaceTabs.length - 1) return
+
+      const tabsToRemove = new Set(workspaceTabs.slice(targetIndex + 1).map(t => t.id))
+      state.tabs = state.tabs.filter(t => !tabsToRemove.has(t.id))
+
+      const wsActiveTabId = state.activeTabIdByWorkspace[targetTab.workspaceId]
+      if (wsActiveTabId && tabsToRemove.has(wsActiveTabId)) {
+        state.activeTabIdByWorkspace[targetTab.workspaceId] = action.payload
+      }
+    },
+
     markSessionRestored(state) {
       state.sessionRestored = true
     }
@@ -259,6 +295,8 @@ export const {
   initWorkspaceActiveTab,
   cleanupWorkspaceActiveTab,
   reorderTabs,
+  closeTabsToLeft,
+  closeTabsToRight,
   markSessionRestored
 } = tabsSlice.actions
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-export function WindowControls() {
+export function WindowControls({ className }: { className?: string }) {
   const [isMaximized, setIsMaximized] = useState(false)
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export function WindowControls() {
   const handleClose = () => window.electron.window.close()
 
   return (
-    <div className="window-controls">
+    <div className={`window-controls${className ? ` ${className}` : ''}`}>
       <button className="window-control-btn" onClick={handleMinimize} title="Minimize">
         <svg viewBox="0 0 10 1">
           <rect width="10" height="1" fill="currentColor" />

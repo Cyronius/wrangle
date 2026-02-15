@@ -1028,7 +1028,7 @@ function AppContent() {
         </Allotment.Pane>
         <Allotment.Pane>
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0 }}>
-            {/* Tab row with window controls - hidden when multi-pane is active (controls move into last pane) */}
+            {/* Tab row with window controls - hidden when multi-pane is active (controls overlay instead) */}
             {(!isMultiPane || tabs.length === 0) && (
               <div className="tab-row">
                 {!isMultiPane && tabs.length > 0 && (
@@ -1048,6 +1048,10 @@ function AppContent() {
 
             {/* Content area */}
             <div ref={contentAreaRef} style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
+              {/* In multi-pane mode, overlay window controls at top-right of the pane area */}
+              {isMultiPane && tabs.length > 0 && (
+                <WindowControls className="window-controls-overlay" />
+              )}
               {tabs.length === 0 ? (
                 <EmptyState onNewFile={handleNewFile} onOpenFile={handleOpen} />
               ) : isMultiPane ? (
