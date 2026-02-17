@@ -73,7 +73,6 @@ code {
 .tab-row-drag-spacer {
   flex: 1 1 auto;
   min-width: 8px;
-  -webkit-app-region: drag;
 }
 
 /* Window controls (inline in tab row) */

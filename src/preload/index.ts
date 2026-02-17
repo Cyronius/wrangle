@@ -42,7 +42,17 @@ const electronAPI: ElectronAPI = {
     exportHtml: (html: string, title: string) => ipcRenderer.invoke('window:exportHtml', html, title),
     toggleDevTools: () => ipcRenderer.send('window:toggleDevTools'),
     getPosition: () => ipcRenderer.invoke('window:getPosition'),
-    setPosition: (x: number, y: number) => ipcRenderer.send('window:setPosition', x, y)
+    setPosition: (x: number, y: number) => ipcRenderer.send('window:setPosition', x, y),
+    unmaximizeForDrag: (cursorScreenX: number, cursorScreenY: number) =>
+      ipcRenderer.invoke('window:unmaximizeForDrag', cursorScreenX, cursorScreenY),
+    onStateChanged: (callback: (isMaximized: boolean) => void) => {
+      const subscription = (_event: Electron.IpcRendererEvent, isMaximized: boolean) =>
+        callback(isMaximized)
+      ipcRenderer.on('window:stateChanged', subscription)
+      return () => {
+        ipcRenderer.removeListener('window:stateChanged', subscription)
+      }
+    }
   },
   settings: {
     getAll: () => ipcRenderer.invoke('settings:getAll'),

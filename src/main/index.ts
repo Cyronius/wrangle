@@ -62,6 +62,10 @@ function createWindow(): BrowserWindow {
     }
   })
 
+  // Forward window state changes to renderer (needed to force drag region recalculation on Linux)
+  win.on('maximize', () => win.webContents.send('window:stateChanged', true))
+  win.on('unmaximize', () => win.webContents.send('window:stateChanged', false))
+
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }

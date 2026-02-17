@@ -1,27 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 export function WindowControls({ className }: { className?: string }) {
   const [isMaximized, setIsMaximized] = useState(false)
 
   useEffect(() => {
-    const checkMaximized = async () => {
-      const maximized = await window.electron.window.isMaximized()
-      setIsMaximized(maximized)
-    }
-    checkMaximized()
-    const interval = setInterval(checkMaximized, 500)
-    return () => clearInterval(interval)
+    window.electron.window.isMaximized().then(setIsMaximized)
+    const unsub = window.electron.window.onStateChanged(setIsMaximized)
+    return unsub
   }, [])
 
-  const handleMinimize = () => window.electron.window.minimize()
-  const handleMaximize = async () => {
-    window.electron.window.maximize()
-    setTimeout(async () => {
-      const maximized = await window.electron.window.isMaximized()
-      setIsMaximized(maximized)
-    }, 100)
-  }
-  const handleClose = () => window.electron.window.close()
+  const handleMinimize = useCallback(() => window.electron.window.minimize(), [])
+  const handleMaximize = useCallback(() => window.electron.window.maximize(), [])
+  const handleClose = useCallback(() => window.electron.window.close(), [])
 
   return (
     <div className={`window-controls${className ? ` ${className}` : ''}`}>

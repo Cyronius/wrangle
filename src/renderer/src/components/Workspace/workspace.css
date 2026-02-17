@@ -422,6 +422,28 @@
   text-overflow: ellipsis;
 }
 
+/* ===== Default Workspace File List ===== */
+.default-ws-file-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.default-ws-file-path {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.default-ws-dirty-dot {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
 /* ===== Scrollbar styling ===== */
 .file-tree::-webkit-scrollbar {
   width: 6px;

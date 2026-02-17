@@ -6,11 +6,13 @@ import { setViewMode, toggleOutline, toggleToolbar, toggleExplorer } from '../..
 import { setCurrentTheme, saveThemeSettings, setSidebarPaneSizes, saveLayoutSettings } from '../../store/settingsSlice'
 import {
   selectAllWorkspaces,
+  selectActiveWorkspace,
   updateWorkspace
 } from '../../store/workspacesSlice'
 import { selectActiveTab, selectAllTabs } from '../../store/tabsSlice'
 import { DEFAULT_WORKSPACE_ID } from '../../../../shared/workspace-types'
 import { FileTree } from '../Workspace/FileTree'
+import { DefaultWorkspaceFileList } from '../Workspace/DefaultWorkspaceFileList'
 import { marked } from 'marked'
 import { builtInThemes } from '../../styles/themes'
 import wrangleIcon from '../../../../assets/wrangle.png'
@@ -145,7 +147,7 @@ export function Sidebar({
   const sidebarPaneSizes = layoutSettings.sidebarPaneSizes
   const activeTab = useSelector(selectActiveTab)
   const allTabs = useSelector(selectAllTabs)
-  const expandedWorkspace = workspaces.find((w) => w.isExpanded)
+  const activeWorkspace = useSelector(selectActiveWorkspace)
 
   // Set of file paths currently open in tabs (for bolding in explorer)
   const openPaths = useMemo(
@@ -196,60 +198,62 @@ export function Sidebar({
 
   // Handle hidden files toggle
   const handleToggleHiddenFiles = useCallback(() => {
-    if (!expandedWorkspace) return
-    const newValue = !expandedWorkspace.showHiddenFiles
-    dispatch(updateWorkspace({ id: expandedWorkspace.id, changes: { showHiddenFiles: newValue } }))
-    if (expandedWorkspace.rootPath) {
-      window.electron.workspace.loadConfig(expandedWorkspace.rootPath).then((config) => {
+    if (!activeWorkspace) return
+    const newValue = !activeWorkspace.showHiddenFiles
+    dispatch(updateWorkspace({ id: activeWorkspace.id, changes: { showHiddenFiles: newValue } }))
+    if (activeWorkspace.rootPath) {
+      window.electron.workspace.loadConfig(activeWorkspace.rootPath).then((config) => {
         if (config) {
-          window.electron.workspace.saveConfig(expandedWorkspace.rootPath!, {
+          window.electron.workspace.saveConfig(activeWorkspace.rootPath!, {
             ...config,
             showHiddenFiles: newValue
           })
         }
       })
     }
-  }, [dispatch, expandedWorkspace])
+  }, [dispatch, activeWorkspace])
 
   // Handle workspace name rename
   const handleStartRename = useCallback(() => {
-    if (!expandedWorkspace) return
-    setEditNameValue(expandedWorkspace.name)
+    if (!activeWorkspace) return
+    setEditNameValue(activeWorkspace.name)
     setEditingName(true)
     // Focus after React renders the input
     setTimeout(() => nameInputRef.current?.select(), 0)
-  }, [expandedWorkspace])
+  }, [activeWorkspace])
 
   const handleCommitRename = useCallback(() => {
-    if (!expandedWorkspace || !expandedWorkspace.rootPath) return
+    if (!activeWorkspace || !activeWorkspace.rootPath) return
     setEditingName(false)
     const trimmed = editNameValue.trim()
     // If empty, revert to folder basename
-    const newName = trimmed || expandedWorkspace.rootPath.split(/[/\\]/).filter(Boolean).pop() || 'Workspace'
-    if (newName === expandedWorkspace.name) return
-    dispatch(updateWorkspace({ id: expandedWorkspace.id, changes: { name: newName } }))
-    window.electron.workspace.loadConfig(expandedWorkspace.rootPath).then((config) => {
+    const newName = trimmed || activeWorkspace.rootPath.split(/[/\\]/).filter(Boolean).pop() || 'Workspace'
+    if (newName === activeWorkspace.name) return
+    dispatch(updateWorkspace({ id: activeWorkspace.id, changes: { name: newName } }))
+    window.electron.workspace.loadConfig(activeWorkspace.rootPath).then((config) => {
       if (config) {
-        window.electron.workspace.saveConfig(expandedWorkspace.rootPath!, {
+        window.electron.workspace.saveConfig(activeWorkspace.rootPath!, {
           ...config,
           name: newName
         })
       }
     })
-  }, [dispatch, expandedWorkspace, editNameValue])
+  }, [dispatch, activeWorkspace, editNameValue])
 
   const handleCancelRename = useCallback(() => {
     setEditingName(false)
   }, [])
 
   // Handle Allotment pane size change (debounced persist)
+  // Skip saving when any section is collapsed to avoid persisting bad sizes (e.g. [28])
   const handlePaneSizeChange = useCallback((sizes: number[]) => {
+    if (explorerCollapsed || outlineCollapsed) return
     if (paneSaveTimeout.current) clearTimeout(paneSaveTimeout.current)
     paneSaveTimeout.current = setTimeout(() => {
       dispatch(setSidebarPaneSizes(sizes))
       dispatch(saveLayoutSettings({ ...layoutSettings, sidebarPaneSizes: sizes }))
     }, 300)
-  }, [dispatch, layoutSettings])
+  }, [dispatch, layoutSettings, explorerCollapsed, outlineCollapsed])
 
   // Cleanup debounce on unmount
   useEffect(() => {
@@ -389,7 +393,7 @@ export function Sidebar({
   }
 
   const nonDefaultWorkspaces = workspaces.filter(w => w.id !== DEFAULT_WORKSPACE_ID)
-  const hasWorkspace = expandedWorkspace && expandedWorkspace.id !== DEFAULT_WORKSPACE_ID && expandedWorkspace.rootPath
+  const hasWorkspace = activeWorkspace && activeWorkspace.id !== DEFAULT_WORKSPACE_ID && activeWorkspace.rootPath
   const hasPanels = showExplorer || showOutline
 
   return (
@@ -422,7 +426,7 @@ export function Sidebar({
         <div className="sidebar-workspace-indicator">
           <div
             className="sidebar-workspace-color"
-            style={{ backgroundColor: expandedWorkspace.color }}
+            style={{ backgroundColor: activeWorkspace.color }}
           />
           {editingName ? (
             <input
@@ -442,7 +446,7 @@ export function Sidebar({
               onClick={handleStartRename}
               title="Click to rename workspace"
             >
-              {expandedWorkspace.name}
+              {activeWorkspace.name}
             </span>
           )}
         </div>
@@ -452,9 +456,10 @@ export function Sidebar({
       {hasPanels && (
         <div className="sidebar-panels">
           <Allotment
+            key={`panels-${explorerCollapsed}-${outlineCollapsed}`}
             vertical
             onChange={handlePaneSizeChange}
-            defaultSizes={sidebarPaneSizes}
+            defaultSizes={(!explorerCollapsed && !outlineCollapsed && sidebarPaneSizes?.every(s => s >= 50)) ? sidebarPaneSizes : undefined}
           >
             {showExplorer && (
               <Allotment.Pane
@@ -478,20 +483,22 @@ export function Sidebar({
                           <label className="sidebar-hidden-files-toggle">
                             <input
                               type="checkbox"
-                              checked={expandedWorkspace.showHiddenFiles}
+                              checked={activeWorkspace.showHiddenFiles}
                               onChange={handleToggleHiddenFiles}
                             />
                             Show hidden files
                           </label>
                           <FileTree
-                            rootPath={expandedWorkspace.rootPath!}
-                            workspaceId={expandedWorkspace.id}
+                            rootPath={activeWorkspace.rootPath!}
+                            workspaceId={activeWorkspace.id}
                             onFileOpen={onFileOpenFromTree}
                             selectedPath={activeTab?.path}
-                            showHiddenFiles={expandedWorkspace.showHiddenFiles}
+                            showHiddenFiles={activeWorkspace.showHiddenFiles}
                             openPaths={openPaths}
                           />
                         </>
+                      ) : activeWorkspace?.id === DEFAULT_WORKSPACE_ID ? (
+                        <DefaultWorkspaceFileList />
                       ) : nonDefaultWorkspaces.length === 0 ? (
                         <div className="sidebar-section-empty">
                           <button className="sidebar-add-folder-btn" onClick={onAddWorkspace}>

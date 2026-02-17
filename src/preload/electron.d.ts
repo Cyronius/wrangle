@@ -82,6 +82,9 @@ export interface ElectronAPI {
     toggleDevTools: () => void
     getPosition: () => Promise<{ x: number; y: number }>
     setPosition: (x: number, y: number) => void
+    unmaximizeForDrag: (cursorScreenX: number, cursorScreenY: number) =>
+      Promise<{ x: number; y: number } | null>
+    onStateChanged: (callback: (isMaximized: boolean) => void) => () => void
   }
   settings: {
     getAll: () => Promise<SettingsSchema>

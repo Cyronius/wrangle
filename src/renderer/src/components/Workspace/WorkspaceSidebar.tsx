@@ -1,5 +1,5 @@
 import { useSelector } from 'react-redux'
-import { selectAllWorkspaces, selectActiveWorkspaceId } from '../../store/workspacesSlice'
+import { selectActiveWorkspace } from '../../store/workspacesSlice'
 import { selectActiveTab } from '../../store/tabsSlice'
 import { WorkspaceHeader } from './WorkspaceHeader'
 import { FileTree } from './FileTree'
@@ -25,25 +25,21 @@ function FolderIcon() {
 }
 
 export function WorkspaceSidebar({ onFileOpen }: WorkspaceSidebarProps) {
-  const workspaces = useSelector(selectAllWorkspaces)
-  const activeWorkspaceId = useSelector(selectActiveWorkspaceId)
+  const activeWorkspace = useSelector(selectActiveWorkspace)
   const activeTab = useSelector(selectActiveTab)
 
-  // Find the expanded workspace
-  const expandedWorkspace = workspaces.find((w) => w.isExpanded)
-
-  // If no workspace is expanded, don't render
-  if (!expandedWorkspace) {
+  // If no active workspace, don't render
+  if (!activeWorkspace) {
     return null
   }
 
-  const isDefault = expandedWorkspace.id === DEFAULT_WORKSPACE_ID
+  const isDefault = activeWorkspace.id === DEFAULT_WORKSPACE_ID
 
   return (
     <div className="workspace-sidebar">
-      <WorkspaceHeader workspace={expandedWorkspace} />
+      <WorkspaceHeader workspace={activeWorkspace} />
 
-      {isDefault || !expandedWorkspace.rootPath ? (
+      {isDefault || !activeWorkspace.rootPath ? (
         // Empty state for default workspace (no folder)
         <div className="workspace-sidebar-empty">
           <FolderIcon />
@@ -56,11 +52,11 @@ export function WorkspaceSidebar({ onFileOpen }: WorkspaceSidebarProps) {
       ) : (
         // File tree for workspaces with a root path
         <FileTree
-          rootPath={expandedWorkspace.rootPath}
-          workspaceId={expandedWorkspace.id}
+          rootPath={activeWorkspace.rootPath}
+          workspaceId={activeWorkspace.id}
           onFileOpen={onFileOpen}
           selectedPath={activeTab?.path}
-          showHiddenFiles={expandedWorkspace.showHiddenFiles}
+          showHiddenFiles={activeWorkspace.showHiddenFiles}
         />
       )}
     </div>

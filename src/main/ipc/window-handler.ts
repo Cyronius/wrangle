@@ -59,6 +59,28 @@ export function registerWindowHandlers(): void {
     window?.webContents.toggleDevTools()
   })
 
+  // Unmaximize and reposition for drag-from-maximized gesture
+  ipcMain.handle('window:unmaximizeForDrag', (event, cursorScreenX: number, cursorScreenY: number) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || !win.isMaximized()) return null
+
+    const [maxW] = win.getSize()
+    const bounds = win.getBounds()
+
+    win.unmaximize()
+
+    const [restoredW] = win.getSize()
+
+    // Position window so cursor stays proportionally in the same spot on the titlebar
+    const proportion = (cursorScreenX - bounds.x) / maxW
+    const newX = Math.round(cursorScreenX - restoredW * proportion)
+    const newY = Math.max(0, cursorScreenY - 10)
+
+    win.setPosition(newX, newY)
+
+    return { x: newX, y: newY }
+  })
+
   // Window position handlers for Alt+drag window movement
   ipcMain.handle('window:getPosition', (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)

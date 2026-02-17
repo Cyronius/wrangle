@@ -108,7 +108,7 @@ export function WorkspacePane({ workspaceId, isFocused, onFocus }: WorkspacePane
       onClick={handlePaneClick}
       onFocus={handlePaneClick}
     >
-      <div className="workspace-pane-tab-row">
+      <div className="workspace-pane-tab-row" data-titlebar-drag>
         {workspaceTabs.length > 0 && (
           <TabGroup
             workspaceId={workspaceId}

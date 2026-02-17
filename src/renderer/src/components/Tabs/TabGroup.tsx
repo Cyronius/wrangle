@@ -175,6 +175,7 @@ export function TabGroup({
       className="tab-group"
       style={groupStyle}
       data-workspace-id={workspaceId}
+      data-titlebar-drag
     >
       {/* WTB-003/004: Scrollable wrapper - tabs scroll independently per workspace */}
       <div className="tab-group-scrollable" ref={scrollableRef}>

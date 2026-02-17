@@ -5,7 +5,6 @@
   background-color: var(--toolbar-bg);
   border-right: 1px solid var(--border-color);
   overflow: hidden;
-  -webkit-app-region: no-drag;
   user-select: none;
 }
 
