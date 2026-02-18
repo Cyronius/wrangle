@@ -12,6 +12,7 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  height: 100%;
 }
 
 .title-bar-tabs {

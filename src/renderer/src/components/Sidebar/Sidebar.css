@@ -54,7 +54,7 @@
   object-fit: contain;
 }
 
-/* Menu dropdown (opens to the right, positioned via JS) */
+/* Menu dropdown (positioned via JS) */
 .sidebar-menu-dropdown {
   min-width: 200px;
   background-color: var(--dropdown-bg, var(--toolbar-bg));
@@ -138,11 +138,115 @@
   flex-shrink: 0;
 }
 
+.sidebar-color-picker {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .sidebar-workspace-color {
-  width: 10px;
-  height: 10px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   flex-shrink: 0;
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.1s ease;
+}
+
+.sidebar-workspace-color:hover {
+  transform: scale(1.15);
+}
+
+.sidebar-color-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 8px;
+  background: var(--app-bg, var(--toolbar-bg));
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+.sidebar-color-option {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.1s ease, border-color 0.1s ease;
+}
+
+.sidebar-color-option:hover {
+  transform: scale(1.1);
+}
+
+.sidebar-color-option.selected {
+  border-color: white;
+}
+
+.sidebar-color-custom {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-color);
+  margin-top: 2px;
+}
+
+.sidebar-color-input {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  background: none;
+}
+
+.sidebar-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.sidebar-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
+}
+
+.sidebar-color-custom-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.sidebar-workspace-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.sidebar-workspace-close:hover {
+  background: var(--button-hover-bg);
+  color: var(--text-color);
+}
+
+.sidebar-workspace-close svg {
+  width: 12px;
+  height: 12px;
 }
 
 .sidebar-workspace-name {

@@ -152,6 +152,9 @@ export function WorkspaceHeader({ workspace }: WorkspaceHeaderProps) {
   const handleClose = () => {
     if (isDefault) return
 
+    const shouldClose = window.confirm(`Close workspace "${workspace.name}"?`)
+    if (!shouldClose) return
+
     // Close workspace
     dispatch(removeWorkspace(workspace.id))
 
@@ -196,6 +199,16 @@ export function WorkspaceHeader({ workspace }: WorkspaceHeaderProps) {
                   tabIndex={0}
                 />
               ))}
+              <div className="workspace-color-custom">
+                <input
+                  type="color"
+                  value={workspace.color}
+                  onChange={(e) => handleColorChange(e.target.value)}
+                  title="Pick a custom color"
+                  className="workspace-color-input"
+                />
+                <span className="workspace-color-custom-label">Custom</span>
+              </div>
             </div>
           )}
         </div>

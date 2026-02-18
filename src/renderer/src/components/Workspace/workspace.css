@@ -191,8 +191,8 @@
 }
 
 .workspace-color-swatch {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: 4px;
   border: 2px solid rgba(255, 255, 255, 0.25);
   cursor: pointer;
@@ -233,6 +233,40 @@
 
 .workspace-color-option.selected {
   border-color: white;
+}
+
+.workspace-color-custom {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-color);
+  margin-top: 2px;
+}
+
+.workspace-color-input {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  background: none;
+}
+
+.workspace-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.workspace-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
+}
+
+.workspace-color-custom-label {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .workspace-header-btn {

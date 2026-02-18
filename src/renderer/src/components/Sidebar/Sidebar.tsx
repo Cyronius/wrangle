@@ -7,10 +7,12 @@ import { setCurrentTheme, saveThemeSettings, setSidebarPaneSizes, saveLayoutSett
 import {
   selectAllWorkspaces,
   selectActiveWorkspace,
-  updateWorkspace
+  updateWorkspace,
+  removeWorkspace,
+  collapseAllWorkspaces
 } from '../../store/workspacesSlice'
 import { selectActiveTab, selectAllTabs } from '../../store/tabsSlice'
-import { DEFAULT_WORKSPACE_ID } from '../../../../shared/workspace-types'
+import { DEFAULT_WORKSPACE_ID, WORKSPACE_COLORS } from '../../../../shared/workspace-types'
 import { FileTree } from '../Workspace/FileTree'
 import { DefaultWorkspaceFileList } from '../Workspace/DefaultWorkspaceFileList'
 import { marked } from 'marked'
@@ -170,6 +172,10 @@ export function Sidebar({
   const [editNameValue, setEditNameValue] = useState('')
   const nameInputRef = useRef<HTMLInputElement>(null)
 
+  // Workspace color picker state
+  const [showColorPicker, setShowColorPicker] = useState(false)
+  const colorPickerRef = useRef<HTMLDivElement>(null)
+
   // Debounce ref for pane size persistence
   const paneSaveTimeout = useRef<NodeJS.Timeout | null>(null)
 
@@ -195,6 +201,44 @@ export function Sidebar({
     setOpenMenu(null)
     setOpenSubmenu(null)
   }
+
+  // Close color picker when clicking outside
+  useEffect(() => {
+    if (!showColorPicker) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
+        setShowColorPicker(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showColorPicker])
+
+  // Handle workspace color change
+  const handleColorChange = useCallback((color: string) => {
+    if (!activeWorkspace) return
+    dispatch(updateWorkspace({ id: activeWorkspace.id, changes: { color } }))
+    setShowColorPicker(false)
+    if (activeWorkspace.rootPath) {
+      window.electron.workspace.loadConfig(activeWorkspace.rootPath).then((config) => {
+        if (config) {
+          window.electron.workspace.saveConfig(activeWorkspace.rootPath!, { ...config, color })
+        }
+      })
+    }
+  }, [dispatch, activeWorkspace])
+
+  // Handle close workspace
+  const handleCloseWorkspace = useCallback(() => {
+    if (!activeWorkspace || activeWorkspace.id === DEFAULT_WORKSPACE_ID) return
+    const shouldClose = window.confirm(`Close workspace "${activeWorkspace.name}"?`)
+    if (!shouldClose) return
+    dispatch(removeWorkspace(activeWorkspace.id))
+    if (activeWorkspace.rootPath) {
+      window.electron.workspace.unwatchFolder(activeWorkspace.rootPath)
+    }
+    dispatch(collapseAllWorkspaces())
+  }, [dispatch, activeWorkspace])
 
   // Handle hidden files toggle
   const handleToggleHiddenFiles = useCallback(() => {
@@ -326,8 +370,8 @@ export function Sidebar({
     const rect = btn.getBoundingClientRect()
     return {
       position: 'fixed',
-      top: rect.top,
-      left: rect.right + 4,
+      top: rect.bottom + 4,
+      left: rect.left,
       zIndex: 1000
     }
   }
@@ -424,10 +468,40 @@ export function Sidebar({
       {/* Workspace indicator */}
       {hasWorkspace && (
         <div className="sidebar-workspace-indicator">
-          <div
-            className="sidebar-workspace-color"
-            style={{ backgroundColor: activeWorkspace.color }}
-          />
+          <div className="sidebar-color-picker" ref={colorPickerRef}>
+            <div
+              className="sidebar-workspace-color"
+              style={{ backgroundColor: activeWorkspace.color }}
+              onClick={() => setShowColorPicker(!showColorPicker)}
+              role="button"
+              aria-label="Change workspace color"
+              tabIndex={0}
+            />
+            {showColorPicker && (
+              <div className="sidebar-color-dropdown">
+                {WORKSPACE_COLORS.map((color) => (
+                  <div
+                    key={color}
+                    className={`sidebar-color-option ${color === activeWorkspace.color ? 'selected' : ''}`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => handleColorChange(color)}
+                    role="button"
+                    tabIndex={0}
+                  />
+                ))}
+                <div className="sidebar-color-custom">
+                  <input
+                    type="color"
+                    value={activeWorkspace.color}
+                    onChange={(e) => handleColorChange(e.target.value)}
+                    title="Pick a custom color"
+                    className="sidebar-color-input"
+                  />
+                  <span className="sidebar-color-custom-label">Custom</span>
+                </div>
+              </div>
+            )}
+          </div>
           {editingName ? (
             <input
               ref={nameInputRef}
@@ -449,6 +523,17 @@ export function Sidebar({
               {activeWorkspace.name}
             </span>
           )}
+          <button
+            className="sidebar-workspace-close"
+            onClick={handleCloseWorkspace}
+            title="Close workspace"
+            aria-label="Close workspace"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
       )}
 
