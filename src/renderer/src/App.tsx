@@ -37,6 +37,7 @@ import { useWindowDrag } from './hooks/useWindowDrag'
 import { useTitlebarDrag } from './hooks/useTitlebarDrag'
 import { useVimMode } from './hooks/useVimMode'
 import { getMonacoThemeName } from './utils/monaco-theme-generator'
+import { isMarkdownFile } from './utils/file-type'
 import * as monaco from 'monaco-editor'
 
 // Module-level flag to prevent double session restore in React Strict Mode
@@ -301,6 +302,13 @@ function AppContent() {
   // Get viewMode for auto-focus decision
   const viewMode = useSelector((state: RootState) => state.layout.viewMode)
 
+  // Force editor-only mode for non-markdown files
+  useEffect(() => {
+    if (!isMarkdownFile(activeTab?.path) && viewMode !== 'editor-only') {
+      dispatch(setViewMode('editor-only'))
+    }
+  }, [activeTab?.path, viewMode, dispatch])
+
   // File operations
   const handleNewFile = useCallback(() => {
     const newTabId = `tab-${Date.now()}`
@@ -519,10 +527,11 @@ function AppContent() {
         }
         return
       }
-      // Ctrl+2: Split view
+      // Ctrl+2: Split view (markdown only)
       if ((e.ctrlKey || e.metaKey) && e.key === '2') {
         e.preventDefault()
         e.stopPropagation()
+        if (!isMarkdownFile(activeTab?.path)) return
         if (focusedPaneId) {
           dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'split' }))
         } else {
@@ -530,10 +539,11 @@ function AppContent() {
         }
         return
       }
-      // Ctrl+3: Preview only
+      // Ctrl+3: Preview only (markdown only)
       if ((e.ctrlKey || e.metaKey) && e.key === '3') {
         e.preventDefault()
         e.stopPropagation()
+        if (!isMarkdownFile(activeTab?.path)) return
         if (focusedPaneId) {
           dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'preview-only' }))
         } else {
@@ -758,6 +768,7 @@ function AppContent() {
           }
           break
         case 'view:split':
+          if (!isMarkdownFile(activeTab?.path)) break
           if (focusedPaneId) {
             dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'split' }))
           } else {
@@ -765,6 +776,7 @@ function AppContent() {
           }
           break
         case 'view:preview-only':
+          if (!isMarkdownFile(activeTab?.path)) break
           if (focusedPaneId) {
             dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'preview-only' }))
           } else {
@@ -1099,6 +1111,7 @@ function AppContent() {
                       onChange={handleChange}
                       baseDir={baseDir}
                       theme={monacoTheme}
+                      filePath={currentFilePath}
                       editorRef={editorRef}
                       onCursorPositionChange={handleCursorPositionChange}
                       onScrollTopChange={handleScrollTopChange}
@@ -1119,6 +1132,7 @@ function AppContent() {
           containerRef={contentAreaRef}
           activeTabId={activeTab?.id}
           viewMode={viewMode}
+          isMarkdown={isMarkdownFile(activeTab?.path)}
         />
       )}
       <PreferencesDialog

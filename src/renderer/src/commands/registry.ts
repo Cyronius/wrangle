@@ -1,4 +1,5 @@
 import * as monaco from 'monaco-editor'
+import { isMarkdownFile as isMarkdownFilePath } from '../utils/file-type'
 
 export type CommandCategory = 'file' | 'edit' | 'view' | 'navigation' | 'markdown' | 'app'
 
@@ -32,16 +33,12 @@ export interface CommandContext {
   }
 }
 
-const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown', '.mdown', '.mkd', '.mdwn'])
-
 function isActiveFileMarkdown(ctx: CommandContext): boolean {
   const state = ctx.getState() as { tabs: { tabs: { id: string; path?: string }[]; activeTabIdByWorkspace: Record<string, string> }; workspaces: { activeWorkspaceId: string } }
   const workspaceId = state.workspaces.activeWorkspaceId
   const activeTabId = state.tabs.activeTabIdByWorkspace[workspaceId]
   const tab = state.tabs.tabs.find(t => t.id === activeTabId)
-  if (!tab?.path) return true // Unsaved files default to markdown
-  const ext = tab.path.toLowerCase().slice(tab.path.lastIndexOf('.'))
-  return MARKDOWN_EXTENSIONS.has(ext)
+  return isMarkdownFilePath(tab?.path)
 }
 
 // Apply preview selection to editor (for WYSIWYG editing)

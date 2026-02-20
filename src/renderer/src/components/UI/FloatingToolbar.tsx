@@ -10,6 +10,7 @@ interface FloatingToolbarProps {
   containerRef: React.RefObject<HTMLDivElement | null>
   activeTabId?: string
   viewMode: string
+  isMarkdown?: boolean
 }
 
 type ToolbarState = 'hidden' | 'dot' | 'toolbar'
@@ -129,8 +130,11 @@ export function FloatingToolbar({
   previewSelection,
   containerRef,
   activeTabId,
-  viewMode
+  viewMode,
+  isMarkdown = true
 }: FloatingToolbarProps) {
+  // Suppress toolbar entirely for non-markdown files
+  if (!isMarkdown) return null
   const [state, setState] = useState<ToolbarState>('hidden')
   const [position, setPosition] = useState<Position>({ top: 0, left: 0, placement: 'above' })
   const [dotPosition, setDotPosition] = useState<{ top: number; left: number } | null>(null)

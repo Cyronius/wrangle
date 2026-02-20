@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useSelector, useDispatch } from 'react-redux'
+import { useSelector } from 'react-redux'
 import { markdownCommands, MarkdownCommand } from '../../utils/markdown-commands'
 import { RootState } from '../../store/store'
-import { setViewMode, setPaneViewMode, ViewMode } from '../../store/layoutSlice'
 import * as monaco from 'monaco-editor'
 import './toolbar.css'
 
@@ -52,49 +51,18 @@ const headingButtons: ToolbarButton[] = [
   { command: 'heading6', label: 'H6', title: 'Heading 6' }
 ]
 
-const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown', '.mdown', '.mkd', '.mdwn'])
-
-function isMarkdownFile(filePath?: string): boolean {
-  if (!filePath) return true // Unsaved files default to markdown
-  const ext = filePath.toLowerCase().slice(filePath.lastIndexOf('.'))
-  return MARKDOWN_EXTENSIONS.has(ext)
-}
-
 export function MarkdownToolbar({ editorRef, previewSelection, workspaceId, compact, className, getEditor }: MarkdownToolbarProps) {
   const resolveEditor = (): monaco.editor.IStandaloneCodeEditor | null => {
     if (getEditor) return getEditor()
     return editorRef?.current ?? null
   }
 
-  const dispatch = useDispatch()
   const globalViewMode = useSelector((state: RootState) => state.layout.viewMode)
   const paneViewMode = useSelector((state: RootState) =>
     workspaceId ? state.layout.paneViewModes[workspaceId] : undefined
   )
   const viewMode = paneViewMode || globalViewMode
-  const activeTabPath = useSelector((state: RootState) => {
-    const wsId = workspaceId || state.workspaces.activeWorkspaceId
-    const activeTabId = state.tabs.activeTabIdByWorkspace[wsId]
-    const tab = state.tabs.tabs.find(t => t.id === activeTabId)
-    return tab?.path
-  })
-  const isMarkdown = isMarkdownFile(activeTabPath)
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set())
-
-  const dispatchViewMode = (mode: ViewMode) => {
-    if (workspaceId) {
-      dispatch(setPaneViewMode({ paneId: workspaceId, viewMode: mode }))
-    } else {
-      dispatch(setViewMode(mode))
-    }
-  }
-
-  // Force editor-only mode for non-markdown files
-  useEffect(() => {
-    if (!isMarkdown && viewMode !== 'editor-only') {
-      dispatchViewMode('editor-only')
-    }
-  }, [isMarkdown, viewMode])
 
   // Track cursor position and detect active formatting
   useEffect(() => {

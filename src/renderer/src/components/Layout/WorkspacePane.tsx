@@ -1,12 +1,13 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store/store'
-import { setFocusedPane, setPaneSplitRatio, ViewMode } from '../../store/layoutSlice'
+import { setFocusedPane, setPaneSplitRatio, setPaneViewMode, ViewMode } from '../../store/layoutSlice'
 import { selectWorkspaceById, setActiveWorkspace } from '../../store/workspacesSlice'
 import { useEditorPane } from '../../hooks/useEditorPane'
 import { useImageDrop } from '../../hooks/useImageDrop'
 import { updateTab, closeTab, setActiveTab, selectTabsByWorkspace, selectActiveTabIdByWorkspace } from '../../store/tabsSlice'
 import { getMonacoThemeName } from '../../utils/monaco-theme-generator'
+import { isMarkdownFile } from '../../utils/file-type'
 import { EditorLayout } from './EditorLayout'
 import { TabGroup } from '../Tabs/TabGroup'
 import { TabContextMenu } from '../Tabs/TabContextMenu'
@@ -99,6 +100,13 @@ export function WorkspacePane({ workspaceId, isFocused, onFocus }: WorkspacePane
   const splitRatio = paneSplitRatio ?? globalSplitRatio
   const monacoTheme = getMonacoThemeName(theme)
 
+  // Force editor-only mode for non-markdown files
+  useEffect(() => {
+    if (!isMarkdownFile(activeTab?.path) && viewMode !== 'editor-only') {
+      dispatch(setPaneViewMode({ paneId: workspaceId, viewMode: 'editor-only' }))
+    }
+  }, [activeTab?.path, viewMode, workspaceId, dispatch])
+
   if (!workspace) return null
 
   return (
@@ -140,6 +148,7 @@ export function WorkspacePane({ workspaceId, isFocused, onFocus }: WorkspacePane
             onChange={handleChange}
             baseDir={baseDir}
             theme={monacoTheme}
+            filePath={currentFilePath}
             editorRef={editorRef}
             onCursorPositionChange={handleCursorPositionChange}
             onScrollTopChange={handleScrollTopChange}

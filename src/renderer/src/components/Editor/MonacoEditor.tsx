@@ -11,6 +11,7 @@ interface MonacoEditorProps {
   onChange: (value: string | undefined) => void
   theme?: string
   fontSize?: number
+  language?: string
   onCursorChange?: (offset: number) => void
   onCursorPositionChange?: (position: { lineNumber: number; column: number }) => void
   onScroll?: (offset: number) => void  // Character offset of first visible line
@@ -19,7 +20,7 @@ interface MonacoEditorProps {
 }
 
 export const MonacoEditor = memo(forwardRef<monaco.editor.IStandaloneCodeEditor | null, MonacoEditorProps>(
-  ({ value, onChange, theme = 'vs-dark', fontSize = 14, onCursorChange, onCursorPositionChange, onScroll, onScrollTopChange, onSelectionChange }, ref) => {
+  ({ value, onChange, theme = 'vs-dark', fontSize = 14, language = 'markdown', onCursorChange, onCursorPositionChange, onScroll, onScrollTopChange, onSelectionChange }, ref) => {
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
     const disposablesRef = useRef<monaco.IDisposable[]>([])
     const cursorDisposableRef = useRef<monaco.IDisposable | null>(null)
@@ -228,7 +229,7 @@ export const MonacoEditor = memo(forwardRef<monaco.editor.IStandaloneCodeEditor 
     return (
       <Editor
         height="100%"
-        defaultLanguage="markdown"
+        language={language}
         theme={theme}
         value={value}
         onChange={onChange}

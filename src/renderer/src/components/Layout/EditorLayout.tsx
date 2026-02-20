@@ -5,6 +5,7 @@ import { VimStatusBar } from '../Editor/VimStatusBar'
 import { MarkdownPreview, MarkdownPreviewHandle } from '../Preview/MarkdownPreview'
 import { SyncLockIcon } from './SyncLockIcon'
 import { SourceMap } from '../../utils/source-map'
+import { getLanguageFromPath } from '../../utils/file-type'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store/store'
 import { setSplitRatio } from '../../store/layoutSlice'
@@ -16,6 +17,7 @@ interface EditorLayoutProps {
   onChange: (value: string | undefined) => void
   baseDir?: string | null
   theme?: string
+  filePath?: string
   editorRef?: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>
   onCursorPositionChange?: (position: { lineNumber: number; column: number }) => void
   onScrollTopChange?: (scrollTop: number) => void
@@ -80,6 +82,7 @@ export const EditorLayout = memo(function EditorLayout({
   onChange,
   baseDir = null,
   theme = 'vs-dark',
+  filePath,
   editorRef,
   onCursorPositionChange,
   onScrollTopChange,
@@ -115,6 +118,9 @@ export const EditorLayout = memo(function EditorLayout({
 
   // Calculate zoomed font size for editor
   const fontSize = getZoomedFontSize(zoomLevel)
+
+  // Compute Monaco language from file path
+  const language = getLanguageFromPath(filePath)
 
   // Store sourceMap when preview renders
   const handleSourceMapReady = useCallback((map: SourceMap) => {
@@ -189,7 +195,7 @@ export const EditorLayout = memo(function EditorLayout({
     return (
       <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, overflow: 'hidden' }}>
-          <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} onCursorPositionChange={onCursorPositionChange} onScrollTopChange={onScrollTopChange} />
+          <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} language={language} onCursorPositionChange={onCursorPositionChange} onScrollTopChange={onScrollTopChange} />
         </div>
         <VimStatusBar ref={vimStatusBarRef} />
       </div>
@@ -201,7 +207,7 @@ export const EditorLayout = memo(function EditorLayout({
       <div style={{ height: '100%', width: '100%', position: 'relative' }}>
         {/* Hidden editor - keeps editorRef valid for WYSIWYG toolbar commands */}
         <div style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0, pointerEvents: 'none' }}>
-          <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} onCursorPositionChange={onCursorPositionChange} />
+          <MonacoEditor ref={editorRef} value={content} onChange={onChange} theme={theme} fontSize={fontSize} language={language} onCursorPositionChange={onCursorPositionChange} />
         </div>
         <MarkdownPreview
           content={content}
@@ -237,6 +243,7 @@ export const EditorLayout = memo(function EditorLayout({
             onChange={onChange}
             theme={theme}
             fontSize={fontSize}
+            language={language}
             onScroll={handleEditorScroll}
             onCursorPositionChange={onCursorPositionChange}
             onScrollTopChange={onScrollTopChange}
