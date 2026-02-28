@@ -64,16 +64,14 @@ export function registerWindowHandlers(): void {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || !win.isMaximized()) return null
 
-    const [maxW] = win.getSize()
-    const bounds = win.getBounds()
+    const maxBounds = win.getBounds()
+    const normalBounds = win.getNormalBounds()
 
     win.unmaximize()
 
-    const [restoredW] = win.getSize()
-
     // Position window so cursor stays proportionally in the same spot on the titlebar
-    const proportion = (cursorScreenX - bounds.x) / maxW
-    const newX = Math.round(cursorScreenX - restoredW * proportion)
+    const proportion = (cursorScreenX - maxBounds.x) / maxBounds.width
+    const newX = Math.round(cursorScreenX - normalBounds.width * proportion)
     const newY = Math.max(0, cursorScreenY - 10)
 
     win.setPosition(newX, newY)

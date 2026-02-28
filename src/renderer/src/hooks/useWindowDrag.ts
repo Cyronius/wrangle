@@ -9,6 +9,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 export function useWindowDrag(): boolean {
   const [altHeld, setAltHeld] = useState(false)
   const draggingRef = useRef(false)
+  const pendingDragRef = useRef(false)
+  const mouseStartRef = useRef<{ screenX: number; screenY: number } | null>(null)
   const dragStartRef = useRef<{
     mouseScreenX: number
     mouseScreenY: number
@@ -27,6 +29,8 @@ export function useWindowDrag(): boolean {
       setAltHeld(false)
       draggingRef.current = false
       dragStartRef.current = null
+      pendingDragRef.current = false
+      mouseStartRef.current = null
     }
   }, [])
 
@@ -37,18 +41,45 @@ export function useWindowDrag(): boolean {
     e.preventDefault()
     e.stopPropagation()
 
-    const pos = await window.electron.window.getPosition()
+    const isMax = await window.electron.window.isMaximized()
 
-    dragStartRef.current = {
-      mouseScreenX: e.screenX,
-      mouseScreenY: e.screenY,
-      windowX: pos.x,
-      windowY: pos.y
+    if (isMax) {
+      pendingDragRef.current = true
+      mouseStartRef.current = { screenX: e.screenX, screenY: e.screenY }
+    } else {
+      const pos = await window.electron.window.getPosition()
+
+      dragStartRef.current = {
+        mouseScreenX: e.screenX,
+        mouseScreenY: e.screenY,
+        windowX: pos.x,
+        windowY: pos.y
+      }
+      draggingRef.current = true
     }
-    draggingRef.current = true
   }, [altHeld])
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
+  const handleMouseMove = useCallback(async (e: MouseEvent) => {
+    if (pendingDragRef.current && mouseStartRef.current) {
+      const dx = e.screenX - mouseStartRef.current.screenX
+      const dy = e.screenY - mouseStartRef.current.screenY
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        pendingDragRef.current = false
+        mouseStartRef.current = null
+        const result = await window.electron.window.unmaximizeForDrag(e.screenX, e.screenY)
+        if (result) {
+          dragStartRef.current = {
+            mouseScreenX: e.screenX,
+            mouseScreenY: e.screenY,
+            windowX: result.x,
+            windowY: result.y
+          }
+          draggingRef.current = true
+        }
+      }
+      return
+    }
+
     if (!draggingRef.current || !dragStartRef.current) return
 
     e.preventDefault()
@@ -66,12 +97,16 @@ export function useWindowDrag(): boolean {
   const handleMouseUp = useCallback(() => {
     draggingRef.current = false
     dragStartRef.current = null
+    pendingDragRef.current = false
+    mouseStartRef.current = null
   }, [])
 
   const handleBlur = useCallback(() => {
     setAltHeld(false)
     draggingRef.current = false
     dragStartRef.current = null
+    pendingDragRef.current = false
+    mouseStartRef.current = null
   }, [])
 
   useEffect(() => {

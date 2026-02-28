@@ -71,8 +71,8 @@ code {
 }
 
 .tab-row-drag-spacer {
-  flex: 1 1 auto;
-  min-width: 8px;
+  flex: 1 0 auto;
+  min-width: 60px;
 }
 
 /* Window controls (inline in tab row) */
