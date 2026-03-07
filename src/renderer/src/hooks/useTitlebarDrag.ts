@@ -8,6 +8,15 @@ import { useEffect, useRef, useCallback } from 'react'
  *
  * Elements with the `data-titlebar-drag` attribute become draggable.
  * Interactive children (buttons, tabs, inputs) are excluded automatically.
+ *
+ * Detects whether e.screenX is valid on mousedown. On Linux/Electron,
+ * e.screenX can be 0 for real input events. Falls back to computing screen
+ * position from clientX + tracked window position.
+ *
+ * Root Cause A fix (same as useWindowDrag): after unmaximizeForDrag returns,
+ * the WM places the window at its saved normal bounds. We defer the drag anchor
+ * to the first subsequent mousemove using reAnchorRef, so the anchor uses the
+ * correct post-unmaximize cursor position.
  */
 
 const INTERACTIVE_SELECTORS = [
@@ -30,13 +39,32 @@ function isInDragRegion(target: EventTarget | null): boolean {
 export function useTitlebarDrag(): void {
   const draggingRef = useRef(false)
   const dragStartRef = useRef<{
-    mouseScreenX: number
-    mouseScreenY: number
+    mouseX: number
+    mouseY: number
     windowX: number
     windowY: number
   } | null>(null)
   const pendingDragRef = useRef(false)
-  const mouseStartRef = useRef<{ screenX: number; screenY: number } | null>(null)
+  const mouseStartRef = useRef<{ clientX: number; clientY: number } | null>(null)
+
+  // Whether e.screenX is valid for this drag session
+  const useScreenCoordsRef = useRef(true)
+  // Track running window position for clientX fallback
+  const currentWindowPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  // After unmaximizeForDrag the WM places the window at its saved normal bounds.
+  // Defer the anchor to the first subsequent mousemove.
+  const reAnchorRef = useRef<{ windowX: number; windowY: number } | null>(null)
+
+  const getMousePos = useCallback((e: MouseEvent) => {
+    if (useScreenCoordsRef.current) {
+      return { x: e.screenX, y: e.screenY }
+    }
+    return {
+      x: e.clientX + currentWindowPosRef.current.x,
+      y: e.clientY + currentWindowPosRef.current.y
+    }
+  }, [])
 
   const handleMouseDown = useCallback(async (e: MouseEvent) => {
     if (e.button !== 0) return
@@ -49,56 +77,88 @@ export function useTitlebarDrag(): void {
     if (isMax) {
       // Don't start drag yet - wait for movement threshold
       pendingDragRef.current = true
-      mouseStartRef.current = { screenX: e.screenX, screenY: e.screenY }
+      mouseStartRef.current = { clientX: e.clientX, clientY: e.clientY }
     } else {
       const pos = await window.electron.window.getPosition()
+
+      // Detect whether screenX is valid
+      const expectedScreenX = e.clientX + pos.x
+      useScreenCoordsRef.current = e.screenX !== 0 && Math.abs(e.screenX - expectedScreenX) < 100
+
+      const mousePos = useScreenCoordsRef.current
+        ? { x: e.screenX, y: e.screenY }
+        : { x: e.clientX + pos.x, y: e.clientY + pos.y }
+
       dragStartRef.current = {
-        mouseScreenX: e.screenX,
-        mouseScreenY: e.screenY,
+        mouseX: mousePos.x,
+        mouseY: mousePos.y,
         windowX: pos.x,
         windowY: pos.y
       }
+      currentWindowPosRef.current = { x: pos.x, y: pos.y }
       draggingRef.current = true
     }
   }, [])
 
-  const handleMouseMove = useCallback(async (e: MouseEvent) => {
+  // Async helper: handle unmaximize-for-drag (fire-and-forget from mousemove)
+  const startUnmaximizeDrag = useCallback(async (e: MouseEvent) => {
+    const cursorX = e.screenX !== 0 ? e.screenX : e.clientX
+    const cursorY = e.screenY !== 0 ? e.screenY : e.clientY
+    const result = await window.electron.window.unmaximizeForDrag(cursorX, cursorY)
+    if (result) {
+      reAnchorRef.current = { windowX: result.x, windowY: result.y }
+      draggingRef.current = true
+      const expectedScreenX = e.clientX + result.x
+      useScreenCoordsRef.current = e.screenX !== 0 && Math.abs(e.screenX - expectedScreenX) < 100
+    }
+  }, [])
+
+  // IMPORTANT: handleMouseMove must be synchronous. An async handler creates
+  // microtask boundaries that let window.screenX update between events,
+  // causing quadratic position growth.
+  const handleMouseMove = useCallback((e: MouseEvent) => {
     if (pendingDragRef.current && mouseStartRef.current) {
-      const dx = e.screenX - mouseStartRef.current.screenX
-      const dy = e.screenY - mouseStartRef.current.screenY
+      const dx = e.clientX - mouseStartRef.current.clientX
+      const dy = e.clientY - mouseStartRef.current.clientY
       if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-        // Threshold exceeded while maximized - unmaximize and start drag
         pendingDragRef.current = false
         mouseStartRef.current = null
-        const result = await window.electron.window.unmaximizeForDrag(e.screenX, e.screenY)
-        if (result) {
-          dragStartRef.current = {
-            mouseScreenX: e.screenX,
-            mouseScreenY: e.screenY,
-            windowX: result.x,
-            windowY: result.y
-          }
-          draggingRef.current = true
-        }
+        startUnmaximizeDrag(e)
       }
+      return
+    }
+
+    // ROOT CAUSE A FIX: complete the drag anchor on first mousemove after unmaximize.
+    if (draggingRef.current && reAnchorRef.current) {
+      currentWindowPosRef.current = { x: reAnchorRef.current.windowX, y: reAnchorRef.current.windowY }
+      const mousePos = getMousePos(e)
+      dragStartRef.current = {
+        mouseX: mousePos.x,
+        mouseY: mousePos.y,
+        windowX: reAnchorRef.current.windowX,
+        windowY: reAnchorRef.current.windowY,
+      }
+      reAnchorRef.current = null
       return
     }
 
     if (!draggingRef.current || !dragStartRef.current) return
 
-    const deltaX = e.screenX - dragStartRef.current.mouseScreenX
-    const deltaY = e.screenY - dragStartRef.current.mouseScreenY
-    window.electron.window.setPosition(
-      dragStartRef.current.windowX + deltaX,
-      dragStartRef.current.windowY + deltaY
-    )
-  }, [])
+    const mousePos = getMousePos(e)
+    const deltaX = mousePos.x - dragStartRef.current.mouseX
+    const deltaY = mousePos.y - dragStartRef.current.mouseY
+    const newX = dragStartRef.current.windowX + deltaX
+    const newY = dragStartRef.current.windowY + deltaY
+    currentWindowPosRef.current = { x: newX, y: newY }
+    window.electron.window.setPosition(newX, newY)
+  }, [getMousePos, startUnmaximizeDrag])
 
   const handleMouseUp = useCallback(() => {
     draggingRef.current = false
     dragStartRef.current = null
     pendingDragRef.current = false
     mouseStartRef.current = null
+    reAnchorRef.current = null
   }, [])
 
   const handleDblClick = useCallback((e: MouseEvent) => {
@@ -111,6 +171,7 @@ export function useTitlebarDrag(): void {
     dragStartRef.current = null
     pendingDragRef.current = false
     mouseStartRef.current = null
+    reAnchorRef.current = null
   }, [])
 
   useEffect(() => {

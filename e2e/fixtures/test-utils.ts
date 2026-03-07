@@ -44,6 +44,21 @@ export async function waitForAppReady(page: Page, timeout = 30000): Promise<void
 }
 
 /**
+ * Wait for the app UI to be responsive (doesn't require Monaco/files open).
+ * Use this for tests that don't need the editor, like window drag tests.
+ */
+export async function waitForAppLoaded(page: Page, timeout = 30000): Promise<void> {
+  await page.waitForLoadState('domcontentloaded')
+  // Wait for React to render the app shell (title bar or window controls)
+  await page.waitForSelector('.titlebar, .window-controls, [data-titlebar-drag]', {
+    state: 'visible',
+    timeout
+  })
+  // Brief settle for hooks to initialize
+  await page.waitForTimeout(500)
+}
+
+/**
  * Get the bounding box of an element relative to the viewport
  */
 export async function getElementBounds(

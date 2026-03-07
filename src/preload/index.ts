@@ -43,6 +43,7 @@ const electronAPI: ElectronAPI = {
     toggleDevTools: () => ipcRenderer.send('window:toggleDevTools'),
     getPosition: () => ipcRenderer.invoke('window:getPosition'),
     setPosition: (x: number, y: number) => ipcRenderer.send('window:setPosition', x, y),
+    forceMaximize: () => ipcRenderer.send('window:forceMaximize'),
     unmaximizeForDrag: (cursorScreenX: number, cursorScreenY: number) =>
       ipcRenderer.invoke('window:unmaximizeForDrag', cursorScreenX, cursorScreenY),
     onStateChanged: (callback: (isMaximized: boolean) => void) => {

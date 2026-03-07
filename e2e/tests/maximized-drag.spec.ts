@@ -1,8 +1,8 @@
-import { test, expect, waitForAppReady } from '../fixtures'
+import { test, expect, waitForAppLoaded } from '../fixtures'
 
 test.describe('Dragging a maximized window', () => {
   test('titlebar drag from spacer should unmaximize and move', async ({ electronApp, window }) => {
-    await waitForAppReady(window)
+    await waitForAppLoaded(window)
 
     // Maximize the window
     await electronApp.evaluate(({ BrowserWindow }) => {
@@ -49,7 +49,7 @@ test.describe('Dragging a maximized window', () => {
   })
 
   test('Alt+drag should unmaximize and move', async ({ electronApp, window }) => {
-    await waitForAppReady(window)
+    await waitForAppLoaded(window)
 
     // Maximize the window
     await electronApp.evaluate(({ BrowserWindow }) => {
@@ -88,6 +88,8 @@ test.describe('Dragging a maximized window', () => {
     })
     console.log('After Alt+drag:', after)
 
-    expect(after.isMax, 'Window should be unmaximized after Alt+drag').toBe(false)
+    // Per WD-002: Alt+drag from maximized re-maximizes on mouseup.
+    // The window should end up maximized on whichever monitor it was dragged to.
+    expect(after.isMax, 'Window should be re-maximized after Alt+drag release (WD-002)').toBe(true)
   })
 })
