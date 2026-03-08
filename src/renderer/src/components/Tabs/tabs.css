@@ -10,9 +10,11 @@
   height: 36px;
   flex-shrink: 1;
   min-width: 0;
+  -webkit-app-region: drag;
 }
 
 .tab {
+  -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -171,6 +173,8 @@
   min-width: var(--tab-group-min-width);
   /* Contain the scrollable tabs area */
   overflow: hidden;
+  /* Blank space in the tab group acts as a window drag handle */
+  -webkit-app-region: drag;
   /* WTB-010: Positioning context for scroll arrow buttons */
   position: relative;
 }
@@ -185,7 +189,11 @@
 
 /* WTB-004: Scrollable container - tabs scroll inside this */
 .tab-group-scrollable {
+  /* Only take as much width as tab content needs; shrink when constrained.
+     Blank space stays in .tab-group (draggable) instead of inside this
+     scrollable element (where Chromium blocks -webkit-app-region: drag). */
   flex: 0 1 auto;
+  -webkit-app-region: no-drag;
   /* WTB-003: Independent horizontal scrolling per workspace */
   overflow-x: auto;
   overflow-y: hidden;
@@ -233,6 +241,7 @@
   padding: 0;
   font-size: 16px;
   color: var(--text-color-muted);
+  -webkit-app-region: no-drag;
   transition: color 0.15s ease;
 }
 
@@ -256,6 +265,7 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  -webkit-app-region: no-drag;
 }
 
 .tab-bar-overflow-trigger {
@@ -338,6 +348,7 @@
   z-index: 1000;
   overflow: hidden;
   padding: 4px 0;
+  -webkit-app-region: no-drag;
 }
 
 .tab-context-menu-item {
