@@ -34,6 +34,7 @@ import { useImageDrop } from './hooks/useImageDrop'
 import { useEditorPane } from './hooks/useEditorPane'
 import { useSessionPersistence } from './hooks/useSessionPersistence'
 import { useWindowDrag } from './hooks/useWindowDrag'
+import { useTitlebarDrag } from './hooks/useTitlebarDrag'
 import { useVimMode } from './hooks/useVimMode'
 import { getMonacoThemeName } from './utils/monaco-theme-generator'
 import { isMarkdownFile } from './utils/file-type'
@@ -79,6 +80,9 @@ function AppContent() {
 
   // Alt+drag window movement
   const showDragOverlay = useWindowDrag()
+
+  // Titlebar drag (replaces CSS -webkit-app-region: drag which is broken on Linux when maximized)
+  useTitlebarDrag()
 
   // Load settings on mount
   useEffect(() => {
@@ -1053,7 +1057,7 @@ function AppContent() {
                     }}
                   />
                 )}
-                <div className="tab-row-drag-spacer" />
+                <div className="tab-row-drag-spacer" data-titlebar-drag />
                 <WindowControls />
               </div>
             )}
