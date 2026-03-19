@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { FileTreeNode } from '../../../../shared/workspace-types'
 import { FileTreeItem } from './FileTreeItem'
+import { isTextFile } from '../../../../shared/file-extensions'
 import './workspace.css'
-
-const MARKDOWN_EXTENSIONS = /\.(md|markdown|mdown|mkd|mdwn)$/i
 
 interface FileTreeProps {
   rootPath: string
@@ -195,7 +194,7 @@ export function FileTree({ rootPath, workspaceId, onFileOpen, selectedPath, show
     if (!files || files.length === 0) return
 
     const copiedPaths: string[] = []
-    const markdownPaths: string[] = []
+    const textFilePaths: string[] = []
 
     for (const file of Array.from(files)) {
       const filePath = (file as any).path
@@ -210,8 +209,8 @@ export function FileTree({ rootPath, workspaceId, onFileOpen, selectedPath, show
 
         if (isInside) {
           // File already in workspace, no copy needed
-          if (MARKDOWN_EXTENSIONS.test(file.name)) {
-            markdownPaths.push(filePath)
+          if (isTextFile(file.name)) {
+            textFilePaths.push(filePath)
           }
           continue
         }
@@ -224,8 +223,8 @@ export function FileTree({ rootPath, workspaceId, onFileOpen, selectedPath, show
 
         if (targetPath) {
           copiedPaths.push(targetPath)
-          if (MARKDOWN_EXTENSIONS.test(file.name)) {
-            markdownPaths.push(targetPath)
+          if (isTextFile(file.name)) {
+            textFilePaths.push(targetPath)
           }
         }
       } catch (error) {
@@ -239,8 +238,8 @@ export function FileTree({ rootPath, workspaceId, onFileOpen, selectedPath, show
       onFilesAdded?.()
     }
 
-    // Open markdown files that were dropped
-    for (const path of markdownPaths) {
+    // Open text files that were dropped
+    for (const path of textFilePaths) {
       onFileOpen(path)
     }
   }, [rootPath, refreshTree, onFilesAdded, onFileOpen])

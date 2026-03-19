@@ -6,6 +6,7 @@ import { registerAllHandlers } from './ipc'
 import { initTempRoot } from './utils/temp-dir-manager'
 import { didCrashLastSession, createRunningMarker, clearRunningMarker, findOrphanedDrafts } from './utils/crash-recovery'
 import { setCrashRecoveryInfo } from './ipc/crash-recovery-handler'
+import { isTextFile } from '../shared/file-extensions'
 
 // Module-level reference so second-instance handler can access it
 let mainWindow: BrowserWindow | null = null
@@ -18,8 +19,8 @@ function getFilePathFromArgs(argv?: string[]): string | null {
   const args = (argv || process.argv).slice(2)
 
   for (const arg of args) {
-    // Skip flags and look for markdown file paths
-    if (!arg.startsWith('-') && /\.(md|markdown|mdown|mkd|mdwn)$/i.test(arg) && existsSync(arg)) {
+    // Skip flags and look for supported text file paths
+    if (!arg.startsWith('-') && isTextFile(arg) && existsSync(arg)) {
       return arg
     }
   }

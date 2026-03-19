@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import * as monaco from 'monaco-editor'
 import { WorkspaceState } from '../../../shared/workspace-types'
 import { Tab } from '../store/tabsSlice'
+import { isTextFile, isImageFile } from '../../../shared/file-extensions'
 
-interface MarkdownFileData {
+export interface DroppedFileData {
   path: string
   content: string
   workspaceId: string
@@ -14,15 +15,12 @@ interface UseImageDropProps {
   tabId?: string
   currentFilePath?: string
   onImageInsert?: (imagePath: string) => void
-  // Props for markdown file handling
+  // Props for text file handling
   workspaces?: WorkspaceState[]
   activeWorkspaceId?: string
   tabs?: Tab[]
-  onMarkdownFilesOpen?: (files: MarkdownFileData[]) => void
+  onTextFilesOpen?: (files: DroppedFileData[]) => void
 }
-
-const MARKDOWN_EXTENSIONS = /\.(md|markdown|mdown|mkd|mdwn)$/i
-const IMAGE_EXTENSIONS = /\.(png|jpg|jpeg|gif|svg|webp)$/i
 
 export function useImageDrop({
   editorRef,
@@ -32,7 +30,7 @@ export function useImageDrop({
   workspaces,
   activeWorkspaceId,
   tabs,
-  onMarkdownFilesOpen
+  onTextFilesOpen
 }: UseImageDropProps) {
   const [isDragging, setIsDragging] = useState(false)
   const dragCounterRef = useRef(0)
@@ -93,10 +91,10 @@ export function useImageDrop({
 
       // Separate files by type
       const imageFiles = Array.from(files).filter((file) =>
-        IMAGE_EXTENSIONS.test(file.name)
+        isImageFile(file.name)
       )
-      const markdownFiles = Array.from(files).filter((file) =>
-        MARKDOWN_EXTENSIONS.test(file.name)
+      const textFiles = Array.from(files).filter((file) =>
+        isTextFile(file.name)
       )
 
       // Process image files (existing behavior)
@@ -142,12 +140,12 @@ export function useImageDrop({
         }
       }
 
-      // Process markdown files
-      if (markdownFiles.length > 0 && onMarkdownFilesOpen) {
+      // Process text files
+      if (textFiles.length > 0 && onTextFilesOpen) {
         const expandedWorkspace = getExpandedFolderWorkspace()
-        const filesToOpen: MarkdownFileData[] = []
+        const filesToOpen: DroppedFileData[] = []
 
-        for (const file of markdownFiles) {
+        for (const file of textFiles) {
           try {
             let filePath = (file as any).path
             if (!filePath) {
@@ -196,13 +194,13 @@ export function useImageDrop({
               workspaceId
             })
           } catch (error) {
-            console.error('Error processing markdown file:', error)
+            console.error('Error processing file:', error)
           }
         }
 
         // Open all files at once
         if (filesToOpen.length > 0) {
-          onMarkdownFilesOpen(filesToOpen)
+          onTextFilesOpen(filesToOpen)
         }
       }
     }
@@ -224,7 +222,7 @@ export function useImageDrop({
     currentFilePath,
     onImageInsert,
     tabs,
-    onMarkdownFilesOpen,
+    onTextFilesOpen,
     detectWorkspaceForPath,
     getExpandedFolderWorkspace
   ])

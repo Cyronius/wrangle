@@ -815,7 +815,7 @@ function AppContent() {
     workspaces,
     activeWorkspaceId,
     tabs,
-    onMarkdownFilesOpen: (files) => {
+    onTextFilesOpen: (files) => {
       let lastTabId: string | null = null
 
       for (const fileData of files) {
