@@ -225,7 +225,7 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
 
       <div className="title-bar-spacer"></div>
 
-      <div className="window-controls">
+      {window.electron.platform !== 'win32' && <div className="window-controls">
         <button className="window-control-button" onClick={handleMinimize} title="Minimize">
           <svg viewBox="0 0 10 1">
             <rect width="10" height="1" fill="currentColor" />
@@ -247,7 +247,7 @@ export function TitleBar({ onFileNew, onFileOpen, onFileSave, onFileSaveAs, onCl
             <path d="M1 0L0 1l4 4-4 4 1 1 4-4 4 4 1-1-4-4 4-4-1-1-4 4-4-4z" fill="currentColor" />
           </svg>
         </button>
-      </div>
+      </div>}
     </div>
   )
 }

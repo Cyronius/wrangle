@@ -10,6 +10,7 @@
   height: 36px;
   flex-shrink: 1;
   min-width: 0;
+  -webkit-app-region: drag;
 }
 
 .tab {
@@ -28,6 +29,7 @@
   max-width: 200px;
   transition: background-color 0.15s ease, border-color 0.15s ease;
   border-radius: 8px 8px 0 0;
+  -webkit-app-region: no-drag;
 }
 
 .tab:hover {
@@ -132,6 +134,7 @@
   border-radius: 3px;
   padding: 0;
   transition: background-color 0.15s ease, color 0.15s ease;
+  -webkit-app-region: no-drag;
 }
 
 .tab-close:hover {
@@ -234,6 +237,7 @@
   font-size: 16px;
   color: var(--text-color-muted);
   transition: color 0.15s ease;
+  -webkit-app-region: no-drag;
 }
 
 .tab-group-scroll-left {
@@ -269,6 +273,7 @@
   color: var(--text-color);
   margin: 4px 8px;
   transition: background-color 0.15s ease;
+  -webkit-app-region: no-drag;
 }
 
 .tab-bar-overflow-trigger:hover {

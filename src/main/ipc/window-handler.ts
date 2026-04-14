@@ -59,68 +59,6 @@ export function registerWindowHandlers(): void {
     window?.webContents.toggleDevTools()
   })
 
-  // Unmaximize and reposition for drag-from-maximized gesture
-  ipcMain.handle('window:unmaximizeForDrag', async (event, cursorScreenX: number, cursorScreenY: number) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win || !win.isMaximized()) return null
-
-    const maxBounds = win.getBounds()
-    const normalBounds = win.getNormalBounds()
-
-    // Position window so cursor stays proportionally in the same spot on the titlebar
-    const proportion = (cursorScreenX - maxBounds.x) / maxBounds.width
-    const newX = Math.round(cursorScreenX - normalBounds.width * proportion)
-    const newY = Math.max(0, cursorScreenY - 10)
-
-    // On Linux/KWin, calling setSize+setPosition in the same synchronous tick as
-    // unmaximize() is required for the WM to honour the requested position.
-    // Waiting for the WM to "settle" first (polling) causes KWin to commit its
-    // saved normal bounds, after which it overrides subsequent setPosition calls.
-    // This mirrors the pattern used by forceState() in the test harness which
-    // reliably repositions windows.
-    win.unmaximize()
-    win.setSize(normalBounds.width, normalBounds.height)
-    win.setPosition(newX, newY)
-
-    // Wait for WM to confirm unmaximize. Poll until isMaximized() clears (max ~200ms),
-    // then a small buffer for the position to settle. On COSMIC this typically takes
-    // 1-3 frames (~16-50ms). The 300ms fixed wait was too long — the user's drag
-    // gesture often completes before we return, leaving reAnchorRef unconsumed.
-    for (let i = 0; i < 13 && win.isMaximized(); i++) {
-      await new Promise(r => setTimeout(r, 16))
-    }
-    await new Promise(r => setTimeout(r, 50))
-
-    const [ax, ay] = win.getPosition()
-    return { x: ax, y: ay }
-  })
-
-  // Force-maximize: always maximizes, never toggles.
-  // Used by useWindowDrag on mouseup to re-maximize after a drag-from-maximized
-  // without risking an accidental unmaximize if a WM race has already maximized
-  // the window (Root Cause C fix).
-  ipcMain.on('window:forceMaximize', (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    if (win && !win.isMaximized()) {
-      win.maximize()
-    }
-  })
-
-  // Window position handlers for Alt+drag window movement
-  ipcMain.handle('window:getPosition', (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender)
-    if (window) {
-      const [x, y] = window.getPosition()
-      return { x, y }
-    }
-    return { x: 0, y: 0 }
-  })
-
-  ipcMain.on('window:setPosition', (event, x: number, y: number) => {
-    const window = BrowserWindow.fromWebContents(event.sender)
-    window?.setPosition(Math.round(x), Math.round(y))
-  })
-
   ipcMain.handle(
     'window:exportPdf',
     async (event, html: string, title: string) => {

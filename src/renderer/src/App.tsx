@@ -33,8 +33,6 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { useImageDrop } from './hooks/useImageDrop'
 import { useEditorPane } from './hooks/useEditorPane'
 import { useSessionPersistence } from './hooks/useSessionPersistence'
-import { useWindowDrag } from './hooks/useWindowDrag'
-import { useTitlebarDrag } from './hooks/useTitlebarDrag'
 import { useVimMode } from './hooks/useVimMode'
 import { getMonacoThemeName } from './utils/monaco-theme-generator'
 import { isMarkdownFile } from './utils/file-type'
@@ -77,12 +75,6 @@ function AppContent() {
 
   // Preview selection for WYSIWYG editing
   const [previewSelection, setPreviewSelection] = useState<{ start: number; end: number } | null>(null)
-
-  // Alt+drag window movement
-  const showDragOverlay = useWindowDrag()
-
-  // Titlebar drag (replaces CSS -webkit-app-region: drag which is broken on Linux when maximized)
-  useTitlebarDrag()
 
   // Load settings on mount
   useEffect(() => {
@@ -1019,8 +1011,7 @@ function AppContent() {
   const isDefaultOnly = workspaces.length <= 1
 
   return (
-    <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'row' }}>
-      {showDragOverlay && <div className="window-drag-overlay" />}
+    <div className={`platform-${window.electron.platform}`} style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'row' }}>
       <WorkspaceBar />
       <Allotment>
         <Allotment.Pane minSize={180} preferredSize={250} maxSize={500}>
@@ -1057,15 +1048,15 @@ function AppContent() {
                     }}
                   />
                 )}
-                <div className="tab-row-drag-spacer" data-titlebar-drag />
-                <WindowControls />
+                <div className="tab-row-drag-spacer" />
+                {window.electron.platform !== 'win32' && <WindowControls />}
               </div>
             )}
 
             {/* Content area */}
             <div ref={contentAreaRef} style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
               {/* In multi-pane mode, overlay window controls at top-right of the pane area */}
-              {isMultiPane && tabs.length > 0 && (
+              {isMultiPane && tabs.length > 0 && window.electron.platform !== 'win32' && (
                 <WindowControls className="window-controls-overlay" />
               )}
               {tabs.length === 0 ? (

@@ -163,7 +163,7 @@ export function TabBar({ onCloseTab }: TabBarProps) {
   }
 
   return (
-    <div className="tab-bar" ref={tabBarRef} data-titlebar-drag>
+    <div className="tab-bar" ref={tabBarRef}>
       {visibleWorkspaces.map((workspace) => {
         const workspaceTabs = tabsByWorkspace.get(workspace.id) || []
         return (

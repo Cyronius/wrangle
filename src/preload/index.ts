@@ -41,11 +41,6 @@ const electronAPI: ElectronAPI = {
     exportPdf: (html: string, title: string) => ipcRenderer.invoke('window:exportPdf', html, title),
     exportHtml: (html: string, title: string) => ipcRenderer.invoke('window:exportHtml', html, title),
     toggleDevTools: () => ipcRenderer.send('window:toggleDevTools'),
-    getPosition: () => ipcRenderer.invoke('window:getPosition'),
-    setPosition: (x: number, y: number) => ipcRenderer.send('window:setPosition', x, y),
-    forceMaximize: () => ipcRenderer.send('window:forceMaximize'),
-    unmaximizeForDrag: (cursorScreenX: number, cursorScreenY: number) =>
-      ipcRenderer.invoke('window:unmaximizeForDrag', cursorScreenX, cursorScreenY),
     onStateChanged: (callback: (isMaximized: boolean) => void) => {
       const subscription = (_event: Electron.IpcRendererEvent, isMaximized: boolean) =>
         callback(isMaximized)
@@ -116,6 +111,7 @@ const electronAPI: ElectronAPI = {
   crashRecovery: {
     check: (): Promise<CrashRecoveryInfo> => ipcRenderer.invoke('crashRecovery:check')
   },
+  platform: process.platform,
   onMenuCommand: (callback: (command: string) => void) => {
     const subscription = (_event: Electron.IpcRendererEvent, command: string) => callback(command)
     ipcRenderer.on('menu:command', subscription)

@@ -80,11 +80,6 @@ export interface ElectronAPI {
     exportPdf: (html: string, title: string) => Promise<string | null>
     exportHtml: (html: string, title: string) => Promise<string | null>
     toggleDevTools: () => void
-    getPosition: () => Promise<{ x: number; y: number }>
-    setPosition: (x: number, y: number) => void
-    forceMaximize: () => void
-    unmaximizeForDrag: (cursorScreenX: number, cursorScreenY: number) =>
-      Promise<{ x: number; y: number } | null>
     onStateChanged: (callback: (isMaximized: boolean) => void) => () => void
   }
   settings: {
@@ -139,6 +134,7 @@ export interface ElectronAPI {
   crashRecovery: {
     check: () => Promise<CrashRecoveryInfo>
   }
+  platform: NodeJS.Platform
   onMenuCommand: (callback: (command: string) => void) => () => void
   onFileOpenedFromPath: (callback: (fileData: { path: string; content: string }) => void) => () => void
 }

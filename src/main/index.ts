@@ -35,8 +35,16 @@ function createWindow(): BrowserWindow {
     minWidth: 400,
     minHeight: 300,
     show: false,
-    frame: false,
     titleBarStyle: 'hidden',
+    ...(process.platform === 'win32'
+      ? {
+          titleBarOverlay: {
+            color: '#252526',
+            symbolColor: '#d4d4d4',
+            height: 36
+          }
+        }
+      : {}),
     icon: join(__dirname, '../assets/w.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
