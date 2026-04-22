@@ -4,9 +4,19 @@ import { existsSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { registerAllHandlers } from './ipc'
 import { initTempRoot } from './utils/temp-dir-manager'
-import { didCrashLastSession, createRunningMarker, clearRunningMarker, findOrphanedDrafts } from './utils/crash-recovery'
+import { didCrashLastSession, createRunningMarker, clearRunningMarker, findOrphanedDrafts, readRunningMarkerPid } from './utils/crash-recovery'
 import { setCrashRecoveryInfo } from './ipc/crash-recovery-handler'
 import { isTextFile } from '../shared/file-extensions'
+import { logStartup } from './utils/startup-log'
+
+logStartup('main module loaded', { isPackaged: app.isPackaged, platform: process.platform, version: app.getVersion() })
+
+process.on('uncaughtException', (err) => {
+  logStartup('uncaughtException', err)
+})
+process.on('unhandledRejection', (reason) => {
+  logStartup('unhandledRejection', reason)
+})
 
 // Module-level reference so second-instance handler can access it
 let mainWindow: BrowserWindow | null = null
@@ -28,6 +38,7 @@ function getFilePathFromArgs(argv?: string[]): string | null {
 }
 
 function createWindow(): BrowserWindow {
+  logStartup('createWindow: start')
   // Create the browser window
   const win = new BrowserWindow({
     width: 1200,
@@ -54,10 +65,23 @@ function createWindow(): BrowserWindow {
     }
   })
 
-  win.on('ready-to-show', async () => {
+  // Guarantee the window becomes visible even if `ready-to-show` is late/never
+  // (seen in packaged builds where the renderer stalls before first paint).
+  // Race three triggers: ready-to-show, did-finish-load, and a 3s safety timer.
+  let shown = false
+  const showNow = (reason: string): void => {
+    if (shown || win.isDestroyed()) return
+    shown = true
+    logStartup('window.show', { reason })
     if (process.env.NODE_ENV !== 'test') {
       win.show()
     }
+  }
+  const safetyTimer = setTimeout(() => showNow('safety-timeout-3s'), 3000)
+  win.once('closed', () => clearTimeout(safetyTimer))
+
+  win.on('ready-to-show', async () => {
+    showNow('ready-to-show')
 
     // Check for file path in command-line arguments
     const filePath = getFilePathFromArgs()
@@ -69,6 +93,20 @@ function createWindow(): BrowserWindow {
         console.error('Error reading file from command line:', error)
       }
     }
+  })
+
+  win.webContents.on('did-finish-load', () => {
+    logStartup('webContents did-finish-load')
+    showNow('did-finish-load')
+  })
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    logStartup('webContents did-fail-load', { code, desc, url })
+  })
+  win.webContents.on('render-process-gone', (_e, details) => {
+    logStartup('renderer gone', details)
+  })
+  win.webContents.on('preload-error', (_e, preloadPath, err) => {
+    logStartup('preload-error', { preloadPath, error: err })
   })
 
   // Forward window state changes to renderer (needed to force drag region recalculation on Linux)
@@ -86,39 +124,54 @@ function createWindow(): BrowserWindow {
   // HMR for renderer based on electron-vite cli
   // Load the remote URL for development or the local html file for production
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
-    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    const url = process.env['ELECTRON_RENDERER_URL']
+    logStartup('loadURL', { url })
+    win.loadURL(url).catch((err) => logStartup('loadURL failed', err))
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'))
+    const htmlPath = join(__dirname, '../renderer/index.html')
+    logStartup('loadFile', { htmlPath, exists: existsSync(htmlPath) })
+    win.loadFile(htmlPath).catch((err) => logStartup('loadFile failed', err))
   }
 
+  logStartup('createWindow: end')
   return win
 }
 
 // Single-instance lock: if another instance is already running,
 // send the file path to the existing instance and quit
 const gotLock = app.requestSingleInstanceLock()
+logStartup('single-instance lock', { gotLock, priorMarkerPid: readRunningMarkerPid() })
 if (!gotLock) {
+  logStartup('second instance detected, quitting')
   app.quit()
 } else {
   app.on('second-instance', async (_event, argv) => {
-    // Another instance was launched - extract file path from its args
+    // If the tracked window was closed/destroyed, create a fresh one
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      mainWindow = createWindow()
+    }
+
+    // Always bring the existing window back to the user
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    if (!mainWindow.isVisible()) mainWindow.show()
+    mainWindow.focus()
+
+    // If a file path was passed on the second invocation, open it
     const filePath = getFilePathFromArgs(argv)
-    if (filePath && mainWindow && !mainWindow.isDestroyed()) {
+    if (filePath) {
       try {
         const content = await readFile(filePath, 'utf-8')
         mainWindow.webContents.send('file:openFromPath', { path: filePath, content })
       } catch (error) {
         console.error('Error reading file from second instance:', error)
       }
-      // Focus the existing window
-      if (mainWindow.isMinimized()) mainWindow.restore()
-      mainWindow.focus()
     }
   })
 }
 
 // This method will be called when Electron has finished initialization
 app.whenReady().then(async () => {
+  logStartup('app.whenReady fired')
   // Set app user model id for windows
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.electron.wrangle')
@@ -126,26 +179,32 @@ app.whenReady().then(async () => {
 
   // Check for crash from previous session
   const crashed = didCrashLastSession()
+  logStartup('crash detection', { crashed, priorMarkerPid: readRunningMarkerPid() })
   let hasOrphanedDrafts = false
 
   if (crashed) {
     const orphanedDrafts = await findOrphanedDrafts()
     hasOrphanedDrafts = orphanedDrafts.length > 0
+    logStartup('orphaned drafts', { count: orphanedDrafts.length })
     setCrashRecoveryInfo({ didCrash: true, orphanedDrafts })
   }
 
   // Create running marker for this session
   await createRunningMarker()
+  logStartup('running marker created')
 
   // Initialize temp directory system (skip cleanup if we have orphaned drafts to recover)
   try {
     await initTempRoot(hasOrphanedDrafts)
+    logStartup('temp root initialized', { skipCleanup: hasOrphanedDrafts })
   } catch (error) {
+    logStartup('initTempRoot failed', error)
     console.error('Failed to initialize temp directory:', error)
   }
 
   // Register IPC handlers
   registerAllHandlers()
+  logStartup('IPC handlers registered')
 
   mainWindow = createWindow()
 
@@ -180,10 +239,13 @@ app.whenReady().then(async () => {
       mainWindow = createWindow()
     }
   })
+}).catch((err) => {
+  logStartup('whenReady rejected', err)
 })
 
 // Unregister global shortcuts and clear crash marker when quitting
 app.on('will-quit', () => {
+  logStartup('will-quit')
   globalShortcut.unregisterAll()
   clearRunningMarker().catch(() => {})
 })

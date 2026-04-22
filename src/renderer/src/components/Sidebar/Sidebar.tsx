@@ -463,6 +463,7 @@ export function Sidebar({
             </div>
           ))}
         </div>
+        <div className="sidebar-top-drag-spacer" />
       </div>
 
       {/* Workspace indicator */}

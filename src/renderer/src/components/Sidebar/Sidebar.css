@@ -17,6 +17,13 @@
   padding: 6px 8px;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
+  -webkit-app-region: drag;
+}
+
+.sidebar-top-drag-spacer {
+  flex: 1 1 auto;
+  min-height: 100%;
+  -webkit-app-region: drag;
 }
 
 /* Menu bar */
@@ -42,6 +49,7 @@
   font-size: 12px;
   cursor: pointer;
   transition: background-color 0.15s ease;
+  -webkit-app-region: no-drag;
 }
 
 .sidebar-menu-btn:hover,
