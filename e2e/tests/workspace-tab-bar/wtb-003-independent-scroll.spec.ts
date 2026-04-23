@@ -1,3 +1,4 @@
+// Traces: WTB-003 (canonical spec: specs/workspace-tab-bar/spec.md)
 import { test, expect, waitForAppReady } from '../../fixtures'
 import { WorkspaceHelpers } from '../../helpers/workspace-helpers'
 
