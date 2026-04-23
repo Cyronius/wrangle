@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react'
 import { MarkdownToolbar } from './MarkdownToolbar'
 import { getValidEditor } from '../../utils/get-valid-editor'
+import { floatingToolbarBus } from './floating-toolbar-bus'
 import * as monaco from 'monaco-editor'
 import './floating-toolbar.css'
 
@@ -13,7 +14,7 @@ interface FloatingToolbarProps {
   isMarkdown?: boolean
 }
 
-type ToolbarState = 'hidden' | 'dot' | 'toolbar'
+type ToolbarState = 'hidden' | 'toolbar'
 type Placement = 'above' | 'below'
 
 interface Position {
@@ -137,11 +138,9 @@ export function FloatingToolbar({
   if (!isMarkdown) return null
   const [state, setState] = useState<ToolbarState>('hidden')
   const [position, setPosition] = useState<Position>({ top: 0, left: 0, placement: 'above' })
-  const [dotPosition, setDotPosition] = useState<{ top: number; left: number } | null>(null)
   const [selectionSource, setSelectionSource] = useState<'editor' | 'preview' | null>(null)
 
   const toolbarRef = useRef<HTMLDivElement>(null)
-  const dotExpandedRef = useRef(false)
   const mouseDownInToolbarRef = useRef(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -170,19 +169,19 @@ export function FloatingToolbar({
     setPosition(pos)
   }, [])
 
-  const showDot = useCallback(() => {
+  const showToolbarAtCursor = useCallback(() => {
     const editor = getValidEditor(editorRefRef.current)
+    console.log('[tap-alt] FloatingToolbar.showToolbarAtCursor editor=', !!editor, 'viewMode=', viewModeRef.current)
     if (!editor || viewModeRef.current === 'preview-only') return
 
     const cursorRect = getMonacoCursorRect(editor)
+    console.log('[tap-alt] cursorRect=', cursorRect)
     if (cursorRect) {
-      setDotPosition({
-        top: cursorRect.top + (cursorRect.height / 2) - 12,
-        left: cursorRect.left + 16
-      })
-      setState('dot')
+      setSelectionSource('editor')
+      setState('toolbar')
+      doUpdateToolbarPosition(cursorRect)
     }
-  }, [])
+  }, [doUpdateToolbarPosition])
 
   const showToolbarForEditor = useCallback(() => {
     const editor = getValidEditor(editorRefRef.current)
@@ -207,9 +206,7 @@ export function FloatingToolbar({
 
   const hide = useCallback(() => {
     setState('hidden')
-    setDotPosition(null)
     setSelectionSource(null)
-    dotExpandedRef.current = false
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
       debounceRef.current = null
@@ -241,17 +238,13 @@ export function FloatingToolbar({
         if (editor && inEd) {
           const selection = editor.getSelection()
           if (selection && !selection.isEmpty()) {
-            dotExpandedRef.current = false
             showToolbarForEditor()
             return
           }
-          // No selection in editor — show dot
-          if (dotExpandedRef.current) {
-            dotExpandedRef.current = false
+          // No selection in editor — hide if currently shown
+          if (stateRef.current !== 'hidden') {
             hide()
-            return
           }
-          showDot()
           return
         }
 
@@ -316,27 +309,17 @@ export function FloatingToolbar({
       }
     }
 
-    // Typing: hide dot when user types
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (stateRef.current === 'dot' && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
-        setState('hidden')
-        setDotPosition(null)
-      }
-    }
-
     document.addEventListener('mouseup', handleMouseUp)
     document.addEventListener('selectionchange', handleSelectionChange)
     document.addEventListener('keyup', handleKeyUp)
-    document.addEventListener('keydown', handleKeyDown)
 
     return () => {
       document.removeEventListener('mouseup', handleMouseUp)
       document.removeEventListener('selectionchange', handleSelectionChange)
       document.removeEventListener('keyup', handleKeyUp)
-      document.removeEventListener('keydown', handleKeyDown)
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [showToolbarForEditor, showToolbarForPreview, showDot, hide])
+  }, [showToolbarForEditor, showToolbarForPreview, hide])
 
   // Preview selection prop changes (from usePreviewCursor hook)
   useEffect(() => {
@@ -374,20 +357,6 @@ export function FloatingToolbar({
             hide()
           }
         }
-      } else if (stateRef.current === 'dot') {
-        const editor = getValidEditor(editorRefRef.current)
-        if (editor) {
-          const cursorRect = getMonacoCursorRect(editor)
-          if (cursorRect) {
-            setDotPosition({
-              top: cursorRect.top + (cursorRect.height / 2) - 12,
-              left: cursorRect.left + 16
-            })
-          } else {
-            setState('hidden')
-            setDotPosition(null)
-          }
-        }
       }
     }
 
@@ -417,43 +386,18 @@ export function FloatingToolbar({
     }
   }, [state, selectionSource, editorRef, doUpdateToolbarPosition])
 
-  const handleDotClick = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    mouseDownInToolbarRef.current = true
-    dotExpandedRef.current = true
-
-    const editor = getValidEditor(editorRef)
-    if (!editor) return
-
-    const cursorRect = getMonacoCursorRect(editor)
-    if (cursorRect) {
-      setSelectionSource('editor')
-      setState('toolbar')
-      doUpdateToolbarPosition(cursorRect)
-    }
-  }, [editorRef, doUpdateToolbarPosition])
-
   const handleToolbarMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     mouseDownInToolbarRef.current = true
   }, [])
 
-  // Dot rendering
-  if (state === 'dot' && dotPosition) {
-    return (
-      <div
-        className="floating-trigger-dot"
-        style={{
-          top: dotPosition.top,
-          left: dotPosition.left
-        }}
-        onMouseDown={handleDotClick}
-      >
-        <span className="floating-trigger-dot-icon">+</span>
-      </div>
-    )
-  }
+  // Subscribe to external triggers (e.g. Alt-tap command) to open the toolbar
+  // at the current caret.
+  useEffect(() => {
+    return floatingToolbarBus.subscribe(() => {
+      showToolbarAtCursor()
+    })
+  }, [showToolbarAtCursor])
 
   // Full toolbar rendering
   if (state === 'toolbar') {

@@ -1,5 +1,6 @@
 import * as monaco from 'monaco-editor'
 import { isMarkdownFile as isMarkdownFilePath } from '../utils/file-type'
+import { floatingToolbarBus } from '../components/UI/floating-toolbar-bus'
 
 export type CommandCategory = 'file' | 'edit' | 'view' | 'navigation' | 'markdown' | 'app'
 
@@ -452,6 +453,15 @@ export const commands: CommandDefinition[] = [
   },
 
   // Markdown formatting commands
+  {
+    id: 'markdown.openFormatToolbar',
+    label: 'Open Format Toolbar at Cursor',
+    category: 'markdown',
+    defaultBinding: null,
+    readOnly: true,
+    bindingDisplay: 'Alt',
+    execute: () => floatingToolbarBus.openAtCursor()
+  },
   {
     id: 'markdown.bold',
     label: 'Bold',

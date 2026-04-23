@@ -20,6 +20,7 @@ import { Allotment } from 'allotment'
 import { EditorLayout } from './components/Layout/EditorLayout'
 import { TabBar } from './components/Tabs/TabBar'
 import { FloatingToolbar } from './components/UI/FloatingToolbar'
+import { floatingToolbarBus } from './components/UI/floating-toolbar-bus'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { WorkspaceBar } from './components/Workspace/WorkspaceBar'
 import { WindowControls } from './components/UI/WindowControls'
@@ -735,6 +736,57 @@ function AppContent() {
     window.addEventListener('keydown', handleKeyDown, { capture: true })
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
   }, [handleNewFile, handleCloseTab, handleOpen, handleSave, handleSaveAs, dispatch, activeWorkspaceId, focusedPaneId, previewSelection])
+
+  // Tap-Alt → open markdown format toolbar at caret. Press+release Alt with
+  // no intervening key or mouse input within 500ms.
+  useEffect(() => {
+    const TAP_MAX_MS = 500
+    let altDownAt = 0
+    let candidate = false
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Alt' && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
+        if (!candidate) {
+          altDownAt = Date.now()
+          candidate = true
+          console.log('[tap-alt] down')
+        }
+        return
+      }
+      if (candidate) {
+        console.log('[tap-alt] cancel:', e.key)
+        candidate = false
+      }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key !== 'Alt') return
+      const wasCandidate = candidate
+      const elapsed = Date.now() - altDownAt
+      candidate = false
+      console.log('[tap-alt] up wasCandidate=', wasCandidate, 'elapsed=', elapsed)
+      if (wasCandidate && elapsed <= TAP_MAX_MS) {
+        e.preventDefault()
+        console.log('[tap-alt] FIRING')
+        floatingToolbarBus.openAtCursor()
+      }
+    }
+    const onMouseDown = () => {
+      candidate = false
+    }
+    const onBlur = () => {
+      candidate = false
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    window.addEventListener('keyup', onKeyUp, true)
+    window.addEventListener('mousedown', onMouseDown, true)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('keyup', onKeyUp, true)
+      window.removeEventListener('mousedown', onMouseDown, true)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [])
 
   // Menu command handler
   useEffect(() => {

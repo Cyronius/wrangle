@@ -233,6 +233,38 @@ Users can restore individual command bindings or an entire custom preset to the 
 
 ---
 
+### KBD-011: Markdown Format Toolbar Tap-Alt Trigger
+
+- **Status:** Active
+- **Added:** 2026-04-23
+- **Applies to:** wrangle
+- **Test category:** manual
+
+A command `markdown.openFormatToolbar` opens the floating markdown format toolbar anchored to the current editor caret. Its trigger is a bare **Alt** tap — `keydown(Alt)` followed by `keyup(Alt)` within 500ms with no intervening key, mouse input, or window-blur event. The command appears in the Keyboard Shortcuts tab under the Markdown category with `bindingDisplay: "Alt"` and is `readOnly` (not user-rebindable via the binding system). The legacy floating "+" dot trigger is removed; clicking in empty editor space no longer surfaces any UI.
+
+**Behavior:**
+- Tap Alt (no other key, ≤500ms) → `floatingToolbarBus.openAtCursor()` is invoked. `FloatingToolbar` computes the cursor rect via `getMonacoCursorRect`, sets `selectionSource = 'editor'`, `state = 'toolbar'`, and positions the toolbar at the caret.
+- Alt+<any key> (e.g. Alt+F, `Ctrl+Alt+1..6`) — does NOT trigger the toolbar. The normal chord dispatcher handles those bindings.
+- Holding Alt past 500ms, pressing then releasing Alt after a mouse click, or losing window focus mid-press — all cancel the candidate; no toolbar.
+- `preventDefault()` is called on the triggering `keyup(Alt)` to suppress Electron's default Alt-focuses-menu-bar behaviour.
+- Selection-based toolbar behaviour (text selected in editor or preview → toolbar appears over the selection) is unchanged by this requirement.
+- On non-markdown files, `FloatingToolbar` early-returns; tap-Alt is a no-op.
+
+**Interface Contract:**
+- Command: `{ id: 'markdown.openFormatToolbar', category: 'markdown', defaultBinding: null, readOnly: true, bindingDisplay: 'Alt', execute: () => floatingToolbarBus.openAtCursor() }`
+- Bus module: `src/renderer/src/components/UI/floating-toolbar-bus.ts` — `{ openAtCursor(): void; subscribe(l: () => void): () => void }`
+- Tap-Alt detection lives in `useKeyboardShortcuts.ts` as a dedicated `useEffect` (separate from the chord-dispatch path because `defaultBinding: null` means the binding-lookup path would never fire).
+
+**Verification (manual):**
+1. Open a `.md` file; click in empty space inside the editor → no "+" dot appears.
+2. Tap Alt (no other keys) → markdown format toolbar appears anchored to the caret.
+3. Hold Alt, press F → toolbar does NOT appear; any `Alt+F` binding (if bound) fires normally.
+4. Select text → selection-based toolbar still appears above the selection.
+5. Preferences → Keyboard Shortcuts → Markdown category: "Open Format Toolbar at Cursor" is listed with display "Alt" and is non-editable.
+6. Open a non-markdown file (e.g. `.txt`) → tap Alt does nothing (no toolbar).
+
+---
+
 ## Key Files
 
 | File | Purpose |

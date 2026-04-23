@@ -170,6 +170,98 @@ export function useKeyboardShortcuts({ editorRef, handlers, previewSelection }: 
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [bindings, executeCommand])
 
+  // Tap-Alt (press and release Alt with no other key or mouse input) opens
+  // the markdown format toolbar at the caret. Mirrors the idiom used by the
+  // Windows menu accelerator. We listen on both document (capture phase) and
+  // directly on the Monaco editor, because Monaco can swallow Alt keyup when
+  // focused.
+  useEffect(() => {
+    const TAP_MAX_MS = 500
+    let altDownAt = 0
+    let candidate = false
+
+    const onAltDown = (src: string) => {
+      altDownAt = Date.now()
+      candidate = true
+      console.log('[tap-alt] down via', src, 'candidate=', candidate)
+    }
+
+    const onAltUp = (src: string) => {
+      const wasCandidate = candidate
+      const elapsed = Date.now() - altDownAt
+      candidate = false
+      console.log('[tap-alt] up via', src, 'wasCandidate=', wasCandidate, 'elapsed=', elapsed)
+      if (wasCandidate && elapsed <= TAP_MAX_MS) {
+        console.log('[tap-alt] FIRING markdown.openFormatToolbar')
+        executeCommand('markdown.openFormatToolbar')
+      }
+    }
+
+    const cancel = (reason: string) => {
+      if (candidate) console.log('[tap-alt] cancel:', reason)
+      candidate = false
+    }
+
+    const onDocKeyDown = (e: KeyboardEvent) => {
+      console.log('[tap-alt] doc keydown key=', e.key, 'code=', e.code, 'alt=', e.altKey, 'ctrl=', e.ctrlKey, 'shift=', e.shiftKey, 'meta=', e.metaKey, 'repeat=', e.repeat, 'target=', (e.target as HTMLElement)?.tagName)
+      if (e.key === 'Alt' && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
+        if (!candidate) onAltDown('doc-keydown')
+        return
+      }
+      if (candidate) cancel('doc-keydown ' + e.key)
+    }
+
+    const onDocKeyUp = (e: KeyboardEvent) => {
+      console.log('[tap-alt] doc keyup key=', e.key, 'code=', e.code)
+      if (e.key === 'Alt') {
+        e.preventDefault()
+        onAltUp('doc-keyup')
+      }
+    }
+
+    const onMouseDown = () => cancel('mousedown')
+    const onBlur = () => cancel('blur')
+
+    document.addEventListener('keydown', onDocKeyDown, true)
+    document.addEventListener('keyup', onDocKeyUp, true)
+    document.addEventListener('mousedown', onMouseDown, true)
+    window.addEventListener('blur', onBlur)
+
+    // Also listen directly on the Monaco editor — when it's focused, it may
+    // consume key events before document listeners see them.
+    const editor = editorRef.current
+    const monacoDisposables: monaco.IDisposable[] = []
+    console.log('[tap-alt] effect registered, editor=', !!editor)
+    if (editor) {
+      monacoDisposables.push(
+        editor.onKeyDown((e) => {
+          console.log('[tap-alt] monaco keydown keyCode=', e.keyCode, 'alt=', e.altKey, 'ctrl=', e.ctrlKey, 'shift=', e.shiftKey, 'meta=', e.metaKey)
+          if (e.keyCode === monaco.KeyCode.Alt && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
+            if (!candidate) onAltDown('monaco-keydown')
+            return
+          }
+          if (candidate) cancel('monaco-keydown ' + e.keyCode)
+        })
+      )
+      monacoDisposables.push(
+        editor.onKeyUp((e) => {
+          console.log('[tap-alt] monaco keyup keyCode=', e.keyCode)
+          if (e.keyCode === monaco.KeyCode.Alt) {
+            onAltUp('monaco-keyup')
+          }
+        })
+      )
+    }
+
+    return () => {
+      document.removeEventListener('keydown', onDocKeyDown, true)
+      document.removeEventListener('keyup', onDocKeyUp, true)
+      document.removeEventListener('mousedown', onMouseDown, true)
+      window.removeEventListener('blur', onBlur)
+      monacoDisposables.forEach((d) => d.dispose())
+    }
+  }, [executeCommand, editorRef.current])
+
   return { executeCommand, bindings }
 }
 
