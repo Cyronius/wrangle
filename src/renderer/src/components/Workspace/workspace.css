@@ -10,6 +10,7 @@
   flex-shrink: 0;
   overflow: hidden;
   position: relative;
+  -webkit-app-region: drag;
 }
 
 .workspace-bar-items {
@@ -20,6 +21,7 @@
   padding: 4px 0;
   overflow-y: auto;
   scrollbar-width: none;
+  -webkit-app-region: drag;
 }
 
 .workspace-bar-items::-webkit-scrollbar {
@@ -39,6 +41,7 @@
   flex-shrink: 0;
   z-index: 2;
   transition: color 0.15s ease, background-color 0.15s ease;
+  -webkit-app-region: no-drag;
 }
 
 .workspace-bar-scroll-btn:hover {
@@ -62,6 +65,7 @@
   transition: filter 0.15s ease;
   border-radius: 0 4px 4px 0;
   flex-shrink: 0;
+  -webkit-app-region: no-drag;
 }
 
 .workspace-bar-item:hover {
@@ -93,6 +97,7 @@
   cursor: pointer;
   color: var(--text-muted);
   transition: color 0.15s ease, background-color 0.15s ease;
+  -webkit-app-region: no-drag;
 }
 
 .workspace-bar-add:hover {
