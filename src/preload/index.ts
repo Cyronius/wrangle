@@ -41,6 +41,9 @@ const electronAPI: ElectronAPI = {
     exportPdf: (html: string, title: string) => ipcRenderer.invoke('window:exportPdf', html, title),
     exportHtml: (html: string, title: string) => ipcRenderer.invoke('window:exportHtml', html, title),
     toggleDevTools: () => ipcRenderer.send('window:toggleDevTools'),
+    reload: () => ipcRenderer.send('window:reload'),
+    forceReload: () => ipcRenderer.send('window:forceReload'),
+    toggleFullscreen: () => ipcRenderer.send('window:toggleFullscreen'),
     onStateChanged: (callback: (isMaximized: boolean) => void) => {
       const subscription = (_event: Electron.IpcRendererEvent, isMaximized: boolean) =>
         callback(isMaximized)
@@ -49,6 +52,10 @@ const electronAPI: ElectronAPI = {
         ipcRenderer.removeListener('window:stateChanged', subscription)
       }
     }
+  },
+  shortcuts: {
+    publishBindings: (bindings: Record<string, string | null>) =>
+      ipcRenderer.send('shortcuts:bindings-updated', bindings)
   },
   settings: {
     getAll: () => ipcRenderer.invoke('settings:getAll'),

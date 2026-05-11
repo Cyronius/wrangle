@@ -59,6 +59,22 @@ export function registerWindowHandlers(): void {
     window?.webContents.toggleDevTools()
   })
 
+  ipcMain.on('window:reload', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    window?.webContents.reload()
+  })
+
+  ipcMain.on('window:forceReload', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    window?.webContents.reloadIgnoringCache()
+  })
+
+  ipcMain.on('window:toggleFullscreen', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) return
+    window.setFullScreen(!window.isFullScreen())
+  })
+
   ipcMain.handle(
     'window:exportPdf',
     async (event, html: string, title: string) => {

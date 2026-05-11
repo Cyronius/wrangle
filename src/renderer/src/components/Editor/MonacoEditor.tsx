@@ -107,7 +107,9 @@ export const MonacoEditor = memo(forwardRef<monaco.editor.IStandaloneCodeEditor 
                     onCloseTab: () => {},
                     onEditUndo: () => {},
                     onEditRedo: () => {},
-                    onOpenPreferences: () => {}
+                    onOpenPreferences: () => {},
+                    onOpenFolder: () => {},
+                    onOpenCommandPalette: () => {}
                   }
                 })
               }

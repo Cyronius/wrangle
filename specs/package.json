@@ -1,0 +1,8 @@
+{
+  "name": "wrangle-specs",
+  "private": true,
+  "scripts": {
+    "test": "cd .. && vitest run --config specs/vitest.config.ts",
+    "test:watch": "cd .. && vitest --config specs/vitest.config.ts"
+  }
+}

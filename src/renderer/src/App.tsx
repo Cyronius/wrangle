@@ -1,20 +1,18 @@
-import { useEffect, useState, useCallback, useRef as useReactRef } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef as useReactRef } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState, AppDispatch } from './store/store'
-import { setViewMode, setPaneViewMode, zoomIn, zoomOut, resetZoom, toggleOutline, toggleExplorer, toggleToolbar, setFocusedPane } from './store/layoutSlice'
+import { setViewMode, zoomIn, zoomOut, setFocusedPane } from './store/layoutSlice'
 import {
   addTab,
   updateTab,
   setActiveTab,
   closeTab,
-  nextTab,
-  previousTab,
   selectAllTabs,
   markSessionRestored,
   moveTabToWorkspace
 } from './store/tabsSlice'
 import { selectActiveWorkspaceId, selectAllWorkspaces, selectVisibleWorkspaceIds, addWorkspace, setActiveWorkspace, setVisibleInTabBar } from './store/workspacesSlice'
-import { loadSettings, setCurrentTheme } from './store/settingsSlice'
+import { loadSettings } from './store/settingsSlice'
 import { DEFAULT_WORKSPACE_ID } from '../../shared/workspace-types'
 import { Allotment } from 'allotment'
 import { EditorLayout } from './components/Layout/EditorLayout'
@@ -29,15 +27,16 @@ import { PreferencesDialog } from './components/Preferences/PreferencesDialog'
 import { EmptyState } from './components/EmptyState'
 import { MultiPaneContainer } from './components/Layout/MultiPaneContainer'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
-import { CommandDefinition } from './commands/registry'
+import { CommandDefinition, commandMap, CommandContext } from './commands/registry'
+import { selectModifierBinding, eventMatchesModifier } from './store/settingsSlice'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useImageDrop } from './hooks/useImageDrop'
 import { useEditorPane } from './hooks/useEditorPane'
 import { useSessionPersistence } from './hooks/useSessionPersistence'
 import { useVimMode } from './hooks/useVimMode'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { getMonacoThemeName } from './utils/monaco-theme-generator'
 import { isMarkdownFile } from './utils/file-type'
-import * as monaco from 'monaco-editor'
 
 // Module-level flag to prevent double session restore in React Strict Mode
 let sessionRestoreStarted = false
@@ -50,7 +49,6 @@ function AppContent() {
   const activeWorkspaceId = useSelector(selectActiveWorkspaceId)
   const theme = useSelector((state: RootState) => state.settings.theme.current)
   const showToolbar = useSelector((state: RootState) => state.layout.showToolbar)
-  const focusedPaneId = useSelector((state: RootState) => state.layout.focusedPaneId)
   const workspaces = useSelector(selectAllWorkspaces)
   const visibleWorkspaceIds = useSelector(selectVisibleWorkspaceIds)
   const isMultiPane = visibleWorkspaceIds.length >= 2
@@ -278,10 +276,16 @@ function AppContent() {
   useSessionPersistence()
 
 
-  // Ctrl+Scroll wheel zoom - use capture phase to intercept before Monaco
+  // KBD-014: scroll-wheel zoom modifier is configurable via the
+  // `view.zoomScroll` binding. Default Ctrl. Use capture phase so it fires
+  // before Monaco can swallow it.
+  const zoomScrollModifier = useSelector((s: RootState) =>
+    selectModifierBinding(s, 'view.zoomScroll')
+  )
   useEffect(() => {
+    if (!zoomScrollModifier) return
     const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) {
+      if (eventMatchesModifier(e, zoomScrollModifier)) {
         e.preventDefault()
         e.stopPropagation()
         // deltaY > 0 means scrolling down (zoom out), < 0 means scrolling up (zoom in)
@@ -290,7 +294,35 @@ function AppContent() {
     }
     window.addEventListener('wheel', handleWheel, { passive: false, capture: true })
     return () => window.removeEventListener('wheel', handleWheel, { capture: true })
-  }, [dispatch])
+  }, [dispatch, zoomScrollModifier])
+
+  // Window-drag modifier: while held, the Wrangle icon (and any other element
+  // gated on `body.drag-modifier-active`) flips from `no-drag` to `drag`.
+  const moveWindowModifier = useSelector((s: RootState) =>
+    selectModifierBinding(s, 'view.moveWindow')
+  )
+  useEffect(() => {
+    const setActive = (active: boolean) => {
+      document.body.classList.toggle('drag-modifier-active', active)
+    }
+    if (!moveWindowModifier) {
+      setActive(false)
+      return
+    }
+    const handleKey = (e: KeyboardEvent) => {
+      setActive(eventMatchesModifier(e, moveWindowModifier))
+    }
+    const handleBlur = () => setActive(false)
+    window.addEventListener('keydown', handleKey)
+    window.addEventListener('keyup', handleKey)
+    window.addEventListener('blur', handleBlur)
+    return () => {
+      window.removeEventListener('keydown', handleKey)
+      window.removeEventListener('keyup', handleKey)
+      window.removeEventListener('blur', handleBlur)
+      setActive(false)
+    }
+  }, [moveWindowModifier])
 
   // Get viewMode for auto-focus decision
   const viewMode = useSelector((state: RootState) => state.layout.viewMode)
@@ -506,276 +538,52 @@ function AppContent() {
     }
   })
 
-  // Global keyboard shortcuts (capture phase to fire before Monaco)
+  // KBD-014: tap-modifier opens the markdown format toolbar at the caret.
+  // The modifier is configurable via the `markdown.openFormatToolbar`
+  // binding (default Alt). Press + release within 500ms with no intervening
+  // key, mouse, or focus event.
+  const tapModifier = useSelector((s: RootState) =>
+    selectModifierBinding(s, 'markdown.openFormatToolbar')
+  )
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+1: Editor only (must be before Monaco intercepts)
-      if ((e.ctrlKey || e.metaKey) && e.key === '1') {
-        e.preventDefault()
-        e.stopPropagation()
-        if (focusedPaneId) {
-          dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'editor-only' }))
-        } else {
-          dispatch(setViewMode('editor-only'))
-        }
-        return
-      }
-      // Ctrl+2: Split view (markdown only)
-      if ((e.ctrlKey || e.metaKey) && e.key === '2') {
-        e.preventDefault()
-        e.stopPropagation()
-        if (!isMarkdownFile(activeTab?.path)) return
-        if (focusedPaneId) {
-          dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'split' }))
-        } else {
-          dispatch(setViewMode('split'))
-        }
-        return
-      }
-      // Ctrl+3: Preview only (markdown only)
-      if ((e.ctrlKey || e.metaKey) && e.key === '3') {
-        e.preventDefault()
-        e.stopPropagation()
-        if (!isMarkdownFile(activeTab?.path)) return
-        if (focusedPaneId) {
-          dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'preview-only' }))
-        } else {
-          dispatch(setViewMode('preview-only'))
-        }
-        return
-      }
-      // Ctrl+N: New file
-      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-        e.preventDefault()
-        handleNewFile()
-      }
-      // Ctrl+O: Open file
-      if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
-        e.preventDefault()
-        handleOpen()
-      }
-      // Ctrl+S: Save file
-      if ((e.ctrlKey || e.metaKey) && e.key === 's' && !e.shiftKey) {
-        e.preventDefault()
-        handleSave()
-      }
-      // Ctrl+Shift+S: Save As
-      if ((e.ctrlKey || e.metaKey) && e.key === 's' && e.shiftKey) {
-        e.preventDefault()
-        handleSaveAs()
-      }
-      // Ctrl+W: Close current tab
-      if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
-        e.preventDefault()
-        handleCloseTab()
-      }
-      // Ctrl+Shift+P: Command Palette
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'P') {
-        e.preventDefault()
-        setCommandPaletteOpen(true)
-        return
-      }
-      // Ctrl+Shift+PageDown: Next pane (multi-pane) or next workspace (single-pane)
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'PageDown') {
-        e.preventDefault()
-        const visibleIds = store.getState().workspaces.workspaces
-          .filter(w => w.visibleInTabBar).map(w => w.id)
-        if (visibleIds.length >= 2) {
-          const currentIndex = visibleIds.indexOf(focusedPaneId || '')
-          const nextIndex = (currentIndex + 1) % visibleIds.length
-          if (visibleIds[nextIndex]) {
-            dispatch(setFocusedPane(visibleIds[nextIndex]))
-            dispatch(setActiveWorkspace(visibleIds[nextIndex]))
-          }
-        } else if (workspaces.length > 1) {
-          const currentIndex = workspaces.findIndex(w => w.id === activeWorkspaceId)
-          const nextIndex = (currentIndex + 1) % workspaces.length
-          dispatch(setActiveWorkspace(workspaces[nextIndex].id))
-        }
-        return
-      }
-      // Ctrl+Shift+PageUp: Previous pane (multi-pane) or prev workspace (single-pane)
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'PageUp') {
-        e.preventDefault()
-        const visibleIds = store.getState().workspaces.workspaces
-          .filter(w => w.visibleInTabBar).map(w => w.id)
-        if (visibleIds.length >= 2) {
-          const currentIndex = visibleIds.indexOf(focusedPaneId || '')
-          const prevIndex = currentIndex <= 0 ? visibleIds.length - 1 : currentIndex - 1
-          if (visibleIds[prevIndex]) {
-            dispatch(setFocusedPane(visibleIds[prevIndex]))
-            dispatch(setActiveWorkspace(visibleIds[prevIndex]))
-          }
-        } else if (workspaces.length > 1) {
-          const currentIndex = workspaces.findIndex(w => w.id === activeWorkspaceId)
-          const prevIndex = currentIndex <= 0 ? workspaces.length - 1 : currentIndex - 1
-          dispatch(setActiveWorkspace(workspaces[prevIndex].id))
-        }
-        return
-      }
-      // Ctrl+PageDown: Next tab
-      if ((e.ctrlKey || e.metaKey) && e.key === 'PageDown') {
-        e.preventDefault()
-        dispatch(nextTab(activeWorkspaceId))
-      }
-      // Ctrl+PageUp: Previous tab
-      if ((e.ctrlKey || e.metaKey) && e.key === 'PageUp') {
-        e.preventDefault()
-        dispatch(previousTab(activeWorkspaceId))
-      }
-      // Ctrl+0: Reset zoom
-      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
-        e.preventDefault()
-        dispatch(resetZoom())
-      }
-      // Ctrl+Plus or Ctrl+=: Zoom in
-      if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) {
-        e.preventDefault()
-        dispatch(zoomIn())
-      }
-      // Ctrl+Minus: Zoom out
-      if ((e.ctrlKey || e.metaKey) && e.key === '-') {
-        e.preventDefault()
-        dispatch(zoomOut())
-      }
-      // Ctrl+P: Print
-      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-        e.preventDefault()
-        window.electron.window.print()
-      }
-      // Ctrl+Z: Undo (when editor not focused, Monaco handles its own)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        if (!document.activeElement?.closest('.monaco-editor')) {
-          e.preventDefault()
-          editorRef.current?.trigger('keyboard', 'undo', null)
-          editorRef.current?.focus()
-        }
-      }
-      // Ctrl+Y: Redo (when editor not focused)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
-        if (!document.activeElement?.closest('.monaco-editor')) {
-          e.preventDefault()
-          editorRef.current?.trigger('keyboard', 'redo', null)
-          editorRef.current?.focus()
-        }
-      }
-      // Ctrl+Shift+O: Toggle outline
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'O') {
-        e.preventDefault()
-        e.stopPropagation()
-        dispatch(toggleOutline())
-        return
-      }
-      // Ctrl+Shift+E: Toggle explorer
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'E') {
-        e.preventDefault()
-        e.stopPropagation()
-        dispatch(toggleExplorer())
-        return
-      }
-      // Ctrl+Shift+T: Toggle toolbar
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
-        e.preventDefault()
-        e.stopPropagation()
-        dispatch(toggleToolbar())
-        return
-      }
-      // F12: Toggle DevTools (fallback for when global shortcut fails)
-      if (e.key === 'F12') {
-        e.preventDefault()
-        window.electron.window.toggleDevTools()
-      }
-      // Ctrl+,: Open preferences
-      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
-        e.preventDefault()
-        setPreferencesOpen(true)
-      }
-
-      // Markdown formatting shortcuts from contentEditable preview (WYSIWYG)
-      const target = e.target as HTMLElement
-      if (target.isContentEditable && previewSelection) {
-        const editor = editorRef.current
-        if (editor) {
-          const model = editor.getModel()
-          if (model) {
-            // Apply preview selection to editor
-            const startPos = model.getPositionAt(previewSelection.start)
-            const endPos = model.getPositionAt(previewSelection.end)
-
-            // Ctrl+B: Bold
-            if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
-              e.preventDefault()
-              editor.setSelection(new monaco.Selection(
-                startPos.lineNumber, startPos.column,
-                endPos.lineNumber, endPos.column
-              ))
-              editor.trigger('keyboard', 'markdown.bold', null)
-            }
-            // Ctrl+I: Italic
-            if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
-              e.preventDefault()
-              editor.setSelection(new monaco.Selection(
-                startPos.lineNumber, startPos.column,
-                endPos.lineNumber, endPos.column
-              ))
-              editor.trigger('keyboard', 'markdown.italic', null)
-            }
-            // Ctrl+K: Link
-            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-              e.preventDefault()
-              editor.setSelection(new monaco.Selection(
-                startPos.lineNumber, startPos.column,
-                endPos.lineNumber, endPos.column
-              ))
-              editor.trigger('keyboard', 'markdown.link', null)
-            }
-          }
-        }
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown, { capture: true })
-    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
-  }, [handleNewFile, handleCloseTab, handleOpen, handleSave, handleSaveAs, dispatch, activeWorkspaceId, focusedPaneId, previewSelection])
-
-  // Tap-Alt → open markdown format toolbar at caret. Press+release Alt with
-  // no intervening key or mouse input within 500ms.
-  useEffect(() => {
+    if (!tapModifier) return
     const TAP_MAX_MS = 500
-    let altDownAt = 0
+    const targetKey = tapModifier === 'Ctrl' ? 'Control' : tapModifier
+    let downAt = 0
     let candidate = false
 
+    const isModifierEventOnly = (e: KeyboardEvent) => {
+      const otherFlags = [
+        e.ctrlKey && tapModifier !== 'Ctrl',
+        e.shiftKey && tapModifier !== 'Shift',
+        e.altKey && tapModifier !== 'Alt',
+        e.metaKey && tapModifier !== 'Meta'
+      ]
+      return !otherFlags.some(Boolean)
+    }
+
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Alt' && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
+      if (e.key === targetKey && isModifierEventOnly(e)) {
         if (!candidate) {
-          altDownAt = Date.now()
+          downAt = Date.now()
           candidate = true
-          console.log('[tap-alt] down')
         }
         return
       }
-      if (candidate) {
-        console.log('[tap-alt] cancel:', e.key)
-        candidate = false
-      }
+      if (candidate) candidate = false
     }
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key !== 'Alt') return
+      if (e.key !== targetKey) return
       const wasCandidate = candidate
-      const elapsed = Date.now() - altDownAt
+      const elapsed = Date.now() - downAt
       candidate = false
-      console.log('[tap-alt] up wasCandidate=', wasCandidate, 'elapsed=', elapsed)
       if (wasCandidate && elapsed <= TAP_MAX_MS) {
         e.preventDefault()
-        console.log('[tap-alt] FIRING')
         floatingToolbarBus.openAtCursor()
       }
     }
-    const onMouseDown = () => {
-      candidate = false
-    }
-    const onBlur = () => {
-      candidate = false
-    }
+    const onMouseDown = () => { candidate = false }
+    const onBlur = () => { candidate = false }
     window.addEventListener('keydown', onKeyDown, true)
     window.addEventListener('keyup', onKeyUp, true)
     window.addEventListener('mousedown', onMouseDown, true)
@@ -786,61 +594,7 @@ function AppContent() {
       window.removeEventListener('mousedown', onMouseDown, true)
       window.removeEventListener('blur', onBlur)
     }
-  }, [])
-
-  // Menu command handler
-  useEffect(() => {
-    const unsubscribe = window.electron.onMenuCommand((command: string) => {
-      switch (command) {
-        case 'file:new':
-          handleNewFile()
-          break
-        case 'file:open':
-          handleOpen()
-          break
-        case 'file:save':
-          handleSave()
-          break
-        case 'file:saveAs':
-          handleSaveAs()
-          break
-        case 'view:editor-only':
-          if (focusedPaneId) {
-            dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'editor-only' }))
-          } else {
-            dispatch(setViewMode('editor-only'))
-          }
-          break
-        case 'view:split':
-          if (!isMarkdownFile(activeTab?.path)) break
-          if (focusedPaneId) {
-            dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'split' }))
-          } else {
-            dispatch(setViewMode('split'))
-          }
-          break
-        case 'view:preview-only':
-          if (!isMarkdownFile(activeTab?.path)) break
-          if (focusedPaneId) {
-            dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: 'preview-only' }))
-          } else {
-            dispatch(setViewMode('preview-only'))
-          }
-          break
-        case 'theme:light':
-          dispatch(setCurrentTheme('light'))
-          break
-        case 'theme:dark':
-          dispatch(setCurrentTheme('Dark'))
-          break
-        case 'workspace:openFolder':
-          handleAddWorkspace()
-          break
-      }
-    })
-
-    return unsubscribe
-  }, [activeTab, content, dispatch, focusedPaneId, handleAddWorkspace])
+  }, [tapModifier])
 
   // Image and markdown file drop support
   const { isDragging } = useImageDrop({
@@ -928,6 +682,56 @@ function AppContent() {
     editorRef.current?.trigger('keyboard', 'redo', null)
     editorRef.current?.focus()
   }, [])
+
+  // Stable bag of handlers shared by the keyboard hook, the native menu IPC
+  // listener, and the command palette. All registry commands route through
+  // these — so the same code path runs whether the user pressed a shortcut,
+  // clicked a menu item, or picked the command from the palette.
+  const commandHandlers = useMemo<CommandContext['handlers']>(() => ({
+    onFileNew: handleNewFile,
+    onFileOpen: handleOpen,
+    onFileSave: handleSave,
+    onFileSaveAs: handleSaveAs,
+    onCloseTab: handleCloseTab,
+    onEditUndo: handleUndo,
+    onEditRedo: handleRedo,
+    onOpenPreferences: () => setPreferencesOpen(true),
+    onOpenFolder: handleAddWorkspace,
+    onOpenCommandPalette: () => setCommandPaletteOpen(true)
+  }), [handleNewFile, handleOpen, handleSave, handleSaveAs, handleCloseTab, handleUndo, handleRedo, handleAddWorkspace])
+
+  // Window-level keyboard shortcut dispatcher. Reads bindings from Redux and
+  // routes matching events through the registry. Editor-focused commands
+  // (markdown formatting etc.) are registered as Monaco actions in
+  // MonacoEditor.tsx; mouse gestures and the tap-modifier have their own
+  // handlers in this file.
+  useKeyboardShortcuts({
+    editorRef,
+    handlers: commandHandlers,
+    previewSelection
+  })
+
+  // KBD-013: the native menu emits registry command IDs; route them through
+  // the registry's `execute` so menu and keyboard share one code path.
+  useEffect(() => {
+    const unsubscribe = window.electron.onMenuCommand((commandId: string) => {
+      const cmd = commandMap.get(commandId)
+      if (!cmd) {
+        console.warn('Menu emitted unknown command id:', commandId)
+        return
+      }
+      const ctx: CommandContext = {
+        editor: editorRef.current,
+        dispatch: dispatch as (action: unknown) => void,
+        getState: store.getState,
+        previewSelection,
+        handlers: commandHandlers
+      }
+      cmd.execute(ctx)
+    })
+
+    return unsubscribe
+  }, [dispatch, previewSelection, commandHandlers])
 
   // Copy as Rich Text - copies preview HTML to clipboard
   const handleCopyRichText = useCallback(async () => {
@@ -1190,16 +994,7 @@ function AppContent() {
             editor: editorRef.current,
             dispatch: dispatch as (action: unknown) => void,
             getState: store.getState,
-            handlers: {
-              onFileNew: handleNewFile,
-              onFileOpen: handleOpen,
-              onFileSave: handleSave,
-              onFileSaveAs: handleSaveAs,
-              onCloseTab: handleCloseTab,
-              onEditUndo: handleUndo,
-              onEditRedo: handleRedo,
-              onOpenPreferences: () => setPreferencesOpen(true)
-            }
+            handlers: commandHandlers
           })
         }}
       />

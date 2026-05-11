@@ -1,6 +1,19 @@
 import * as monaco from 'monaco-editor'
 import { isMarkdownFile as isMarkdownFilePath } from '../utils/file-type'
 import { floatingToolbarBus } from '../components/UI/floating-toolbar-bus'
+import {
+  setViewMode,
+  setPaneViewMode,
+  togglePreviewSync,
+  toggleOutline,
+  toggleExplorer,
+  toggleToolbar,
+  toggleWorkspaceSidebar
+} from '../store/layoutSlice'
+import { nextTab, previousTab, closeTabsToLeft, closeTabsToRight, closeTabsByWorkspace } from '../store/tabsSlice'
+import { setActiveWorkspace } from '../store/workspacesSlice'
+import { setFocusedPane } from '../store/layoutSlice'
+import { setCurrentTheme, setVimMode, saveEditorSettings } from '../store/settingsSlice'
 
 export type CommandCategory = 'file' | 'edit' | 'view' | 'navigation' | 'markdown' | 'app'
 
@@ -10,10 +23,14 @@ export interface CommandDefinition {
   category: CommandCategory
   defaultBinding: string | null
   execute: (context: CommandContext) => void
-  /** If true, this command's binding cannot be edited by the user */
-  readOnly?: boolean
-  /** Display string for non-standard bindings (e.g. "Alt+Drag", "Ctrl+Scroll") */
-  bindingDisplay?: string
+  /**
+   * Shape constraints for this command's binding. Absent = standard chord.
+   * When `suffix` is set, the user-editable portion is the modifier key only;
+   * the suffix is a fixed mouse/tap action implied by the command.
+   */
+  bindingShape?: {
+    suffix?: 'Scroll' | 'Drag' | 'Tap'
+  }
 }
 
 export interface CommandContext {
@@ -31,15 +48,33 @@ export interface CommandContext {
     onEditUndo: () => void
     onEditRedo: () => void
     onOpenPreferences: () => void
+    onOpenFolder: () => void
+    onOpenCommandPalette: () => void
   }
 }
 
+type ViewState = {
+  tabs: { tabs: { id: string; path?: string }[]; activeTabIdByWorkspace: Record<string, string> }
+  workspaces: { activeWorkspaceId: string }
+  layout: { focusedPaneId: string | null }
+}
+
 function isActiveFileMarkdown(ctx: CommandContext): boolean {
-  const state = ctx.getState() as { tabs: { tabs: { id: string; path?: string }[]; activeTabIdByWorkspace: Record<string, string> }; workspaces: { activeWorkspaceId: string } }
-  const workspaceId = state.workspaces.activeWorkspaceId
+  const state = ctx.getState() as ViewState
+  const workspaceId = state.layout.focusedPaneId ?? state.workspaces.activeWorkspaceId
   const activeTabId = state.tabs.activeTabIdByWorkspace[workspaceId]
   const tab = state.tabs.tabs.find(t => t.id === activeTabId)
   return isMarkdownFilePath(tab?.path)
+}
+
+function dispatchViewMode(ctx: CommandContext, mode: 'editor-only' | 'split' | 'preview-only'): void {
+  const state = ctx.getState() as ViewState
+  const focusedPaneId = state.layout.focusedPaneId
+  if (focusedPaneId) {
+    ctx.dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: mode }))
+  } else {
+    ctx.dispatch(setViewMode(mode))
+  }
 }
 
 // Apply preview selection to editor (for WYSIWYG editing)
@@ -305,10 +340,7 @@ export const commands: CommandDefinition[] = [
     label: 'Editor Only',
     category: 'view',
     defaultBinding: 'Ctrl+1',
-    execute: (ctx) => {
-      const { setViewMode } = require('../store/layoutSlice')
-      ctx.dispatch(setViewMode('editor-only'))
-    }
+    execute: (ctx) => dispatchViewMode(ctx, 'editor-only')
   },
   {
     id: 'view.split',
@@ -317,8 +349,7 @@ export const commands: CommandDefinition[] = [
     defaultBinding: 'Ctrl+2',
     execute: (ctx) => {
       if (!isActiveFileMarkdown(ctx)) return
-      const { setViewMode } = require('../store/layoutSlice')
-      ctx.dispatch(setViewMode('split'))
+      dispatchViewMode(ctx, 'split')
     }
   },
   {
@@ -328,8 +359,7 @@ export const commands: CommandDefinition[] = [
     defaultBinding: 'Ctrl+3',
     execute: (ctx) => {
       if (!isActiveFileMarkdown(ctx)) return
-      const { setViewMode } = require('../store/layoutSlice')
-      ctx.dispatch(setViewMode('preview-only'))
+      dispatchViewMode(ctx, 'preview-only')
     }
   },
   {
@@ -338,7 +368,6 @@ export const commands: CommandDefinition[] = [
     category: 'view',
     defaultBinding: 'Ctrl+Shift+Y',
     execute: (ctx) => {
-      const { togglePreviewSync } = require('../store/layoutSlice')
       ctx.dispatch(togglePreviewSync())
     }
   },
@@ -377,7 +406,6 @@ export const commands: CommandDefinition[] = [
     category: 'view',
     defaultBinding: 'Ctrl+Shift+O',
     execute: (ctx) => {
-      const { toggleOutline } = require('../store/layoutSlice')
       ctx.dispatch(toggleOutline())
     }
   },
@@ -387,7 +415,6 @@ export const commands: CommandDefinition[] = [
     category: 'view',
     defaultBinding: 'Ctrl+Shift+E',
     execute: (ctx) => {
-      const { toggleExplorer } = require('../store/layoutSlice')
       ctx.dispatch(toggleExplorer())
     }
   },
@@ -397,7 +424,6 @@ export const commands: CommandDefinition[] = [
     category: 'view',
     defaultBinding: 'Ctrl+Shift+T',
     execute: (ctx) => {
-      const { toggleToolbar } = require('../store/layoutSlice')
       ctx.dispatch(toggleToolbar())
     }
   },
@@ -407,7 +433,6 @@ export const commands: CommandDefinition[] = [
     category: 'view',
     defaultBinding: 'Ctrl+Shift+B',
     execute: (ctx) => {
-      const { toggleWorkspaceSidebar } = require('../store/layoutSlice')
       ctx.dispatch(toggleWorkspaceSidebar())
     }
   },
@@ -415,19 +440,38 @@ export const commands: CommandDefinition[] = [
     id: 'view.zoomScroll',
     label: 'Zoom (Mouse Wheel)',
     category: 'view',
-    defaultBinding: null,
-    readOnly: true,
-    bindingDisplay: 'Ctrl+Scroll',
+    defaultBinding: 'Ctrl',
+    bindingShape: { suffix: 'Scroll' },
     execute: () => {}
   },
   {
     id: 'view.moveWindow',
-    label: 'Move Window',
+    label: 'Move Window (Drag)',
     category: 'view',
-    defaultBinding: null,
-    readOnly: true,
-    bindingDisplay: 'Alt+Drag',
+    defaultBinding: 'Alt',
+    bindingShape: { suffix: 'Drag' },
     execute: () => {}
+  },
+  {
+    id: 'view.reload',
+    label: 'Reload',
+    category: 'view',
+    defaultBinding: 'Ctrl+R',
+    execute: () => window.electron.window.reload()
+  },
+  {
+    id: 'view.forceReload',
+    label: 'Force Reload',
+    category: 'view',
+    defaultBinding: 'Ctrl+Shift+R',
+    execute: () => window.electron.window.forceReload()
+  },
+  {
+    id: 'view.toggleFullscreen',
+    label: 'Toggle Fullscreen',
+    category: 'view',
+    defaultBinding: 'F11',
+    execute: () => window.electron.window.toggleFullscreen()
   },
 
   // Navigation commands
@@ -437,8 +481,9 @@ export const commands: CommandDefinition[] = [
     category: 'navigation',
     defaultBinding: 'Ctrl+PageDown',
     execute: (ctx) => {
-      const { nextTab } = require('../store/tabsSlice')
-      ctx.dispatch(nextTab())
+      const state = ctx.getState() as ViewState
+      const workspaceId = state.layout.focusedPaneId ?? state.workspaces.activeWorkspaceId
+      ctx.dispatch(nextTab(workspaceId))
     }
   },
   {
@@ -447,8 +492,9 @@ export const commands: CommandDefinition[] = [
     category: 'navigation',
     defaultBinding: 'Ctrl+PageUp',
     execute: (ctx) => {
-      const { previousTab } = require('../store/tabsSlice')
-      ctx.dispatch(previousTab())
+      const state = ctx.getState() as ViewState
+      const workspaceId = state.layout.focusedPaneId ?? state.workspaces.activeWorkspaceId
+      ctx.dispatch(previousTab(workspaceId))
     }
   },
 
@@ -457,9 +503,8 @@ export const commands: CommandDefinition[] = [
     id: 'markdown.openFormatToolbar',
     label: 'Open Format Toolbar at Cursor',
     category: 'markdown',
-    defaultBinding: null,
-    readOnly: true,
-    bindingDisplay: 'Alt',
+    defaultBinding: 'Alt',
+    bindingShape: { suffix: 'Tap' },
     execute: () => floatingToolbarBus.openAtCursor()
   },
   {
@@ -643,7 +688,6 @@ export const commands: CommandDefinition[] = [
     category: 'view',
     defaultBinding: null,
     execute: (ctx) => {
-      const { setCurrentTheme } = require('../store/settingsSlice')
       ctx.dispatch(setCurrentTheme('light'))
     }
   },
@@ -653,21 +697,16 @@ export const commands: CommandDefinition[] = [
     category: 'view',
     defaultBinding: null,
     execute: (ctx) => {
-      const { setCurrentTheme } = require('../store/settingsSlice')
       ctx.dispatch(setCurrentTheme('Dark'))
     }
   },
+  // Workspace commands
   {
-    id: 'view.themeCycle',
-    label: 'Cycle Theme',
-    category: 'view',
-    defaultBinding: null,
-    execute: (ctx) => {
-      const { setCurrentTheme } = require('../store/settingsSlice')
-      const state = ctx.getState() as { settings: { theme: { current: string } } }
-      const current = state.settings.theme.current
-      ctx.dispatch(setCurrentTheme(current === 'Dark' ? 'Lightish' : 'Dark'))
-    }
+    id: 'workspace.openFolder',
+    label: 'Open Folder as Workspace...',
+    category: 'navigation',
+    defaultBinding: 'Ctrl+K Ctrl+O',
+    execute: (ctx) => ctx.handlers.onOpenFolder()
   },
 
   // Workspace navigation
@@ -681,8 +720,6 @@ export const commands: CommandDefinition[] = [
         workspaces: { workspaces: { id: string; visibleInTabBar: boolean }[]; activeWorkspaceId: string }
         layout: { focusedPaneId: string | null }
       }
-      const { setActiveWorkspace } = require('../store/workspacesSlice')
-      const { setFocusedPane } = require('../store/layoutSlice')
       const { workspaces, activeWorkspaceId } = state.workspaces
       const { focusedPaneId } = state.layout
 
@@ -711,8 +748,6 @@ export const commands: CommandDefinition[] = [
         workspaces: { workspaces: { id: string; visibleInTabBar: boolean }[]; activeWorkspaceId: string }
         layout: { focusedPaneId: string | null }
       }
-      const { setActiveWorkspace } = require('../store/workspacesSlice')
-      const { setFocusedPane } = require('../store/layoutSlice')
       const { workspaces, activeWorkspaceId } = state.workspaces
       const { focusedPaneId } = state.layout
 
@@ -738,9 +773,7 @@ export const commands: CommandDefinition[] = [
     label: 'Command Palette',
     category: 'app',
     defaultBinding: 'Ctrl+Shift+P',
-    execute: () => {
-      // Handled directly in App.tsx
-    }
+    execute: (ctx) => ctx.handlers.onOpenCommandPalette()
   },
   {
     id: 'app.preferences',
@@ -750,13 +783,11 @@ export const commands: CommandDefinition[] = [
     execute: (ctx) => ctx.handlers.onOpenPreferences()
   },
   {
-    id: 'app.closeDialog',
-    label: 'Close Dialog',
+    id: 'app.exit',
+    label: 'Exit',
     category: 'app',
-    defaultBinding: null,
-    readOnly: true,
-    bindingDisplay: 'Escape',
-    execute: () => {}
+    defaultBinding: 'Ctrl+Q',
+    execute: () => window.electron.window.close()
   },
   {
     id: 'editor.toggleVimMode',
@@ -764,8 +795,6 @@ export const commands: CommandDefinition[] = [
     category: 'edit',
     defaultBinding: null,
     execute: (ctx) => {
-      // Dynamic import to avoid circular dependency
-      const { setVimMode, saveEditorSettings } = require('../store/settingsSlice')
       const state = ctx.getState() as { settings: { editor: { vimMode: boolean } } }
       const current = state.settings?.editor?.vimMode ?? false
       ctx.dispatch(setVimMode(!current))
@@ -838,7 +867,6 @@ export const commands: CommandDefinition[] = [
     category: 'navigation',
     defaultBinding: null,
     execute: (ctx) => {
-      const { closeTabsToLeft } = require('../store/tabsSlice')
       const tabId = ctx.targetTabId
       if (tabId) {
         ctx.dispatch(closeTabsToLeft(tabId))
@@ -851,7 +879,6 @@ export const commands: CommandDefinition[] = [
     category: 'navigation',
     defaultBinding: null,
     execute: (ctx) => {
-      const { closeTabsToRight } = require('../store/tabsSlice')
       const tabId = ctx.targetTabId
       if (tabId) {
         ctx.dispatch(closeTabsToRight(tabId))
@@ -864,7 +891,6 @@ export const commands: CommandDefinition[] = [
     category: 'navigation',
     defaultBinding: null,
     execute: (ctx) => {
-      const { closeTabsByWorkspace } = require('../store/tabsSlice')
       const state = ctx.getState() as {
         tabs: { tabs: { id: string; workspaceId: string }[] }
         workspaces: { activeWorkspaceId: string }

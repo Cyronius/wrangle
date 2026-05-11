@@ -165,9 +165,14 @@ export function parseShortcutToMonaco(shortcut: string): number | null {
 }
 
 /**
- * Format a keyboard event into a shortcut string like "Ctrl+Shift+B"
+ * Format a keyboard event into a shortcut string like "Ctrl+Shift+B".
+ *
+ * `allowModifierOnly` (KBD-014): if true, a bare modifier press (e.g. just
+ * Alt) returns the modifier name as a valid binding string for use with
+ * `bindingShape.suffix` commands. If false (default), bare modifier presses
+ * return an empty string.
  */
-export function formatKeyboardEvent(event: KeyboardEvent): string {
+export function formatKeyboardEvent(event: KeyboardEvent, allowModifierOnly = false): string {
   const parts: string[] = []
 
   if (event.ctrlKey || event.metaKey) {
@@ -186,7 +191,12 @@ export function formatKeyboardEvent(event: KeyboardEvent): string {
   // Normalize some key names
   if (key === ' ') key = 'Space'
   if (key === 'Control' || key === 'Shift' || key === 'Alt' || key === 'Meta') {
-    // Don't include standalone modifier keys
+    if (allowModifierOnly) {
+      // Map the standalone modifier key to its display name
+      if (key === 'Control') return 'Ctrl'
+      if (key === 'Meta') return 'Meta'
+      return key
+    }
     return parts.join('+')
   }
 
@@ -241,36 +251,57 @@ export function matchesShortcut(event: KeyboardEvent, shortcut: string): boolean
 }
 
 /**
- * Find conflicts between a shortcut and existing bindings
- * Returns the command IDs that conflict
+ * Find conflicts between a shortcut and existing bindings.
+ * Returns the command IDs that conflict.
+ *
+ * KBD-014: when `commandShape` is provided, partitions conflict detection by
+ * `bindingShape.suffix` so e.g. `Ctrl+B` (markdown.bold) and `Ctrl+Scroll`
+ * (view.zoomScroll) do not conflict — they are different input categories.
  */
 export function findConflicts(
   shortcut: string,
   bindings: Record<string, string | null>,
-  excludeCommandId?: string
+  excludeCommandId?: string,
+  commandShape?: (commandId: string) => 'Scroll' | 'Drag' | 'Tap' | undefined
 ): string[] {
   if (!shortcut) return []
 
   const normalizedShortcut = shortcut.toLowerCase()
+  const targetSuffix = commandShape && excludeCommandId ? commandShape(excludeCommandId) : undefined
   const conflicts: string[] = []
 
   for (const [commandId, binding] of Object.entries(bindings)) {
     if (commandId === excludeCommandId) continue
-    if (binding && binding.toLowerCase() === normalizedShortcut) {
-      conflicts.push(commandId)
+    if (!binding) continue
+    if (binding.toLowerCase() !== normalizedShortcut) continue
+
+    if (commandShape) {
+      const otherSuffix = commandShape(commandId)
+      if (otherSuffix !== targetSuffix) continue
     }
+    conflicts.push(commandId)
   }
 
   return conflicts
 }
 
 /**
- * Check if a shortcut is valid (has at least a modifier for non-function keys)
+ * Check if a shortcut is valid.
+ *
+ * Standard chord mode: requires at least one modifier (or a function key).
+ * Modifier-only mode (KBD-014): accepts a single bare modifier like `Ctrl`.
  */
-export function isValidShortcut(shortcut: string): boolean {
+export function isValidShortcut(shortcut: string, modifierOnly = false): boolean {
   if (!shortcut) return false
 
-  const parts = shortcut.split('+')
+  const parts = shortcut.split('+').map((p) => p.trim())
+
+  if (modifierOnly) {
+    if (parts.length !== 1) return false
+    const upper = parts[0].toUpperCase()
+    return upper === 'CTRL' || upper === 'CONTROL' || upper === 'SHIFT' || upper === 'ALT' || upper === 'META' || upper === 'CMD' || upper === 'WIN'
+  }
+
   const hasModifier = parts.some(
     (p) =>
       p.toUpperCase() === 'CTRL' ||

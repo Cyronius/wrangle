@@ -1,12 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { formatKeyboardEvent, isValidShortcut, normalizeShortcut } from '../../utils/shortcut-parser'
 
+export type ShortcutRecorderMode = 'chord' | 'modifier-only' | 'tap'
+
 interface ShortcutRecorderProps {
   value: string | null
   onChange: (shortcut: string | null) => void
   onCancel: () => void
   hasConflict?: boolean
   disabled?: boolean
+  /**
+   * `chord` (default): captures Ctrl+Shift+B style chord.
+   * `modifier-only`: captures a single bare modifier (Ctrl, Alt, etc.) used
+   *   for `bindingShape.suffix` commands like `view.zoomScroll`.
+   * `tap`: same capture rules as `modifier-only` (the suffix is "Tap").
+   */
+  mode?: ShortcutRecorderMode
 }
 
 export function ShortcutRecorder({
@@ -14,20 +23,21 @@ export function ShortcutRecorder({
   onChange,
   onCancel,
   hasConflict = false,
-  disabled = false
+  disabled = false,
+  mode = 'chord'
 }: ShortcutRecorderProps) {
   const [isRecording, setIsRecording] = useState(false)
   const [pendingShortcut, setPendingShortcut] = useState<string | null>(null)
   const ref = useRef<HTMLButtonElement>(null)
 
-  // Start recording when clicking
+  const allowModifierOnly = mode === 'modifier-only' || mode === 'tap'
+
   const handleClick = useCallback(() => {
     if (disabled) return
     setIsRecording(true)
     setPendingShortcut(null)
   }, [disabled])
 
-  // Handle keydown during recording
   useEffect(() => {
     if (!isRecording) return
 
@@ -35,7 +45,6 @@ export function ShortcutRecorder({
       e.preventDefault()
       e.stopPropagation()
 
-      // Escape cancels recording
       if (e.key === 'Escape') {
         setIsRecording(false)
         setPendingShortcut(null)
@@ -43,7 +52,13 @@ export function ShortcutRecorder({
         return
       }
 
-      // Don't record modifier-only presses
+      if (allowModifierOnly) {
+        // In modifier-only mode we accept the modifier key on its own,
+        // captured via keyup so we know the user isn't chording.
+        return
+      }
+
+      // Don't record modifier-only presses in chord mode
       if (
         e.key === 'Control' ||
         e.key === 'Shift' ||
@@ -56,24 +71,47 @@ export function ShortcutRecorder({
       const shortcut = formatKeyboardEvent(e)
       const normalized = normalizeShortcut(shortcut)
 
-      // Validate the shortcut
       if (!isValidShortcut(normalized)) {
-        // Show a brief flash or hint that it's invalid
         setPendingShortcut(normalized)
         return
       }
 
-      // Accept the shortcut
+      setPendingShortcut(null)
+      setIsRecording(false)
+      onChange(normalized)
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (!allowModifierOnly) return
+      if (
+        e.key !== 'Control' &&
+        e.key !== 'Shift' &&
+        e.key !== 'Alt' &&
+        e.key !== 'Meta'
+      ) {
+        return
+      }
+      e.preventDefault()
+      e.stopPropagation()
+      const shortcut = formatKeyboardEvent(e, true)
+      const normalized = normalizeShortcut(shortcut)
+      if (!isValidShortcut(normalized, true)) {
+        setPendingShortcut(normalized)
+        return
+      }
       setPendingShortcut(null)
       setIsRecording(false)
       onChange(normalized)
     }
 
     window.addEventListener('keydown', handleKeyDown, true)
-    return () => window.removeEventListener('keydown', handleKeyDown, true)
-  }, [isRecording, onChange, onCancel])
+    window.addEventListener('keyup', handleKeyUp, true)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true)
+      window.removeEventListener('keyup', handleKeyUp, true)
+    }
+  }, [isRecording, onChange, onCancel, allowModifierOnly])
 
-  // Handle click outside to cancel
   useEffect(() => {
     if (!isRecording) return
 
@@ -85,7 +123,6 @@ export function ShortcutRecorder({
       }
     }
 
-    // Use timeout to prevent immediate trigger
     setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside)
     }, 0)
@@ -93,15 +130,15 @@ export function ShortcutRecorder({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isRecording, onCancel])
 
-  // Focus the button when recording starts
   useEffect(() => {
     if (isRecording && ref.current) {
       ref.current.focus()
     }
   }, [isRecording])
 
+  const placeholder = allowModifierOnly ? 'Press a modifier...' : 'Press keys...'
   const displayValue = isRecording
-    ? pendingShortcut || 'Press keys...'
+    ? pendingShortcut || placeholder
     : value || 'Unbound'
 
   const className = [

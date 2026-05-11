@@ -5,7 +5,7 @@
   background-color: var(--toolbar-bg);
   border-right: 1px solid var(--border-color);
   overflow: hidden;
-  -webkit-app-region: no-drag;
+  -webkit-app-region: drag;
   user-select: none;
 }
 
@@ -145,6 +145,7 @@
   padding: 6px 8px;
   border-top: 1px solid var(--border-color);
   flex-shrink: 0;
+  -webkit-app-region: no-drag;
 }
 
 .sidebar-color-picker {
@@ -333,6 +334,7 @@
   height: 28px;
   box-sizing: border-box;
   flex-shrink: 0;
+  -webkit-app-region: no-drag;
 }
 
 .sidebar-section-toggle {
@@ -373,6 +375,9 @@
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  /* Drag regions eat scroll/click on Windows; sidebar background is `drag`
+     by default so we explicitly opt content panes out. */
+  -webkit-app-region: no-drag;
 }
 
 .sidebar-section-content::-webkit-scrollbar {
@@ -397,6 +402,7 @@
   text-align: center;
   color: var(--text-color-muted);
   font-size: 12px;
+  -webkit-app-region: no-drag;
 }
 
 .sidebar-add-folder-btn {
@@ -445,3 +451,9 @@
 .sidebar-outline-items .outline-level-4 { padding-left: 48px; font-size: 11px; }
 .sidebar-outline-items .outline-level-5 { padding-left: 60px; font-size: 11px; }
 .sidebar-outline-items .outline-level-6 { padding-left: 72px; font-size: 11px; }
+
+/* When the user holds the `view.moveWindow` modifier (default Alt), the
+   Wrangle icon button becomes a drag handle instead of opening its menu. */
+body.drag-modifier-active .sidebar-menu-item:first-child .sidebar-menu-btn {
+  -webkit-app-region: drag;
+}

@@ -1,54 +1,58 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { AppDispatch, RootState } from '../../store/store'
 import {
   selectCurrentBindings,
-  selectIsBuiltInPreset,
   selectAllPresetNames,
   selectVimMode,
   builtInPresets,
   setCurrentPreset,
   setVimMode,
   addCustomPreset,
-  updateShortcutBinding,
+  editShortcutBinding,
   deleteCustomPreset,
   saveShortcutSettings,
-  saveEditorSettings,
-  ShortcutBindings
+  saveEditorSettings
 } from '../../store/settingsSlice'
-import { commands, categories, categoryLabels, CommandDefinition } from '../../commands/registry'
-import { ShortcutRecorder } from './ShortcutRecorder'
+import { commands, categories, categoryLabels, commandMap, CommandDefinition } from '../../commands/registry'
+import { ShortcutRecorder, ShortcutRecorderMode } from './ShortcutRecorder'
 import { findConflicts } from '../../utils/shortcut-parser'
 import { useDebounce } from '../../hooks/useKeyboardShortcuts'
+
+function recorderModeFor(cmd: CommandDefinition): ShortcutRecorderMode {
+  if (cmd.bindingShape?.suffix === 'Tap') return 'tap'
+  if (cmd.bindingShape?.suffix) return 'modifier-only'
+  return 'chord'
+}
+
+function suffixLabel(cmd: CommandDefinition): string | null {
+  if (!cmd.bindingShape?.suffix) return null
+  if (cmd.bindingShape.suffix === 'Tap') return '(tap)'
+  return `+ ${cmd.bindingShape.suffix}`
+}
 
 export function KeyboardShortcutsTab() {
   const dispatch = useDispatch<AppDispatch>()
   const bindings = useSelector(selectCurrentBindings)
-  const isBuiltIn = useSelector(selectIsBuiltInPreset)
   const presetNames = useSelector(selectAllPresetNames)
   const vimEnabled = useSelector(selectVimMode)
-  const { currentPreset, customPresets } = useSelector(
-    (state: RootState) => state.settings.shortcuts
+  const currentPreset = useSelector(
+    (state: RootState) => state.settings.shortcuts.currentPreset
   )
 
   const [searchQuery, setSearchQuery] = useState('')
   const [showNewPresetModal, setShowNewPresetModal] = useState(false)
   const [newPresetName, setNewPresetName] = useState('')
 
-  // Debounced save
+  const isCurrentBuiltIn = !!builtInPresets[currentPreset]
+
   const debouncedSave = useDebounce(
     useCallback(() => {
-      dispatch(
-        saveShortcutSettings({
-          currentPreset,
-          customPresets
-        })
-      )
-    }, [dispatch, currentPreset, customPresets]),
+      dispatch(saveShortcutSettings())
+    }, [dispatch]),
     1000
   )
 
-  // Filter commands by search query
   const filteredCommands = useMemo(() => {
     if (!searchQuery.trim()) return commands
 
@@ -58,46 +62,50 @@ export function KeyboardShortcutsTab() {
         cmd.label.toLowerCase().includes(query) ||
         cmd.id.toLowerCase().includes(query) ||
         (bindings[cmd.id]?.toLowerCase().includes(query) ?? false) ||
-        (cmd.bindingDisplay?.toLowerCase().includes(query) ?? false)
+        (cmd.bindingShape?.suffix?.toLowerCase().includes(query) ?? false)
     )
   }, [searchQuery, bindings])
 
-  // Group filtered commands by category
+  // Group filtered commands by category, separating mouse-gesture commands
+  // (`bindingShape.suffix` Scroll/Drag) into a sub-section under "View".
   const groupedCommands = useMemo(() => {
-    const groups: Record<string, CommandDefinition[]> = {}
+    const groups: Record<string, { standard: CommandDefinition[]; gestures: CommandDefinition[] }> = {}
     for (const category of categories) {
       const categoryCommands = filteredCommands.filter((cmd) => cmd.category === category)
-      if (categoryCommands.length > 0) {
-        groups[category] = categoryCommands
+      if (categoryCommands.length === 0) continue
+      const standard: CommandDefinition[] = []
+      const gestures: CommandDefinition[] = []
+      for (const cmd of categoryCommands) {
+        if (cmd.bindingShape?.suffix === 'Scroll' || cmd.bindingShape?.suffix === 'Drag') {
+          gestures.push(cmd)
+        } else {
+          standard.push(cmd)
+        }
       }
+      groups[category] = { standard, gestures }
     }
     return groups
   }, [filteredCommands])
 
-  // Handle preset change
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     dispatch(setCurrentPreset(e.target.value))
     debouncedSave()
   }
 
-  // Handle copy to custom
   const handleCopyToCustom = () => {
     setNewPresetName(`${currentPreset}-copy`)
     setShowNewPresetModal(true)
   }
 
-  // Create new custom preset
   const handleCreatePreset = () => {
     const name = newPresetName.trim()
     if (!name) return
 
-    // Check if name already exists
     if (presetNames.includes(name)) {
       alert('A preset with this name already exists')
       return
     }
 
-    // Copy current bindings to new preset
     dispatch(
       addCustomPreset({
         name,
@@ -110,44 +118,78 @@ export function KeyboardShortcutsTab() {
     debouncedSave()
   }
 
-  // Handle delete preset
   const handleDeletePreset = () => {
-    if (isBuiltIn) return
+    if (isCurrentBuiltIn) return
     if (confirm(`Delete preset "${currentPreset}"?`)) {
       dispatch(deleteCustomPreset(currentPreset))
       debouncedSave()
     }
   }
 
-  // Handle shortcut change
+  // KBD-012: editing a binding while a built-in preset is active auto-creates
+  // a custom preset and switches to it before applying the change.
   const handleShortcutChange = (commandId: string, shortcut: string | null) => {
-    if (isBuiltIn) return
-
-    dispatch(
-      updateShortcutBinding({
-        presetName: currentPreset,
-        commandId,
-        shortcut
-      })
-    )
+    dispatch(editShortcutBinding({ commandId, shortcut }))
     debouncedSave()
   }
 
-  // Clear shortcut
   const handleClearShortcut = (commandId: string) => {
     handleShortcutChange(commandId, null)
   }
 
-  // Check for conflicts for a specific command
+  // KBD-014: partition conflict detection by `bindingShape.suffix` so e.g.
+  // `Ctrl+Scroll` and `Ctrl+B` don't surface as conflicts.
   const getConflictsForCommand = (commandId: string): string[] => {
     const binding = bindings[commandId]
     if (!binding) return []
-    return findConflicts(binding, bindings, commandId)
+    return findConflicts(
+      binding,
+      bindings,
+      commandId,
+      (id) => commandMap.get(id)?.bindingShape?.suffix
+    )
   }
 
   const handleVimModeToggle = () => {
     dispatch(setVimMode(!vimEnabled))
     dispatch(saveEditorSettings())
+  }
+
+  const renderShortcutRow = (cmd: CommandDefinition) => {
+    const conflicts = getConflictsForCommand(cmd.id)
+    const hasConflict = conflicts.length > 0
+    const suffix = suffixLabel(cmd)
+    const mode = recorderModeFor(cmd)
+
+    return (
+      <div key={cmd.id} className="shortcut-item">
+        <span className="shortcut-label">{cmd.label}</span>
+        <div className="shortcut-binding">
+          <ShortcutRecorder
+            value={bindings[cmd.id] || null}
+            onChange={(shortcut) => handleShortcutChange(cmd.id, shortcut)}
+            onCancel={() => {}}
+            hasConflict={hasConflict}
+            mode={mode}
+          />
+          {suffix && <span className="shortcut-suffix">{suffix}</span>}
+          {bindings[cmd.id] && (
+            <button
+              className="shortcut-clear"
+              onClick={() => handleClearShortcut(cmd.id)}
+              title="Clear shortcut"
+            >
+              <svg viewBox="0 0 10 10" width="10" height="10">
+                <path
+                  d="M1 0L0 1l4 4-4 4 1 1 4-4 4 4 1-1-4-4 4-4-1-1-4 4-4-4z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -182,7 +224,7 @@ export function KeyboardShortcutsTab() {
           >
             Copy to Custom
           </button>
-          {!isBuiltIn && (
+          {!isCurrentBuiltIn && (
             <button
               className="shortcuts-btn danger"
               onClick={handleDeletePreset}
@@ -206,72 +248,20 @@ export function KeyboardShortcutsTab() {
         </label>
       </div>
 
-      {/* Read-only notice for built-in presets */}
-      {isBuiltIn && (
-        <div className="shortcut-readonly-notice">
-          <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
-            <path d="M8 16A8 8 0 1 1 8 0a8 8 0 0 1 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
-          </svg>
-          Built-in presets are read-only. Click "Copy to Custom" to create an editable copy.
-        </div>
-      )}
-
       {/* Commands list */}
       <div className="shortcuts-list">
-        {Object.entries(groupedCommands).map(([category, cmds]) => (
+        {Object.entries(groupedCommands).map(([category, { standard, gestures }]) => (
           <div key={category} className="shortcuts-category">
             <div className="shortcuts-category-header">
               {categoryLabels[category as keyof typeof categoryLabels]}
             </div>
-            {cmds.map((cmd) => {
-              if (cmd.readOnly) {
-                return (
-                  <div key={cmd.id} className="shortcut-item shortcut-item-readonly">
-                    <span className="shortcut-label">
-                      {cmd.label}
-                      <svg className="shortcut-readonly-icon" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" title="This shortcut cannot be changed">
-                        <path d="M4 7V5a4 4 0 1 1 8 0v2h1a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h1zm2 0h4V5a2 2 0 1 0-4 0v2z" />
-                      </svg>
-                    </span>
-                    <div className="shortcut-binding">
-                      <span className="shortcut-key readonly">{cmd.bindingDisplay}</span>
-                    </div>
-                  </div>
-                )
-              }
-
-              const conflicts = getConflictsForCommand(cmd.id)
-              const hasConflict = conflicts.length > 0
-
-              return (
-                <div key={cmd.id} className="shortcut-item">
-                  <span className="shortcut-label">{cmd.label}</span>
-                  <div className="shortcut-binding">
-                    <ShortcutRecorder
-                      value={bindings[cmd.id] || null}
-                      onChange={(shortcut) => handleShortcutChange(cmd.id, shortcut)}
-                      onCancel={() => {}}
-                      hasConflict={hasConflict}
-                      disabled={isBuiltIn}
-                    />
-                    {!isBuiltIn && bindings[cmd.id] && (
-                      <button
-                        className="shortcut-clear"
-                        onClick={() => handleClearShortcut(cmd.id)}
-                        title="Clear shortcut"
-                      >
-                        <svg viewBox="0 0 10 10" width="10" height="10">
-                          <path
-                            d="M1 0L0 1l4 4-4 4 1 1 4-4 4 4 1-1-4-4 4-4-1-1-4 4-4-4z"
-                            fill="currentColor"
-                          />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+            {standard.map(renderShortcutRow)}
+            {gestures.length > 0 && (
+              <>
+                <div className="shortcuts-subcategory-header">Mouse Gestures</div>
+                {gestures.map(renderShortcutRow)}
+              </>
+            )}
           </div>
         ))}
       </div>

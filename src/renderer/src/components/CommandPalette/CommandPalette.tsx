@@ -26,9 +26,17 @@ export function CommandPalette({ isOpen, onClose, onExecute }: CommandPalettePro
       cmd.label.toLowerCase().includes(lowerQuery) ||
       cmd.category.toLowerCase().includes(lowerQuery) ||
       cmd.id.toLowerCase().includes(lowerQuery) ||
-      (cmd.bindingDisplay?.toLowerCase().includes(lowerQuery) ?? false)
+      (cmd.bindingShape?.suffix?.toLowerCase().includes(lowerQuery) ?? false)
     )
   }, [query])
+
+  function bindingDisplay(cmd: CommandDefinition): string | null {
+    const binding = bindings[cmd.id] || cmd.defaultBinding
+    if (!binding) return null
+    if (cmd.bindingShape?.suffix === 'Tap') return `${binding} (tap)`
+    if (cmd.bindingShape?.suffix) return `${binding} + ${cmd.bindingShape.suffix}`
+    return binding
+  }
 
   // Reset selection when query changes
   useEffect(() => {
@@ -66,7 +74,7 @@ export function CommandPalette({ isOpen, onClose, onExecute }: CommandPalettePro
         break
       case 'Enter':
         e.preventDefault()
-        if (filteredCommands[selectedIndex] && !filteredCommands[selectedIndex].readOnly) {
+        if (filteredCommands[selectedIndex]) {
           onExecute(filteredCommands[selectedIndex])
           onClose()
         }
@@ -96,16 +104,14 @@ export function CommandPalette({ isOpen, onClose, onExecute }: CommandPalettePro
             <div className="command-palette-empty">No matching commands</div>
           ) : (
             filteredCommands.map((cmd, index) => {
-              const shortcut = cmd.bindingDisplay || bindings[cmd.id] || cmd.defaultBinding
+              const shortcut = bindingDisplay(cmd)
               return (
                 <div
                   key={cmd.id}
-                  className={`command-palette-item ${index === selectedIndex ? 'selected' : ''} ${cmd.readOnly ? 'readonly' : ''}`}
+                  className={`command-palette-item ${index === selectedIndex ? 'selected' : ''}`}
                   onClick={() => {
-                    if (!cmd.readOnly) {
-                      onExecute(cmd)
-                      onClose()
-                    }
+                    onExecute(cmd)
+                    onClose()
                   }}
                   onMouseEnter={() => setSelectedIndex(index)}
                 >
@@ -114,7 +120,7 @@ export function CommandPalette({ isOpen, onClose, onExecute }: CommandPalettePro
                   </span>
                   <span className="command-palette-item-label">{cmd.label}</span>
                   {shortcut && (
-                    <span className={`command-palette-item-shortcut ${cmd.readOnly ? 'readonly' : ''}`}>{shortcut}</span>
+                    <span className="command-palette-item-shortcut">{shortcut}</span>
                   )}
                 </div>
               )

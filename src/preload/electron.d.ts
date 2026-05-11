@@ -80,7 +80,15 @@ export interface ElectronAPI {
     exportPdf: (html: string, title: string) => Promise<string | null>
     exportHtml: (html: string, title: string) => Promise<string | null>
     toggleDevTools: () => void
+    reload: () => void
+    forceReload: () => void
+    toggleFullscreen: () => void
     onStateChanged: (callback: (isMaximized: boolean) => void) => () => void
+  }
+  shortcuts: {
+    /** Publish current preset bindings to main so the application menu can
+     * rebuild with up-to-date accelerators. KBD-007. */
+    publishBindings: (bindings: Record<string, string | null>) => void
   }
   settings: {
     getAll: () => Promise<SettingsSchema>

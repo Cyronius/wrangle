@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, Menu, globalShortcut } from 'electron'
+import { app, shell, BrowserWindow, globalShortcut, ipcMain } from 'electron'
 import { join } from 'path'
 import { existsSync } from 'fs'
 import { readFile } from 'fs/promises'
@@ -8,6 +8,7 @@ import { didCrashLastSession, createRunningMarker, clearRunningMarker, findOrpha
 import { setCrashRecoveryInfo } from './ipc/crash-recovery-handler'
 import { isTextFile } from '../shared/file-extensions'
 import { logStartup } from './utils/startup-log'
+import { createApplicationMenu } from './menu/menu-template'
 
 logStartup('main module loaded', { isPackaged: app.isPackaged, platform: process.platform, version: app.getVersion() })
 
@@ -118,8 +119,10 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
-  // Hide native menu - using custom title bar menu instead
-  Menu.setApplicationMenu(null)
+  // Build native menu from registry schema. The custom title bar shows its
+  // own dropdown menu; the native menu serves to register accelerators with
+  // the OS and reflect the user's active preset (KBD-007).
+  createApplicationMenu(win, {})
 
   // HMR for renderer based on electron-vite cli
   // Load the remote URL for development or the local html file for production
@@ -205,6 +208,14 @@ app.whenReady().then(async () => {
   // Register IPC handlers
   registerAllHandlers()
   logStartup('IPC handlers registered')
+
+  // KBD-007: rebuild the native application menu whenever the renderer
+  // publishes the active preset bindings. `Menu.setApplicationMenu` replaces
+  // the existing menu wholesale, so this is safe to call repeatedly.
+  ipcMain.on('shortcuts:bindings-updated', (event, bindings: Record<string, string | null>) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win) createApplicationMenu(win, bindings)
+  })
 
   mainWindow = createWindow()
 

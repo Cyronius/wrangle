@@ -5,20 +5,45 @@ import { commands } from '../commands/registry'
 // Shortcut bindings map: commandId -> shortcut string
 export type ShortcutBindings = Record<string, string | null>
 
-// Generate default bindings from command registry
+// Generate default bindings from command registry. Computed lazily on first
+// access — registry imports action creators from this slice (for view/theme/
+// vim-mode commands), so doing this work at module load creates a circular
+// dependency in which `commands` is still `undefined` when iterated.
+let cachedDefaults: ShortcutBindings | null = null
 function getDefaultBindings(): ShortcutBindings {
+  if (cachedDefaults) return cachedDefaults
   const bindings: ShortcutBindings = {}
   for (const cmd of commands) {
-    if (cmd.readOnly) continue
     bindings[cmd.id] = cmd.defaultBinding
   }
+  cachedDefaults = bindings
   return bindings
 }
 
-// Built-in presets
-export const builtInPresets: Record<string, ShortcutBindings> = {
-  default: getDefaultBindings()
-}
+// Built-in presets. Proxy is the lazy-init wrapper; consumers see a normal
+// `Record<string, ShortcutBindings>` and access `builtInPresets.default`
+// without knowing the value is computed on first read.
+export const builtInPresets: Record<string, ShortcutBindings> = new Proxy(
+  {} as Record<string, ShortcutBindings>,
+  {
+    get(target, prop) {
+      if (prop === 'default') return getDefaultBindings()
+      return (target as Record<string, ShortcutBindings>)[prop as string]
+    },
+    has(_target, prop) {
+      return prop === 'default'
+    },
+    ownKeys() {
+      return ['default']
+    },
+    getOwnPropertyDescriptor(_target, prop) {
+      if (prop === 'default') {
+        return { configurable: true, enumerable: true, value: getDefaultBindings() }
+      }
+      return undefined
+    }
+  }
+)
 
 export interface SettingsState {
   // Loaded status
@@ -98,12 +123,56 @@ export const saveThemeSettings = createAsyncThunk(
   }
 )
 
-// Async thunk to save shortcut settings
+// Async thunk to save shortcut settings - reads current state to avoid race conditions
 export const saveShortcutSettings = createAsyncThunk(
   'settings/saveShortcuts',
-  async (shortcuts: SettingsState['shortcuts']) => {
+  async (_: void, { getState }) => {
+    const state = getState() as { settings: SettingsState }
+    const shortcuts = state.settings.shortcuts
     await window.electron.settings.set('shortcuts', shortcuts)
     return shortcuts
+  }
+)
+
+/**
+ * Auto-copy on first edit. If the active preset is a built-in, fork it to a
+ * unique custom preset (`My Shortcuts`, `My Shortcuts (2)`, ...), switch to
+ * it, then apply the binding edit. Otherwise just edits the active preset.
+ *
+ * KBD-012: silently transitions the user from a read-only built-in to a
+ * mutable custom preset on first edit, so users never have to discover a
+ * "Copy to Custom" button before customizing a shortcut.
+ */
+export const editShortcutBinding = createAsyncThunk(
+  'settings/editShortcutBinding',
+  async (
+    { commandId, shortcut }: { commandId: string; shortcut: string | null },
+    { getState, dispatch }
+  ) => {
+    const state = getState() as { settings: SettingsState }
+    const { currentPreset, customPresets } = state.settings.shortcuts
+
+    let activePreset = currentPreset
+    if (builtInPresets[currentPreset]) {
+      const baseName = 'My Shortcuts'
+      let candidate = baseName
+      let n = 2
+      const taken = new Set([
+        ...Object.keys(builtInPresets),
+        ...Object.keys(customPresets)
+      ])
+      while (taken.has(candidate)) {
+        candidate = `${baseName} (${n++})`
+      }
+
+      const sourceBindings = builtInPresets[currentPreset]
+      dispatch(addCustomPreset({ name: candidate, bindings: { ...sourceBindings } }))
+      dispatch(setCurrentPreset(candidate))
+      activePreset = candidate
+    }
+
+    dispatch(updateShortcutBinding({ presetName: activePreset, commandId, shortcut }))
+    return activePreset
   }
 )
 
@@ -248,9 +317,9 @@ const settingsSlice = createSlice({
       .addCase(saveThemeSettings.fulfilled, () => {
         // Persistence handled by the thunk. State is source of truth.
       })
-      // Save shortcuts
-      .addCase(saveShortcutSettings.fulfilled, (state, action) => {
-        state.shortcuts = action.payload
+      // Save shortcuts - don't overwrite state, it's already updated by sync reducers
+      .addCase(saveShortcutSettings.fulfilled, () => {
+        // Persistence handled by the thunk. State is source of truth.
       })
       // Save layout
       .addCase(saveLayoutSettings.fulfilled, (state, action) => {
@@ -317,4 +386,41 @@ export function selectAllPresetNames(state: { settings: SettingsState }): string
     ...Object.keys(builtInPresets),
     ...Object.keys(state.settings.shortcuts.customPresets)
   ]
+}
+
+/**
+ * Returns the modifier-key portion of the binding for a `bindingShape.suffix`
+ * command (e.g. `view.zoomScroll`), or null if unbound. KBD-014: the wheel /
+ * tap / drag dispatchers read this instead of hardcoding `e.ctrlKey`.
+ */
+export function selectModifierBinding(
+  state: { settings: SettingsState },
+  commandId: string
+): 'Ctrl' | 'Shift' | 'Alt' | 'Meta' | null {
+  const bindings = selectCurrentBindings(state)
+  const raw = bindings[commandId]
+  if (!raw) return null
+  const upper = raw.trim().toUpperCase()
+  if (upper === 'CTRL' || upper === 'CONTROL') return 'Ctrl'
+  if (upper === 'SHIFT') return 'Shift'
+  if (upper === 'ALT') return 'Alt'
+  if (upper === 'META' || upper === 'CMD' || upper === 'WIN') return 'Meta'
+  return null
+}
+
+/**
+ * Test whether a keyboard or wheel event matches the given modifier name.
+ * KBD-014.
+ */
+export function eventMatchesModifier(
+  event: { ctrlKey?: boolean; shiftKey?: boolean; altKey?: boolean; metaKey?: boolean },
+  modifier: 'Ctrl' | 'Shift' | 'Alt' | 'Meta' | null
+): boolean {
+  if (!modifier) return false
+  switch (modifier) {
+    case 'Ctrl': return !!event.ctrlKey
+    case 'Shift': return !!event.shiftKey
+    case 'Alt': return !!event.altKey
+    case 'Meta': return !!event.metaKey
+  }
 }
