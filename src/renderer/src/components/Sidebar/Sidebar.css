@@ -61,6 +61,9 @@
   height: 32px;
   width: auto;
   object-fit: contain;
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
 }
 
 /* Menu dropdown (positioned via JS) */
