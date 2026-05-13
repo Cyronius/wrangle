@@ -196,6 +196,44 @@ export function Sidebar({
     setOpenSubmenu(null)
   }
 
+  // Drag the window when the user mouses down on a blank drag region.
+  // We need this in JS because `app-region: drag` is unreliable in this app
+  // (Allotment's absolute-positioned panes interfere with Chromium's drag
+  // hit-test). screenX/screenY stay valid even when the cursor leaves the
+  // window mid-drag.
+  const handleDragRegionMouseDown = useCallback(async (e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    const bounds = await window.electron.window.getBounds()
+    if (!bounds) return
+    const startMouseX = e.screenX
+    const startMouseY = e.screenY
+    const startWinX = bounds.x
+    const startWinY = bounds.y
+
+    let pendingX = startWinX
+    let pendingY = startWinY
+    let rafId: number | null = null
+
+    const flush = () => {
+      rafId = null
+      window.electron.window.setPosition(pendingX, pendingY)
+    }
+
+    const onMove = (moveEvent: MouseEvent) => {
+      pendingX = startWinX + (moveEvent.screenX - startMouseX)
+      pendingY = startWinY + (moveEvent.screenY - startMouseY)
+      if (rafId === null) rafId = requestAnimationFrame(flush)
+    }
+    const onUp = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId)
+      flush()
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+
   const handleMenuItemClick = (action?: () => void) => {
     if (action) action()
     setOpenMenu(null)
@@ -463,7 +501,7 @@ export function Sidebar({
             </div>
           ))}
         </div>
-        <div className="sidebar-top-drag-spacer" />
+        <div className="sidebar-top-drag-spacer" onMouseDown={handleDragRegionMouseDown} />
       </div>
 
       {/* Workspace indicator */}

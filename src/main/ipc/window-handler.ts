@@ -42,6 +42,17 @@ export function registerWindowHandlers(): void {
     return window?.isMaximized() ?? false
   })
 
+  ipcMain.handle('window:getBounds', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    return window?.getBounds() ?? null
+  })
+
+  ipcMain.on('window:setPosition', (event, x: number, y: number) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window || window.isMaximized() || window.isFullScreen()) return
+    window.setPosition(Math.round(x), Math.round(y))
+  })
+
   ipcMain.on('window:print', (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     window?.webContents.print({ silent: false, printBackground: true })

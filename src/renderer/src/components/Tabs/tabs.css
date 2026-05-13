@@ -10,6 +10,7 @@
   height: 36px;
   flex-shrink: 1;
   min-width: 0;
+  app-region: drag;
   -webkit-app-region: drag;
 }
 
@@ -29,6 +30,7 @@
   max-width: 200px;
   transition: background-color 0.15s ease, border-color 0.15s ease;
   border-radius: 8px 8px 0 0;
+  app-region: no-drag;
   -webkit-app-region: no-drag;
 }
 
@@ -134,6 +136,7 @@
   border-radius: 3px;
   padding: 0;
   transition: background-color 0.15s ease, color 0.15s ease;
+  app-region: no-drag;
   -webkit-app-region: no-drag;
 }
 
@@ -237,6 +240,7 @@
   font-size: 16px;
   color: var(--text-color-muted);
   transition: color 0.15s ease;
+  app-region: no-drag;
   -webkit-app-region: no-drag;
 }
 
@@ -273,6 +277,7 @@
   color: var(--text-color);
   margin: 4px 8px;
   transition: background-color 0.15s ease;
+  app-region: no-drag;
   -webkit-app-region: no-drag;
 }
 

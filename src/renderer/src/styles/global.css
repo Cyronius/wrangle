@@ -73,6 +73,7 @@ code {
 .tab-row-drag-spacer {
   flex: 1 1 auto;
   min-width: 8px;
+  app-region: drag;
   -webkit-app-region: drag;
 }
 
@@ -84,6 +85,7 @@ code {
   gap: 0;
   height: 36px;
   padding: 0 4px;
+  app-region: no-drag;
   -webkit-app-region: no-drag;
 }
 

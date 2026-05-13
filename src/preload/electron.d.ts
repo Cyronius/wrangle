@@ -76,6 +76,8 @@ export interface ElectronAPI {
     resetZoom: () => void
     getZoom: () => Promise<number>
     isMaximized: () => Promise<boolean>
+    getBounds: () => Promise<{ x: number; y: number; width: number; height: number } | null>
+    setPosition: (x: number, y: number) => void
     print: () => void
     exportPdf: (html: string, title: string) => Promise<string | null>
     exportHtml: (html: string, title: string) => Promise<string | null>
