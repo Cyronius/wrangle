@@ -55,7 +55,7 @@ export interface CommandContext {
 
 type ViewState = {
   tabs: { tabs: { id: string; path?: string }[]; activeTabIdByWorkspace: Record<string, string> }
-  workspaces: { activeWorkspaceId: string }
+  workspaces: { workspaces: { id: string; visibleInTabBar: boolean }[]; activeWorkspaceId: string }
   layout: { focusedPaneId: string | null }
 }
 
@@ -67,10 +67,17 @@ function isActiveFileMarkdown(ctx: CommandContext): boolean {
   return isMarkdownFilePath(tab?.path)
 }
 
+// Per-pane view mode (LYT-006) only applies when multi-pane is actually
+// rendered (≥2 visible workspaces). `focusedPaneId` is set on any tab click
+// even in single-pane mode, so it's not a reliable "are we multi-pane?"
+// signal — the single-pane EditorLayout reads only the global `viewMode`,
+// so dispatching `setPaneViewMode` there is invisible to the UI and Ctrl+1/2/3
+// appear to do nothing.
 function dispatchViewMode(ctx: CommandContext, mode: 'editor-only' | 'split' | 'preview-only'): void {
   const state = ctx.getState() as ViewState
+  const visibleCount = state.workspaces.workspaces.filter(w => w.visibleInTabBar).length
   const focusedPaneId = state.layout.focusedPaneId
-  if (focusedPaneId) {
+  if (visibleCount >= 2 && focusedPaneId) {
     ctx.dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: mode }))
   } else {
     ctx.dispatch(setViewMode(mode))
