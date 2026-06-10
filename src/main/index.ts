@@ -6,7 +6,7 @@ import { registerAllHandlers } from './ipc'
 import { initTempRoot } from './utils/temp-dir-manager'
 import { didCrashLastSession, createRunningMarker, clearRunningMarker, findOrphanedDrafts, readRunningMarkerPid } from './utils/crash-recovery'
 import { setCrashRecoveryInfo } from './ipc/crash-recovery-handler'
-import { isTextFile } from '../shared/file-extensions'
+import { getFilePathFromArgs } from './utils/cli-args'
 import { logStartup } from './utils/startup-log'
 import { createApplicationMenu } from './menu/menu-template'
 
@@ -21,22 +21,6 @@ process.on('unhandledRejection', (reason) => {
 
 // Module-level reference so second-instance handler can access it
 let mainWindow: BrowserWindow | null = null
-
-function getFilePathFromArgs(argv?: string[]): string | null {
-  // process.argv structure in Electron:
-  // [0]: electron executable
-  // [1]: app path (main.js)
-  // [2+]: custom arguments
-  const args = (argv || process.argv).slice(2)
-
-  for (const arg of args) {
-    // Skip flags and look for supported text file paths
-    if (!arg.startsWith('-') && isTextFile(arg) && existsSync(arg)) {
-      return arg
-    }
-  }
-  return null
-}
 
 function createWindow(): BrowserWindow {
   logStartup('createWindow: start')
@@ -85,7 +69,7 @@ function createWindow(): BrowserWindow {
     showNow('ready-to-show')
 
     // Check for file path in command-line arguments
-    const filePath = getFilePathFromArgs()
+    const filePath = getFilePathFromArgs(process.argv, app.isPackaged)
     if (filePath) {
       try {
         const content = await readFile(filePath, 'utf-8')
@@ -160,7 +144,7 @@ if (!gotLock) {
     mainWindow.focus()
 
     // If a file path was passed on the second invocation, open it
-    const filePath = getFilePathFromArgs(argv)
+    const filePath = getFilePathFromArgs(argv, app.isPackaged)
     if (filePath) {
       try {
         const content = await readFile(filePath, 'utf-8')

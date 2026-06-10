@@ -175,15 +175,20 @@ export const selectVisibleWorkspaceIds = createSelector(
   (workspaces) => workspaces.filter((w) => w.visibleInTabBar).map((w) => w.id)
 )
 
-// Find workspace that contains a given file path
-export const selectWorkspaceForPath = (state: RootState, filePath: string | undefined) => {
-  if (!filePath) return selectDefaultWorkspace(state)
+// Pure: the folder-backed workspace whose rootPath is an ancestor of filePath,
+// or null if none contains it. First match wins. Used to place OS-opened files
+// (FIO-010) and as the basis for selectWorkspaceForPath.
+export function findFolderWorkspaceForPath(
+  workspaces: WorkspaceState[],
+  filePath: string | undefined
+): WorkspaceState | null {
+  if (!filePath) return null
 
   // Normalize path separators for comparison
   const normalizedFilePath = filePath.replace(/\\/g, '/')
 
-  // Check non-default workspaces first (they have rootPath)
-  for (const workspace of state.workspaces.workspaces) {
+  // Only folder-backed workspaces (non-null rootPath) can own a path
+  for (const workspace of workspaces) {
     if (workspace.rootPath) {
       const normalizedRootPath = workspace.rootPath.replace(/\\/g, '/')
       if (normalizedFilePath.startsWith(normalizedRootPath + '/')) {
@@ -192,8 +197,12 @@ export const selectWorkspaceForPath = (state: RootState, filePath: string | unde
     }
   }
 
-  // Default to default workspace
-  return selectDefaultWorkspace(state)
+  return null
+}
+
+// Find workspace that contains a given file path, falling back to the default workspace
+export const selectWorkspaceForPath = (state: RootState, filePath: string | undefined) => {
+  return findFolderWorkspaceForPath(state.workspaces.workspaces, filePath) ?? selectDefaultWorkspace(state)
 }
 
 export const {

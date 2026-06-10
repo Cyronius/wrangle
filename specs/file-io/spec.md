@@ -169,18 +169,23 @@ Auto-save writes the current tab content to the tab's known path, or to a tab-sc
 
 - **Status:** Active
 - **Added:** 2026-04-23
+- **Updated:** 2026-06-08
 
-When Wrangle is launched with a file path as a command-line argument, that file is opened in the first window after the renderer is ready.
+When Wrangle is launched with a file path as a command-line argument — including when the OS launches it via a file-type association (e.g. double-clicking a `.md` in the file manager) — that file is opened in the first window after the renderer is ready.
 
 **Behavior:**
-- `process.argv.slice(2)` is scanned for the first argument that (a) does not start with `-`, (b) passes `isTextFile(arg)` (extension is in the shared whitelist), and (c) exists on disk
+- The argv scan offset depends on packaging, because Electron's `process.argv` leading entries differ:
+  - **Packaged** (installed app): `[exe, <file>, ...]` → scan from index **1** (`argv.slice(1)`)
+  - **Unpackaged** (dev / e2e): `[electron, mainScript, <file>, ...]` → scan from index **2** (`argv.slice(2)`)
+  - The offset is selected by `app.isPackaged`. Using a fixed offset of 2 in a packaged build drops the file path at `argv[1]`, which is the OS-supplied path — this was the cause of "Wrangle launches but the file does not open" when opening from Explorer.
+- The sliced args are scanned for the first argument that (a) does not start with `-`, (b) passes `isTextFile(arg)` (extension is in the shared whitelist), and (c) exists on disk
 - If found, the file is read as UTF-8 on the `ready-to-show` event of the main window
 - The renderer receives the content via the `file:openFromPath` IPC event as `{ path, content }`
 - Errors during the read are logged but do not block window startup
 - If no matching argument is present, no file is auto-opened
 
 **Interface Contract:**
-- Main-process scanner: `getFilePathFromArgs(argv?: string[]): string | null` in `src/main/index.ts`
+- Main-process scanner: `getFilePathFromArgs(argv: string[], isPackaged: boolean): string | null` in `src/main/utils/cli-args.ts`
 - IPC event (main → renderer): `file:openFromPath` with payload `{ path: string; content: string }`
 - Preload: `window.electron.onFileOpenedFromPath(callback)`
 
@@ -207,7 +212,7 @@ Only one instance of Wrangle runs at a time; subsequent launches forward their C
 
 **Interface Contract:**
 - Main-process: `app.on('second-instance', (event, argv) => ...)` in `src/main/index.ts`
-- Reuses `getFilePathFromArgs(argv)` and the `file:openFromPath` IPC event
+- Reuses `getFilePathFromArgs(argv, app.isPackaged)` (see FIO-007) and the `file:openFromPath` IPC event
 
 **E2E Test Plan:**
 - Launch Wrangle; then launch `wrangle.exe other.md` again → original window gains focus and opens `other.md` as a new tab
@@ -240,12 +245,39 @@ When a batch file-open operation encounters a file it cannot read, it logs the e
 
 ---
 
+### FIO-010: OS-Opened File Workspace Placement And Focus
+
+- **Status:** Active
+- **Added:** 2026-06-08
+- **Applies to:** wrangle (renderer)
+- **Test category:** unit (placement function) + manual (focus/visibility wiring)
+
+When a file is delivered to the renderer via the `file:openFromPath` event (FIO-007 first launch / FIO-008 second instance — i.e. opened from the OS file manager or "Open with"), it is placed in a workspace and surfaced for immediate editing. This differs from the file-picker and file-tree flows, which fall back to the *active* workspace; OS-opened files fall back to the *default* workspace.
+
+**Behavior:**
+- **Placement:** If an open folder-backed workspace's `rootPath` is an ancestor of the file path (ancestor containment, normalized across `\` and `/`), the file's tab is created in that workspace. Otherwise it is created in the default workspace (`__default__`) — *not* the currently active workspace. When more than one folder workspace contains the path (nested roots), the first match in workspace order wins.
+- **Already open:** If a tab with the same `path` already exists, no duplicate is created; its existing tab and workspace are used as the target.
+- **Focus:** The target workspace is made active (`setActiveWorkspace`) and focused (`setFocusedPane`), the target tab is activated (`setActiveTab`), and the editor is given keyboard focus after the active-tab-driven re-render commits (`requestAnimationFrame(() => editorRef.current?.focus())`). Because the editor pane is driven by `useEditorPane(activeWorkspaceId)`, switching the active workspace is required for the opened file to be visible.
+
+**Interface Contract:**
+- Pure placement helper: `findFolderWorkspaceForPath(workspaces, filePath): WorkspaceState | null` in `src/renderer/src/store/workspacesSlice.ts` (returns `null` when no folder workspace owns the path; caller substitutes the default workspace). `selectWorkspaceForPath` delegates to it.
+- Renderer handler: `onFileOpenedFromPath` effect in `src/renderer/src/App.tsx`.
+
+**Test Plan:**
+- *unit* — `findFolderWorkspaceForPath`: ancestor match, nested-subfolder match, no-match → `null`, only-default → `null`, `\`/`/` normalization, sibling prefix not matched (`projects` vs `projects-archive`), nested-roots first-match-wins, `undefined` path → `null`. Parity: `selectWorkspaceForPath` still returns the default workspace on no match.
+- *manual* — (1) file outside any folder workspace opens in Default, which becomes active/focused with the editor focused; (2) file inside an open folder workspace opens in that workspace, active/focused; (3) an already-open file is surfaced (workspace + tab activated) with no duplicate tab.
+
+---
+
 ## Key Files
 
 | File | Purpose |
 |------|---------|
 | `src/main/ipc/file-handler.ts` | Registers `file:open`, `file:readByPath`, `file:save`, `file:saveAs`, `file:autoSave` handlers and `isBinaryFile` helper |
-| `src/main/index.ts` | `getFilePathFromArgs`, `ready-to-show` CLI file load, `second-instance` handler, single-instance lock |
+| `src/main/utils/cli-args.ts` | `getFilePathFromArgs` — packaging-aware argv scan for the OS-supplied file path |
+| `src/main/index.ts` | `ready-to-show` CLI file load, `second-instance` handler, single-instance lock |
+| `src/renderer/src/store/workspacesSlice.ts` | `findFolderWorkspaceForPath` / `selectWorkspaceForPath` — workspace placement for opened files (FIO-010) |
+| `src/renderer/src/App.tsx` | `onFileOpenedFromPath` effect — places OS-opened files (FIO-010) and gives editor focus |
 | `src/shared/file-extensions.ts` | `TEXT_EXTENSIONS` set and `isTextFile` helper used by binary detection and CLI arg filtering |
 | `src/main/utils/temp-dir-manager.ts` | `ensureTempDir`, `getTempDraftPath` used by auto-save for unsaved tabs |
 | `src/preload/electron.d.ts` | Types for `window.electron.file.*` and `onFileOpenedFromPath` |

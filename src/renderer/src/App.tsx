@@ -11,9 +11,9 @@ import {
   markSessionRestored,
   moveTabToWorkspace
 } from './store/tabsSlice'
-import { selectActiveWorkspaceId, selectAllWorkspaces, selectVisibleWorkspaceIds, addWorkspace, setActiveWorkspace, setVisibleInTabBar } from './store/workspacesSlice'
+import { selectActiveWorkspaceId, selectAllWorkspaces, selectVisibleWorkspaceIds, addWorkspace, setActiveWorkspace, setVisibleInTabBar, findFolderWorkspaceForPath } from './store/workspacesSlice'
 import { loadSettings } from './store/settingsSlice'
-import { DEFAULT_WORKSPACE_ID } from '../../shared/workspace-types'
+import { DEFAULT_WORKSPACE_ID, type WorkspaceId } from '../../shared/workspace-types'
 import { Allotment } from 'allotment'
 import { EditorLayout } from './components/Layout/EditorLayout'
 import { TabBar } from './components/Tabs/TabBar'
@@ -645,32 +645,48 @@ function AppContent() {
     }
   })
 
-  // Handle files opened via command line (e.g., double-click to open, "Open with" menu)
+  // Handle files opened via the OS (double-click / "Open with" → file:openFromPath).
+  // FIO-010: such files land in the default workspace, UNLESS an open folder-backed
+  // workspace contains the file (its rootPath is an ancestor), in which case they
+  // land there. The target workspace is surfaced, the tab activated, and the editor
+  // focused so the user can start typing immediately.
   useEffect(() => {
     const unsubscribe = window.electron.onFileOpenedFromPath((fileData) => {
-      // Check if file is already open
       const existingTab = tabs.find(t => t.path === fileData.path)
+
+      let targetTabId: string
+      let targetWorkspaceId: WorkspaceId
+
       if (existingTab) {
-        dispatch(setActiveTab(existingTab.id))
-        return
+        // Already open: surface its existing tab, don't duplicate
+        targetTabId = existingTab.id
+        targetWorkspaceId = existingTab.workspaceId
+      } else {
+        const folderWorkspace = findFolderWorkspaceForPath(workspaces, fileData.path)
+        targetWorkspaceId = folderWorkspace ? folderWorkspace.id : DEFAULT_WORKSPACE_ID
+
+        const filename = fileData.path.split(/[\\/]/).pop() || 'Untitled'
+        targetTabId = `tab-${Date.now()}`
+        dispatch(addTab({
+          id: targetTabId,
+          workspaceId: targetWorkspaceId,
+          filename,
+          content: fileData.content,
+          path: fileData.path,
+          isDirty: false
+        }))
       }
 
-      // Create new tab with the file content
-      const filename = fileData.path.split(/[\\/]/).pop() || 'Untitled'
-      const newTabId = `tab-${Date.now()}`
-      dispatch(addTab({
-        id: newTabId,
-        workspaceId: activeWorkspaceId,
-        filename,
-        content: fileData.content,
-        path: fileData.path,
-        isDirty: false
-      }))
-      dispatch(setActiveTab(newTabId))
+      // Make the target workspace active/focused and the file's tab active, then
+      // focus the editor after the activeTab-driven re-render has committed.
+      dispatch(setActiveWorkspace(targetWorkspaceId))
+      dispatch(setFocusedPane(targetWorkspaceId))
+      dispatch(setActiveTab(targetTabId))
+      requestAnimationFrame(() => editorRef.current?.focus())
     })
 
     return unsubscribe
-  }, [tabs, dispatch, activeWorkspaceId])
+  }, [tabs, dispatch, workspaces])
 
   // Undo/Redo handlers for Monaco editor
   const handleUndo = useCallback(() => {
