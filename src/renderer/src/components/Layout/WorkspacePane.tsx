@@ -1,4 +1,5 @@
 import { useCallback, useState, useEffect } from 'react'
+import type { CSSProperties } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store/store'
 import { setFocusedPane, setPaneSplitRatio, setPaneViewMode, ViewMode } from '../../store/layoutSlice'
@@ -132,7 +133,13 @@ export function WorkspacePane({ workspaceId, isFocused, onFocus }: WorkspacePane
       </div>
       <div
         className="workspace-toolbar-bar"
-        style={{ backgroundColor: workspace.color, opacity: isFocused ? 1 : 0.85 }}
+        style={
+          {
+            backgroundColor: workspace.color,
+            '--ws-bar-color': workspace.color,
+            opacity: isFocused ? 1 : 0.85
+          } as CSSProperties
+        }
       >
         <span className="workspace-toolbar-bar-name">{workspace.name}</span>
       </div>

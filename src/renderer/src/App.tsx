@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef as useReactRef } from 'react'
+import type { CSSProperties } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState, AppDispatch } from './store/store'
 import { setViewMode, zoomIn, zoomOut, setFocusedPane } from './store/layoutSlice'
@@ -941,7 +942,12 @@ function AppContent() {
                   {tabs.length > 0 && !isDefaultOnly && (
                     <div
                       className="workspace-toolbar-bar"
-                      style={{ backgroundColor: activeWorkspaceColor }}
+                      style={
+                        {
+                          backgroundColor: activeWorkspaceColor,
+                          '--ws-bar-color': activeWorkspaceColor
+                        } as CSSProperties
+                      }
                     >
                       <span className="workspace-toolbar-bar-name">{activeWorkspace?.name || ''}</span>
                     </div>

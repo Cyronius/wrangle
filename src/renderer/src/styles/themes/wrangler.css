@@ -1,0 +1,136 @@
+/*
+ * Wrangler — refined western craftsman.
+ * Warm leather chrome + brass accent, slab-serif headings (Zilla Slab),
+ * a serif reading surface (Source Serif 4) on a parchment preview.
+ * Fonts are loaded in renderer/index.html.
+ */
+:root[data-theme='Wrangler'] {
+  /* Typography */
+  --font-ui: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-read: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-heading: 'Zilla Slab', Georgia, serif;
+
+  /* App background and text */
+  --app-bg: #1b1610;
+  --text-color: #c9b491;
+  --text-color-active: #f3e6cf;
+  --text-color-muted: #8e7a5c;
+  --text-muted: #8e7a5c;
+  --border-color: #3a2e1f;
+
+  /* Tab bar */
+  --tab-bar-bg: #1b1610;
+  --tab-bg: #241d15;
+  --tab-hover-bg: #2e251a;
+  --tab-active-bg: #241d15;
+  --tab-close-hover-bg: #3a2e1f;
+  --tab-close-active-bg: #4a3a26;
+
+  /* Toolbar / sidebar / workspace bar */
+  --toolbar-bg: #241d15;
+  --toolbar-border: #3a2e1f;
+  --button-bg: #2e251a;
+  --button-hover-bg: #3a2e1f;
+  --button-active-bg: rgba(208, 154, 78, 0.16);
+
+  /* Preview — parchment */
+  --preview-bg: #f3e8d4;
+  --preview-text: #3a2e22;
+  --preview-heading: #3a2a18;
+  --preview-text-muted: #7a6037;
+  --preview-border: #d8c6a8;
+  --preview-link: #a9631f;
+  --preview-code-bg: rgba(120, 90, 40, 0.16);
+  --preview-code-block-bg: #2c241a;
+  --preview-table-header-bg: #e7dcc4;
+  --preview-table-row-alt-bg: #efe4d0;
+
+  /* Preview cursor / selection (brass, on-brand) */
+  --preview-cursor-color: #b5803a;
+  --pseudo-cursor-color: #b5803a;
+  --preview-selection-bg: rgba(208, 154, 78, 0.28);
+  --pseudo-selection-bg: rgba(208, 154, 78, 0.22);
+
+  /* Accent */
+  --accent-color: #d09a4e;
+
+  /* Monaco editor — warm dark */
+  --monaco-editor-bg: #241d15;
+  --monaco-editor-fg: #d4c4a6;
+  --monaco-line-number: #5c4a32;
+  --monaco-line-number-active: #c9b491;
+  --monaco-selection-bg: #4a3a26;
+  --monaco-cursor: #e0b877;
+  --monaco-token-comment: #7e8a55;
+  --monaco-token-string: #cf9b6a;
+  --monaco-token-keyword: #d98c5f;
+  --monaco-token-number: #c9a96a;
+  --monaco-token-operator: #c9b491;
+  --monaco-token-function: #e7bd7e;
+  --monaco-token-variable: #d4b98a;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #4a3a26;
+  --scrollbar-thumb-hover: #5c4a32;
+}
+
+/* ---------- Theme-scoped flourishes (only apply under the Wrangler theme) ---------- */
+
+/* H1: drop the full underline for a short brass rule */
+:root[data-theme='Wrangler'] .markdown-body h1 {
+  border-bottom: none;
+  padding-bottom: 14px;
+  position: relative;
+  font-weight: 700;
+}
+:root[data-theme='Wrangler'] .markdown-body h1::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 60px;
+  height: 4px;
+  background: var(--accent-color);
+  border-radius: 2px;
+}
+
+/* Brass list markers */
+:root[data-theme='Wrangler'] .markdown-body li::marker {
+  color: var(--accent-color);
+}
+
+/* Blockquote: brass rule, tinted parchment, serif italic */
+:root[data-theme='Wrangler'] .markdown-body blockquote {
+  border-left: 4px solid var(--accent-color);
+  background: rgba(208, 154, 78, 0.12);
+  color: #5a4528;
+  font-style: italic;
+  padding: 6px 18px;
+  border-radius: 0 8px 8px 0;
+}
+
+/* Plain (non-highlighted) code blocks: light text on the dark code panel.
+   Language-highlighted blocks keep their highlight.js token colors. */
+:root[data-theme='Wrangler'] .markdown-body pre,
+:root[data-theme='Wrangler'] .markdown-body pre code {
+  color: #e7d6b8;
+}
+
+/* Colored workspace bar: soft left-to-transparent gradient instead of a flat slab.
+   --ws-bar-color is set inline alongside background-color by the React components. */
+:root[data-theme='Wrangler'] .workspace-toolbar-bar {
+  background: linear-gradient(90deg, var(--ws-bar-color, #8d6324), transparent 78%) !important;
+}
+:root[data-theme='Wrangler'] .workspace-toolbar-bar-name {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+/* Workspace bar (far left): softer corners + brass active indicator */
+:root[data-theme='Wrangler'] .workspace-bar-item {
+  border-radius: 0 8px 8px 0;
+}
+:root[data-theme='Wrangler'] .workspace-bar-item.active {
+  box-shadow: inset 3px 0 0 0 #e0b877;
+}

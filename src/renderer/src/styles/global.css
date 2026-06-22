@@ -5,9 +5,7 @@
 }
 
 body {
-  font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
@@ -29,6 +27,14 @@ code {
 
 /* Default theme variables (dark) */
 :root {
+  /* Typography tokens. Themes may override --font-ui / --font-read / --font-heading.
+     Defaults reproduce the original generic stacks so existing themes are unchanged. */
+  --font-ui: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --font-read: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
+    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --font-heading: var(--font-read);
+
   --app-bg: #1e1e1e;
   --text-color: #d4d4d4;
   --text-color-active: #ffffff;
