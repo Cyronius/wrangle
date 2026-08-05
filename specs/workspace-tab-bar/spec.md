@@ -10,30 +10,31 @@ This specification defines the behavior of the tab bar when multiple workspaces 
 
 ## Requirements
 
-### WTB-001: Workspace Visibility Toggle
+### WTB-001: Workspace Browse + Show on Single Click
 
 - **Status:** Active
 - **Added:** 2026-02-11
+- **Updated:** 2026-06-25
+- **Source plan:** recouple-show-with-click
 
-Clicking a workspace in the left sidebar toggles whether that workspace's tabs appear in the tab bar.
+A single click on a workspace in the WorkspaceBar *browses it and shows it in the editor*: it makes the workspace active/expanded so the sidebar file explorer shows that workspace's file tree, opens the sidebar, focuses the workspace, AND ensures it is present in the editor as a pane (`visibleInTabBar = true`). Clicking additional workspaces adds additional side-by-side panes. Clicking the *already-active* workspace toggles it off again (hides it) — this and the explorer header hide button (WTB-013) are the ways to remove a workspace from the editor. The rail items themselves carry no hide button.
 
 **Behavior:**
-- When a workspace is "shown": its tab group appears in the tab bar with the workspace indicator and all open tabs
-- When a workspace is "hidden": it is completely removed from the tab bar (not collapsed—entirely absent)
-- A workspace with no open tabs does not appear in the tab bar regardless of shown/hidden state
-- The active workspace is always shown in the tab bar (clicking an inactive workspace makes it active and shows it)
-- Users can hide a workspace by clicking it again while it is active, which hides it and activates the next visible workspace
+- Clicking a workspace that is not the active one (or is active but hidden) dispatches `setVisibleInTabBar({ visible: true })`, `setActiveWorkspace`, `expandWorkspaceExclusive`, `setWorkspaceSidebar(true)`, and `setFocusedPane` for it.
+- Clicking the already-active workspace while it is visible **hides** it (delegates to the WTB-013 hide path: subject to the last-visible no-op guard and focus fallback).
+- A workspace that is active but hidden is re-shown by clicking it again (toggle on).
+- The sidebar file explorer reads the active workspace independent of `visibleInTabBar`.
 
 **Interface Contract:**
-- Workspace shown/hidden state stored in Redux: `workspacesSlice.visibleInTabBar: Record<WorkspaceId, boolean>`
-- Sidebar workspace click handler toggles this state
-- TabBar filters workspaces by `visibleInTabBar[id] === true`
+- Workspace shown/hidden state stored in Redux: `workspacesSlice.visibleInTabBar` per workspace; set true by `handleWorkspaceClick` and the file-open paths, set false via the rail click-to-hide toggle or the explorer header hide button (WTB-013).
+- WorkspaceBar workspace click handler (`handleWorkspaceClick`): if the clicked workspace is the active, visible one it calls `handleHideWorkspace`; otherwise it dispatches `setVisibleInTabBar({ visible: true })` plus the browse/activation actions.
+- The sidebar file explorer reads `selectActiveWorkspace`; TabBar / panes filter workspaces by `visibleInTabBar === true`.
 
 **E2E Test Plan:**
-- Open 3 workspaces with tabs in each
-- Click workspace A in sidebar → verify its tabs appear in tab bar
-- Click workspace A again → verify its tabs disappear from tab bar entirely
-- Verify workspace B and C remain visible in tab bar
+- Open 3 workspaces with tabs → all appear as panes
+- Hide workspace A (rail eye-off) → pane count drops; A's rail item is dimmed
+- Single-click workspace A → verify A's pane reappears (pane count restored), A's `visibleInTabBar` is true, and A is the active workspace whose file tree shows in the sidebar
+- Single-click the active, visible workspace again → verify it is hidden (pane removed); clicking it once more re-shows it
 
 ---
 
@@ -258,6 +259,50 @@ Each workspace independently tracks its own active tab.
 
 ---
 
+### WTB-012: Browse a Workspace Without Adding It to the Editor
+
+- **Status:** Deprecated
+- **Added:** 2026-06-23
+- **Updated:** 2026-06-24
+- **Source plan:** decouple-browse-from-hide (deprecated by recouple-show-with-click)
+
+**Deprecated.** This requirement decoupled browsing from editor membership: a hidden workspace could be browsed (its file tree shown) while staying absent from the editor. The current model (WTB-001) re-couples them — a single click always shows the clicked workspace in the editor — so "browse without showing" no longer exists. A hidden workspace's rail item is still dimmed (`not-in-editor`) until it is clicked, but clicking it re-shows its pane. The ID is retained and never reused.
+
+---
+
+### WTB-013: Hide Workspace From Editor
+
+- **Status:** Active
+- **Added:** 2026-06-23
+- **Updated:** 2026-06-25
+- **Source plan:** decouple-browse-from-hide (updated by recouple-show-with-click)
+
+A workspace is removed from the editor (`visibleInTabBar = false`) while staying open via two affordances: (1) the eye-off hide button in the explorer (Sidebar) workspace header, next to the × close button, and (2) clicking the *already-active, visible* workspace in the rail (the WTB-001 toggle). The narrow workspace rail itself carries no hide button. Hidden state is transient — the workspace's rail item is dimmed until it is clicked again, which re-shows it (WTB-001).
+
+**Behavior:**
+- Activating a hide affordance sets `visibleInTabBar = false` via `setVisibleInTabBar`.
+- Hiding is a no-op when the target is the only workspace with `visibleInTabBar === true`, so the editor is never left with zero panes.
+- Hiding does NOT change `activeWorkspaceId` or the expanded workspace.
+- If the hidden workspace held editor focus (`focusedPaneId`), focus falls back to another still-visible workspace.
+- A hidden workspace is re-shown (`visibleInTabBar = true`) by: clicking its rail item (WTB-001), or opening a file belonging to it — from its file tree, the Open dialog, or an OS file association.
+- The hide icon is an eye-off glyph; it is not the × close icon (which destroys/closes the workspace).
+
+**Interface Contract:**
+- Explorer header: `.sidebar-workspace-hide` button in the workspace indicator (Sidebar.tsx), disabled when last-visible; hides the active workspace.
+- Rail click-to-hide: `handleWorkspaceClick` (WorkspaceBar.tsx) delegates to `handleHideWorkspace` when the clicked workspace is the active, visible one. The rail item renders no hide button.
+- Both hide handlers apply the last-visible guard and redirect `focusedPaneId` if needed.
+- File-open paths (`handleFileOpenFromTree`, `handleOpen`, OS-open handler in App.tsx) dispatch `setVisibleInTabBar({ visible: true })` for the target workspace.
+
+**E2E Test Plan:**
+- Open 2 workspaces with tabs (2 panes)
+- Browse workspace A, click its explorer header hide button → verify A's pane is removed (1 pane) and A's rail item is dimmed
+- Click the already-active, visible workspace A in the rail → verify it hides (click-to-hide toggle)
+- For the last remaining visible workspace, verify the explorer hide button is disabled and the rail click-to-hide is a no-op
+- With A hidden, click A's rail item → verify A reappears as a pane (WTB-001)
+- With A hidden, open a file from A's file tree → verify A reappears in the editor with that tab active
+
+---
+
 ## Key Files
 
 | File | Purpose |
@@ -277,7 +322,7 @@ Each workspace independently tracks its own active tab.
 
 ```
 tests/e2e/workspace-tab-bar/
-├── wtb-001-visibility-toggle.spec.ts
+├── wtb-001-browse-on-click.spec.ts
 ├── wtb-002-equal-space.spec.ts
 ├── wtb-003-independent-scroll.spec.ts
 ├── wtb-004-fixed-indicator.spec.ts
@@ -285,7 +330,10 @@ tests/e2e/workspace-tab-bar/
 ├── wtb-006-minimum-width.spec.ts
 ├── wtb-007-overflow-dropdown.spec.ts
 ├── wtb-008-auto-scroll.spec.ts
-└── wtb-009-multiple-active-tabs.spec.ts
+├── wtb-009-multiple-active-tabs.spec.ts
+└── wtb-013-hide-from-editor.spec.ts
 ```
+
+WTB-012 is deprecated (browse-only no longer exists); its test file was removed.
 
 Each test file tests its corresponding requirement using the test plans defined above.

@@ -243,6 +243,7 @@
   color: var(--text-muted);
 }
 
+.sidebar-workspace-hide,
 .sidebar-workspace-close {
   display: flex;
   align-items: center;
@@ -259,11 +260,23 @@
   transition: background-color 0.1s ease, color 0.1s ease;
 }
 
+/* When the hide button is present, keep close adjacent to it (single auto gap) */
+.sidebar-workspace-hide + .sidebar-workspace-close {
+  margin-left: 0;
+}
+
+.sidebar-workspace-hide:hover:not(:disabled),
 .sidebar-workspace-close:hover {
   background: var(--button-hover-bg);
   color: var(--text-color);
 }
 
+.sidebar-workspace-hide:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.sidebar-workspace-hide svg,
 .sidebar-workspace-close svg {
   width: 12px;
   height: 12px;

@@ -2,14 +2,15 @@ import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { Allotment } from 'allotment'
 import { RootState, AppDispatch } from '../../store/store'
-import { setViewMode, toggleOutline, toggleToolbar, toggleExplorer } from '../../store/layoutSlice'
+import { setViewMode, toggleOutline, toggleToolbar, toggleExplorer, setFocusedPane } from '../../store/layoutSlice'
 import { setCurrentTheme, saveThemeSettings, setSidebarPaneSizes, saveLayoutSettings } from '../../store/settingsSlice'
 import {
   selectAllWorkspaces,
   selectActiveWorkspace,
   updateWorkspace,
   removeWorkspace,
-  collapseAllWorkspaces
+  collapseAllWorkspaces,
+  setVisibleInTabBar
 } from '../../store/workspacesSlice'
 import { selectActiveTab, selectAllTabs } from '../../store/tabsSlice'
 import { DEFAULT_WORKSPACE_ID, WORKSPACE_COLORS } from '../../../../shared/workspace-types'
@@ -150,6 +151,7 @@ export function Sidebar({
   const activeTab = useSelector(selectActiveTab)
   const allTabs = useSelector(selectAllTabs)
   const activeWorkspace = useSelector(selectActiveWorkspace)
+  const focusedPaneId = useSelector((state: RootState) => state.layout.focusedPaneId)
 
   // Set of file paths currently open in tabs (for bolding in explorer)
   const openPaths = useMemo(
@@ -277,6 +279,20 @@ export function Sidebar({
     }
     dispatch(collapseAllWorkspaces())
   }, [dispatch, activeWorkspace])
+
+  // WTB-013: Hide the active workspace from the editor while keeping it open and
+  // browsable. No-op when it is the only visible workspace.
+  const handleHideWorkspace = useCallback(() => {
+    if (!activeWorkspace || !activeWorkspace.visibleInTabBar) return
+    const otherVisible = workspaces.filter(
+      (w) => w.id !== activeWorkspace.id && w.visibleInTabBar
+    )
+    if (otherVisible.length === 0) return
+    dispatch(setVisibleInTabBar({ id: activeWorkspace.id, visible: false }))
+    if (activeWorkspace.id === focusedPaneId) {
+      dispatch(setFocusedPane(otherVisible[0].id))
+    }
+  }, [dispatch, activeWorkspace, workspaces, focusedPaneId])
 
   // Handle hidden files toggle
   const handleToggleHiddenFiles = useCallback(() => {
@@ -562,6 +578,25 @@ export function Sidebar({
               {activeWorkspace.name}
             </span>
           )}
+          {(() => {
+            const isLastVisible =
+              !!activeWorkspace?.visibleInTabBar &&
+              workspaces.filter((w) => w.visibleInTabBar).length <= 1
+            return (
+              <button
+                className="sidebar-workspace-hide"
+                onClick={handleHideWorkspace}
+                disabled={isLastVisible}
+                title={isLastVisible ? 'Cannot hide the only visible workspace' : 'Hide from editor'}
+                aria-label="Hide workspace from editor"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              </button>
+            )
+          })()}
           <button
             className="sidebar-workspace-close"
             onClick={handleCloseWorkspace}

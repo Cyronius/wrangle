@@ -80,6 +80,17 @@
   box-shadow: inset 3px 0 0 0 rgba(255, 255, 255, 0.8);
 }
 
+/* Slightly greyed when the workspace is collapsed (not currently in the editor) */
+.workspace-bar-item.not-in-editor {
+  opacity: 0.6;
+  filter: grayscale(0.9);
+}
+
+.workspace-bar-item.not-in-editor:hover {
+  opacity: 0.85;
+  filter: grayscale(0.5);
+}
+
 .workspace-bar-name {
   writing-mode: vertical-rl;
   text-orientation: mixed;

@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import { RootState, AppDispatch } from '../../store/store'
+import { AppDispatch, RootState } from '../../store/store'
 import {
   selectAllWorkspaces,
   selectActiveWorkspaceId,
@@ -8,7 +8,6 @@ import {
   expandWorkspaceExclusive,
   setActiveWorkspace,
   reorderWorkspaces,
-  toggleVisibleInTabBar,
   setVisibleInTabBar
 } from '../../store/workspacesSlice'
 import { setWorkspaceSidebar, setFocusedPane } from '../../store/layoutSlice'
@@ -34,9 +33,10 @@ interface WorkspaceBarItemProps {
   workspace: WorkspaceState
   isActive: boolean
   onClick: () => void
+  isVisible: boolean
 }
 
-function SortableWorkspaceBarItem({ workspace, isActive, onClick }: WorkspaceBarItemProps) {
+function SortableWorkspaceBarItem({ workspace, isActive, onClick, isVisible }: WorkspaceBarItemProps) {
   const {
     attributes,
     listeners,
@@ -57,12 +57,12 @@ function SortableWorkspaceBarItem({ workspace, isActive, onClick }: WorkspaceBar
   return (
     <div
       ref={setNodeRef}
-      className={`workspace-bar-item ${isActive ? 'active' : ''}`}
+      className={`workspace-bar-item ${isActive ? 'active' : ''} ${isVisible ? '' : 'not-in-editor'}`}
       style={style}
       onClick={onClick}
       role="button"
       tabIndex={0}
-      aria-label={`Workspace: ${workspace.name}. Press Enter to expand.`}
+      aria-label={`Workspace: ${workspace.name}. Press Enter to browse its files.`}
       aria-expanded={workspace.isExpanded}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -82,7 +82,7 @@ export function WorkspaceBar() {
   const dispatch = useDispatch<AppDispatch>()
   const workspaces = useSelector(selectAllWorkspaces)
   const activeWorkspaceId = useSelector(selectActiveWorkspaceId)
-  const showWorkspaceSidebar = useSelector((state: RootState) => state.layout.showWorkspaceSidebar)
+  const focusedPaneId = useSelector((s: RootState) => s.layout.focusedPaneId)
   const containerRef = useRef<HTMLDivElement>(null)
   const itemsRef = useRef<HTMLDivElement>(null)
   const [canScrollUp, setCanScrollUp] = useState(false)
@@ -142,33 +142,37 @@ export function WorkspaceBar() {
   }, [canScrollUp, canScrollDown, stopScroll])
 
   const handleWorkspaceClick = (workspace: WorkspaceState) => {
-    if (workspace.id === activeWorkspaceId) {
-      // WTB-001: Clicking active workspace toggles its visibility in tab bar
-      dispatch(toggleVisibleInTabBar(workspace.id))
+    // WTB-001 / WTB-013: Clicking the already-active workspace toggles it: if it
+    // is currently in the editor, hide it (last-visible guard applies); otherwise
+    // re-show it. Clicking any other workspace browses it and shows it as a pane.
+    if (workspace.id === activeWorkspaceId && workspace.visibleInTabBar) {
+      handleHideWorkspace(workspace)
+      return
+    }
+    dispatch(setVisibleInTabBar({ id: workspace.id, visible: true }))
+    dispatch(setActiveWorkspace(workspace.id))
+    dispatch(expandWorkspaceExclusive(workspace.id))
+    dispatch(setWorkspaceSidebar(true))
+    dispatch(setFocusedPane(workspace.id))
+  }
 
-      // If hiding, activate the next visible workspace
-      if (workspace.visibleInTabBar) {
-        const nextVisible = workspaces.find(
-          (w) => w.id !== workspace.id && w.visibleInTabBar
-        )
-        if (nextVisible) {
-          dispatch(setActiveWorkspace(nextVisible.id))
-          dispatch(expandWorkspaceExclusive(nextVisible.id))
-          dispatch(setFocusedPane(nextVisible.id))
-        }
-      }
+  const handleHideWorkspace = (workspace: WorkspaceState) => {
+    // WTB-013: Hide the workspace from the editor (remove its pane) while leaving
+    // it open and browsable. No-op when it is the only visible workspace, so the
+    // editor is never left with zero panes.
+    if (!workspace.visibleInTabBar) return
+    const otherVisible = workspaces.filter(
+      (w) => w.id !== workspace.id && w.visibleInTabBar
+    )
+    if (otherVisible.length === 0) return
 
-      // Toggle sidebar visibility
-      if (workspace.isExpanded && showWorkspaceSidebar) {
-        dispatch(setWorkspaceSidebar(false))
-      }
-    } else {
-      // Clicking inactive workspace: show it and activate it
-      dispatch(setVisibleInTabBar({ id: workspace.id, visible: true }))
-      dispatch(setActiveWorkspace(workspace.id))
-      dispatch(expandWorkspaceExclusive(workspace.id))
-      dispatch(setWorkspaceSidebar(true))
-      dispatch(setFocusedPane(workspace.id))
+    dispatch(setVisibleInTabBar({ id: workspace.id, visible: false }))
+
+    // If the hidden workspace held editor focus, fall back to another visible
+    // pane. activeWorkspace/expanded are deliberately left unchanged so the user
+    // keeps browsing the just-hidden workspace's file tree.
+    if (workspace.id === focusedPaneId) {
+      dispatch(setFocusedPane(otherVisible[0].id))
     }
   }
 
@@ -271,6 +275,7 @@ export function WorkspaceBar() {
                 key={workspace.id}
                 workspace={workspace}
                 isActive={workspace.id === activeWorkspaceId}
+                isVisible={workspace.visibleInTabBar}
                 onClick={() => handleWorkspaceClick(workspace)}
               />
             ))}

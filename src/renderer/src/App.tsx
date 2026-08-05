@@ -386,12 +386,14 @@ function AppContent() {
     if (files.length === 0) return
 
     let lastTabId: string | null = null
+    let lastWorkspaceId: WorkspaceId | null = null
 
     for (const fileData of files) {
       // Check if file is already open
       const existingTab = tabs.find(t => t.path === fileData.path)
       if (existingTab) {
         lastTabId = existingTab.id
+        lastWorkspaceId = existingTab.workspaceId
         continue
       }
 
@@ -410,9 +412,15 @@ function AppContent() {
         isDirty: false
       }))
       lastTabId = newTabId
+      lastWorkspaceId = workspaceId
     }
 
-    // Activate the last opened/found tab
+    // Activate the last opened/found tab, re-showing its workspace (WTB-013).
+    if (lastWorkspaceId) {
+      dispatch(setVisibleInTabBar({ id: lastWorkspaceId, visible: true }))
+      dispatch(setActiveWorkspace(lastWorkspaceId))
+      dispatch(setFocusedPane(lastWorkspaceId))
+    }
     if (lastTabId) {
       dispatch(setActiveTab(lastTabId))
     }
@@ -423,6 +431,10 @@ function AppContent() {
     // Check if file is already open
     const existingTab = tabs.find(t => t.path === filePath)
     if (existingTab) {
+      // WTB-013: re-show the workspace in the editor in case it was browse-only.
+      dispatch(setVisibleInTabBar({ id: existingTab.workspaceId, visible: true }))
+      dispatch(setActiveWorkspace(existingTab.workspaceId))
+      dispatch(setFocusedPane(existingTab.workspaceId))
       dispatch(setActiveTab(existingTab.id))
       return
     }
@@ -447,6 +459,10 @@ function AppContent() {
         path: filePath,
         isDirty: false
       }))
+      // WTB-013: a file opened from a browse-only workspace must re-show its pane.
+      dispatch(setVisibleInTabBar({ id: workspaceId, visible: true }))
+      dispatch(setActiveWorkspace(workspaceId))
+      dispatch(setFocusedPane(workspaceId))
       dispatch(setActiveTab(newTabId))
     } catch (error) {
       console.error('Failed to open file:', error)
@@ -680,6 +696,8 @@ function AppContent() {
 
       // Make the target workspace active/focused and the file's tab active, then
       // focus the editor after the activeTab-driven re-render has committed.
+      // WTB-013: re-show its pane in case the workspace was browse-only.
+      dispatch(setVisibleInTabBar({ id: targetWorkspaceId, visible: true }))
       dispatch(setActiveWorkspace(targetWorkspaceId))
       dispatch(setFocusedPane(targetWorkspaceId))
       dispatch(setActiveTab(targetTabId))

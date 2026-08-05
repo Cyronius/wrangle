@@ -55,6 +55,42 @@ export class WorkspaceHelpers {
   }
 
   /**
+   * Reset the app to a clean baseline: close all tabs and collapse to just the
+   * default workspace. Neutralizes persisted-session bleed across test launches.
+   */
+  async resetAppState(): Promise<void> {
+    await this.page.evaluate(() => {
+      const store = (window as unknown as {
+        __REDUX_STORE__?: {
+          getState: () => {
+            tabs: { tabs: Array<{ id: string }> }
+            workspaces: { workspaces: Array<{ id: string }> }
+          }
+          dispatch: (action: unknown) => void
+        }
+      }).__REDUX_STORE__
+      if (!store) return
+      const state = store.getState()
+      // Close every open tab
+      for (const tab of state.tabs.tabs) {
+        store.dispatch({ type: 'tabs/closeTab', payload: tab.id })
+      }
+      // Collapse to just the default workspace
+      store.dispatch({ type: 'workspaces/loadWorkspaces', payload: [] })
+      store.dispatch({ type: 'workspaces/setActiveWorkspace', payload: '__default__' })
+    })
+    await this.page.waitForTimeout(100)
+  }
+
+  /**
+   * Read a workspace's id from its on-disk config.
+   */
+  getWorkspaceId(workspacePath: string): string {
+    const configPath = path.join(path.resolve(workspacePath), '.wrangle', 'config.json')
+    return JSON.parse(fs.readFileSync(configPath, 'utf-8')).id as string
+  }
+
+  /**
    * Add a workspace to the app by simulating folder selection
    */
   async addWorkspaceToApp(workspacePath: string): Promise<void> {
@@ -137,6 +173,30 @@ export class WorkspaceHelpers {
   }
 
   /**
+   * Count workspaces that occupy the editor: visibleInTabBar === true AND have at
+   * least one open tab. Reads Redux directly so it is independent of the tab-bar
+   * vs. multi-pane rendering architecture.
+   */
+  async getEditorWorkspaceCount(): Promise<number> {
+    return this.page.evaluate(() => {
+      const store = (window as unknown as {
+        __REDUX_STORE__?: {
+          getState: () => {
+            workspaces: { workspaces: Array<{ id: string; visibleInTabBar: boolean }> }
+            tabs: { tabs: Array<{ workspaceId: string }> }
+          }
+        }
+      }).__REDUX_STORE__
+      if (!store) return 0
+      const state = store.getState()
+      const withTabs = new Set(state.tabs.tabs.map((t) => t.workspaceId))
+      return state.workspaces.workspaces.filter(
+        (w) => w.visibleInTabBar && withTabs.has(w.id)
+      ).length
+    })
+  }
+
+  /**
    * Get all visible tab groups with their workspace IDs
    */
   async getVisibleTabGroups(): Promise<Array<{ workspaceId: string; width: number }>> {
@@ -158,6 +218,46 @@ export class WorkspaceHelpers {
   async clickWorkspaceInSidebar(workspaceName: string): Promise<void> {
     await this.page.click(`.workspace-bar-item:has-text("${workspaceName}")`)
     await this.page.waitForTimeout(100) // Wait for state update
+  }
+
+  /**
+   * WTB-013: Hide a workspace via the explorer header hide button. Activates the
+   * named workspace first (so the explorer shows it), then clicks the hide button.
+   */
+  async hideWorkspaceFromHeader(workspaceName: string): Promise<void> {
+    await this.clickWorkspaceInSidebar(workspaceName)
+    await this.page.click('.sidebar-workspace-hide')
+    await this.page.waitForTimeout(100)
+  }
+
+  /**
+   * WTB-013: Whether the explorer header hide button is disabled (last-visible).
+   */
+  async isHeaderHideDisabled(): Promise<boolean> {
+    return this.page.evaluate(() => {
+      const btn = document.querySelector('.sidebar-workspace-hide') as HTMLButtonElement | null
+      return btn ? btn.disabled : false
+    })
+  }
+
+  /**
+   * Open a file from the active workspace's file tree by clicking the tree item
+   * (exercises the real handleFileOpenFromTree flow, unlike openFileInWorkspace).
+   */
+  async openFileFromTree(fileName: string): Promise<void> {
+    await this.page.click(`.file-tree-item:has-text("${fileName}")`)
+    await this.page.waitForTimeout(150)
+  }
+
+  /**
+   * Whether a workspace's rail item is dimmed (browse-only / not in editor).
+   */
+  async isRailItemDimmed(workspaceName: string): Promise<boolean> {
+    return this.page.evaluate((name) => {
+      const items = Array.from(document.querySelectorAll('.workspace-bar-item'))
+      const item = items.find((el) => el.textContent?.includes(name))
+      return item ? item.classList.contains('not-in-editor') : false
+    }, workspaceName)
   }
 
   /**
