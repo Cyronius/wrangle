@@ -142,6 +142,30 @@ Three independent boolean toggles control visibility of auxiliary UI chrome: doc
 
 ---
 
+### LYT-009: New File Never Opens in Preview-Only
+
+- **Status:** Active
+- **Added:** 2026-08-20
+- **Source plan:** new-file-escapes-preview-only
+- **Test category:** e2e
+
+Creating a new file is a writing action; it must never leave the user in `preview-only` mode, where the new (empty) document has no editor pane to type or paste into.
+
+**Behavior:**
+- If the view mode is `preview-only` when a new file is created (menu, Ctrl+N, empty-state button), the view mode switches to `split`
+- If the view mode is already `editor-only` or `split`, it is unchanged
+- The editor receives keyboard focus after creation in every mode
+- Untitled files count as markdown (`isMarkdownFile` with no path), so the non-markdown editor-only forcing (see file-type routing) does not apply — this requirement is what guarantees an editor pane
+
+**Interface Contract:**
+- `handleNewFile` in `src/renderer/src/App.tsx` dispatches `setViewMode('split')` when `viewMode === 'preview-only'`, then focuses the editor
+
+**E2E Test Plan:**
+- Set view mode to `preview-only`, create a new file → view mode is `split` and the Monaco editor is present/focused
+- Set view mode to `editor-only`, create a new file → view mode remains `editor-only`
+
+---
+
 ## Key Files
 
 | File | Purpose |

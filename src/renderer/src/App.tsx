@@ -330,12 +330,14 @@ function AppContent() {
     }))
     dispatch(setActiveTab(newTabId))
 
-    // Auto-focus editor for new documents (in editor or split view)
-    if (viewMode !== 'preview-only') {
-      requestAnimationFrame(() => {
-        editorRef.current?.focus()
-      })
+    // LYT-009: a new file is for writing — preview-only would leave the user
+    // with an empty preview and no editor to type into
+    if (viewMode === 'preview-only') {
+      dispatch(setViewMode('split'))
     }
+    requestAnimationFrame(() => {
+      editorRef.current?.focus()
+    })
   }, [dispatch, viewMode, activeWorkspaceId])
 
   // Close tab handler

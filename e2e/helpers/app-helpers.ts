@@ -44,8 +44,7 @@ export class AppHelpers {
    * Send a menu command via IPC (simulates menu click)
    */
   async sendMenuCommand(command: string): Promise<void> {
-    await this.electronApp.evaluate(async ({ }, cmd) => {
-      const { BrowserWindow } = require('electron')
+    await this.electronApp.evaluate(async ({ BrowserWindow }, cmd) => {
       const windows = BrowserWindow.getAllWindows()
       if (windows.length > 0) {
         windows[0].webContents.send('menu:command', cmd)
