@@ -1,8 +1,8 @@
-import { useMemo } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { createSelector } from '@reduxjs/toolkit'
 import { RootState, AppDispatch } from '../../store/store'
 import { setActiveTab } from '../../store/tabsSlice'
+import { setActiveWorkspace } from '../../store/workspacesSlice'
 import { DEFAULT_WORKSPACE_ID } from '../../../../shared/workspace-types'
 import './workspace.css'
 
@@ -63,7 +63,12 @@ export function DefaultWorkspaceFileList() {
           <div
             key={tab.id}
             className={`file-tree-item ${isActive ? 'selected' : ''}`}
-            onClick={() => dispatch(setActiveTab(tab.id))}
+            onClick={() => {
+              // SBR-003: activate both the tab and the default workspace so
+              // the tab bar swaps to the loose files (WTB-014)
+              dispatch(setActiveWorkspace(DEFAULT_WORKSPACE_ID))
+              dispatch(setActiveTab(tab.id))
+            }}
             role="listitem"
             aria-selected={isActive}
           >

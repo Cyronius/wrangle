@@ -24,8 +24,8 @@ test.describe('WSP-006: App-Level Session File Shape', () => {
         openWorkspaces: ['/tmp/fake-ws-a', '/tmp/fake-ws-b'],
         activeWorkspacePath: '/tmp/fake-ws-a',
         lastSavedAt: 1_700_000_000_000,
-        visibleWorkspacePaths: ['/tmp/fake-ws-a'],
-        focusedPaneWorkspacePath: null
+        expandedWorkspacePaths: ['/tmp/fake-ws-a'],
+        openFilesExpanded: true
       }
 
       const ok = await app.window.evaluate(
@@ -51,6 +51,9 @@ test.describe('WSP-006: App-Level Session File Shape', () => {
         openWorkspaces: ['/tmp/ws-1'],
         activeWorkspacePath: '/tmp/ws-1',
         lastSavedAt: 1_700_000_000_000,
+        expandedWorkspacePaths: ['/tmp/ws-1'],
+        openFilesExpanded: false,
+        // Deprecated fields must round-trip untouched (backward compat)
         visibleWorkspacePaths: ['/tmp/ws-1'],
         focusedPaneWorkspacePath: '/tmp/ws-1'
       }

@@ -13,7 +13,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { configureStore } from '@reduxjs/toolkit'
 import tabsReducer, { addTab, setActiveTab } from '../../../src/renderer/src/store/tabsSlice'
-import layoutReducer, { setFocusedPane } from '../../../src/renderer/src/store/layoutSlice'
+import layoutReducer from '../../../src/renderer/src/store/layoutSlice'
 import workspacesReducer, { addWorkspace, setActiveWorkspace } from '../../../src/renderer/src/store/workspacesSlice'
 import { commandMap, CommandContext } from '../../../src/renderer/src/commands/registry'
 import { DEFAULT_WORKSPACE_ID, WorkspaceId, WorkspaceState } from '../../../src/shared/workspace-types'
@@ -55,8 +55,7 @@ function makeWorkspace(id: WorkspaceId, name: string): WorkspaceState {
     color: '#000',
     rootPath: null,
     isExpanded: true,
-    showHiddenFiles: false,
-    visibleInTabBar: true
+    showHiddenFiles: false
   }
 }
 
@@ -121,29 +120,10 @@ describe('nav.nextTab / nav.prevTab dispatch the correct workspace payload', () 
     expect(activeTabFor(store, DEFAULT_WORKSPACE_ID)).toBe('c')
   })
 
-  it('respects focusedPaneId over activeWorkspaceId in multi-pane layouts', () => {
-    // Two workspaces, each with two tabs. activeWorkspaceId points at the
-    // first; focusedPaneId points at the second. nav.nextTab must advance
-    // the focused pane's tab, not the active workspace's tab.
-    const wsA = DEFAULT_WORKSPACE_ID
-    const wsB = 'ws-b'
-    store.dispatch(addWorkspace(makeWorkspace(wsB, 'B')))
-    store.dispatch(setActiveWorkspace(wsA))
-
-    seedTabs(store, wsA, ['a1', 'a2'])
-    seedTabs(store, wsB, ['b1', 'b2'])
-    store.dispatch(setActiveTab('a1'))
-    store.dispatch(setActiveTab('b1'))
-
-    store.dispatch(setFocusedPane(wsB))
-
-    commandMap.get('nav.nextTab')!.execute(buildCtx(store))
-
-    expect(activeTabFor(store, wsB)).toBe('b2')
-    expect(activeTabFor(store, wsA)).toBe('a1')
-  })
-
-  it('falls back to activeWorkspaceId when focusedPaneId is null', () => {
+  it('routes to the active workspace only, leaving other workspaces untouched', () => {
+    // Two workspaces, each with two tabs. nav.nextTab must advance the
+    // ACTIVE workspace's tab and not disturb the other workspace's memory
+    // (WTB-009 / WTB-014).
     const wsA = DEFAULT_WORKSPACE_ID
     const wsB = 'ws-b'
     store.dispatch(addWorkspace(makeWorkspace(wsB, 'B')))
@@ -152,8 +132,6 @@ describe('nav.nextTab / nav.prevTab dispatch the correct workspace payload', () 
     store.dispatch(setActiveTab('a1'))
     store.dispatch(setActiveTab('b1'))
     store.dispatch(setActiveWorkspace(wsA))
-
-    expect(store.getState().layout.focusedPaneId).toBeNull()
 
     commandMap.get('nav.nextTab')!.execute(buildCtx(store))
 

@@ -239,6 +239,12 @@ export const selectTabsByWorkspace = (state: RootState, workspaceId: WorkspaceId
   return state.tabs.tabs.filter((t) => t.workspaceId === workspaceId)
 }
 
+// WTB-014: the active workspace's tabs — the only tabs the tab bar renders
+export const selectActiveWorkspaceTabs = createSelector(
+  [selectAllTabs, (state: RootState) => state.workspaces.activeWorkspaceId],
+  (tabs, activeWorkspaceId) => tabs.filter((t) => t.workspaceId === activeWorkspaceId)
+)
+
 export const selectActiveTabIdByWorkspace = (state: RootState, workspaceId: WorkspaceId) => {
   return state.tabs.activeTabIdByWorkspace[workspaceId] ?? null
 }

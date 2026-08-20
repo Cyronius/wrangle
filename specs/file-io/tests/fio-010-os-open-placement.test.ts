@@ -26,8 +26,7 @@ function ws(id: string, rootPath: string | null): WorkspaceState {
     color: '#000000',
     rootPath,
     isExpanded: true,
-    showHiddenFiles: true,
-    visibleInTabBar: true
+    showHiddenFiles: true
   }
 }
 

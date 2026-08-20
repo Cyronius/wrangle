@@ -1,11 +1,8 @@
 .tab-bar {
-  /* WTB-006: Minimum workspace width variable */
-  --tab-group-min-width: 140px;
-
   display: flex;
   align-items: stretch;
   background-color: var(--tab-bar-bg);
-  /* WTB-003: Tab bar itself does NOT scroll - only individual workspace groups scroll */
+  /* WTB-014: single group for the active workspace; scrolling happens inside it */
   overflow: hidden;
   height: 36px;
   flex-shrink: 1;
@@ -41,9 +38,9 @@
 /* WTB-011: Curved overline active tab indicator */
 .tab.active {
   background-color: var(--tab-active-bg);
-  border-top: 2px solid var(--workspace-color);
-  border-left: 2px solid var(--workspace-color);
-  border-right: 2px solid var(--workspace-color);  
+  border-top: 2px solid var(--accent-color);
+  border-left: 2px solid var(--accent-color);
+  border-right: 2px solid var(--accent-color);  
   border-radius: 8px 8px 0 0;
   position: relative;
   z-index: 1;
@@ -59,7 +56,7 @@
   width: 14px;
   height: 12px;
   z-index: 2;  
-  background-color: var(--workspace-color);
+  background-color: var(--accent-color);
 }
 
 .tab.active::before { left: -14px; }
@@ -89,15 +86,15 @@
 
 .tab.active .tab-body::before {
   left: -14px;
-  border-right: 2px solid var(--workspace-color);
-  border-bottom: 2px solid var(--workspace-color);
+  border-right: 2px solid var(--accent-color);
+  border-bottom: 2px solid var(--accent-color);
   border-bottom-right-radius: 12px;
 }
 
 .tab.active .tab-body::after {
   right: -14px;
-  border-left: 2px solid var(--workspace-color);
-  border-bottom: 2px solid var(--workspace-color);
+  border-left: 2px solid var(--accent-color);
+  border-bottom: 2px solid var(--accent-color);
   border-bottom-left-radius: 12px;
 }
 
@@ -171,28 +168,17 @@
 .tab-group {
   display: flex;
   align-items: stretch;
-  /* WTB-002: Equal space allocation per workspace */
   flex: 1 1 0;
-  /* WTB-006: Minimum width constraint */
-  min-width: var(--tab-group-min-width);
+  min-width: 0;
   /* Contain the scrollable tabs area */
   overflow: hidden;
   /* WTB-010: Positioning context for scroll arrow buttons */
   position: relative;
 }
 
-/* Inside workspace panes (column layout), tab group has fixed height for vertical alignment */
-.workspace-pane > .tab-group {
-  flex: 0 0 auto;
-  min-width: 0;
-  height: 36px;
-}
-
-
 /* WTB-004: Scrollable container - tabs scroll inside this */
 .tab-group-scrollable {
   flex: 0 1 auto;
-  /* WTB-003: Independent horizontal scrolling per workspace */
   overflow-x: auto;
   overflow-y: hidden;
   display: flex;
@@ -256,85 +242,6 @@
 
 .tab-group-scroll-btn:hover {
   color: var(--text-color);
-}
-
-/* WTB-007: Overflow Dropdown */
-.tab-bar-overflow {
-  position: relative;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-}
-
-.tab-bar-overflow-trigger {
-  padding: 4px 12px;
-  background: var(--tab-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-color);
-  margin: 4px 8px;
-  transition: background-color 0.15s ease;
-  app-region: no-drag;
-  -webkit-app-region: no-drag;
-}
-
-.tab-bar-overflow-trigger:hover {
-  background: var(--tab-hover-bg);
-}
-
-.tab-bar-overflow-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  min-width: 200px;
-  background: var(--dropdown-bg, var(--tab-bar-bg));
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 100;
-  overflow: hidden;
-  margin-top: 4px;
-}
-
-.tab-bar-overflow-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  color: var(--text-color);
-  font-size: 13px;
-  transition: background-color 0.15s ease;
-}
-
-.tab-bar-overflow-item:hover {
-  background: var(--tab-hover-bg);
-}
-
-.tab-bar-overflow-color {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
-
-.tab-bar-overflow-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tab-bar-overflow-count {
-  font-size: 11px;
-  color: var(--text-color-muted);
 }
 
 /* Tab context menu */

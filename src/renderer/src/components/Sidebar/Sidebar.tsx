@@ -2,20 +2,14 @@ import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { Allotment } from 'allotment'
 import { RootState, AppDispatch } from '../../store/store'
-import { setViewMode, toggleOutline, toggleToolbar, toggleExplorer, setFocusedPane } from '../../store/layoutSlice'
+import { setViewMode, toggleOutline, toggleToolbar, toggleExplorer } from '../../store/layoutSlice'
 import { setCurrentTheme, saveThemeSettings, setSidebarPaneSizes, saveLayoutSettings } from '../../store/settingsSlice'
-import {
-  selectAllWorkspaces,
-  selectActiveWorkspace,
-  updateWorkspace,
-  removeWorkspace,
-  collapseAllWorkspaces,
-  setVisibleInTabBar
-} from '../../store/workspacesSlice'
+import { selectAllWorkspaces } from '../../store/workspacesSlice'
 import { selectActiveTab, selectAllTabs } from '../../store/tabsSlice'
-import { DEFAULT_WORKSPACE_ID, WORKSPACE_COLORS } from '../../../../shared/workspace-types'
-import { FileTree } from '../Workspace/FileTree'
-import { DefaultWorkspaceFileList } from '../Workspace/DefaultWorkspaceFileList'
+import { DEFAULT_WORKSPACE_ID } from '../../../../shared/workspace-types'
+import { WorkspaceSection } from './WorkspaceSection'
+import { OpenFilesSection } from './OpenFilesSection'
+import { WorkspaceSettingsPopover } from './WorkspaceSettingsPopover'
 import { marked } from 'marked'
 import { builtInThemes } from '../../styles/themes'
 import wrangleIcon from '../../../../assets/wrangle.png'
@@ -150,12 +144,19 @@ export function Sidebar({
   const sidebarPaneSizes = layoutSettings.sidebarPaneSizes
   const activeTab = useSelector(selectActiveTab)
   const allTabs = useSelector(selectAllTabs)
-  const activeWorkspace = useSelector(selectActiveWorkspace)
-  const focusedPaneId = useSelector((state: RootState) => state.layout.focusedPaneId)
 
   // Set of file paths currently open in tabs (for bolding in explorer)
   const openPaths = useMemo(
     () => new Set(allTabs.filter(t => t.path).map(t => t.path!)),
+    [allTabs]
+  )
+
+  const folderWorkspaces = useMemo(
+    () => workspaces.filter(w => w.rootPath),
+    [workspaces]
+  )
+  const hasLooseFiles = useMemo(
+    () => allTabs.some(t => t.workspaceId === DEFAULT_WORKSPACE_ID),
     [allTabs]
   )
 
@@ -165,18 +166,14 @@ export function Sidebar({
   const menuRef = useRef<HTMLDivElement>(null)
   const menuButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
-  // Section collapse state
-  const [explorerCollapsed, setExplorerCollapsed] = useState(false)
+  // Outline section collapse state
   const [outlineCollapsed, setOutlineCollapsed] = useState(false)
 
-  // Workspace name editing state
-  const [editingName, setEditingName] = useState(false)
-  const [editNameValue, setEditNameValue] = useState('')
-  const nameInputRef = useRef<HTMLInputElement>(null)
-
-  // Workspace color picker state
-  const [showColorPicker, setShowColorPicker] = useState(false)
-  const colorPickerRef = useRef<HTMLDivElement>(null)
+  // SBR-005: one settings popover open at a time
+  const [openSettings, setOpenSettings] = useState<{
+    workspaceId: string
+    anchorRect: DOMRect
+  } | null>(null)
 
   // Debounce ref for pane size persistence
   const paneSaveTimeout = useRef<NodeJS.Timeout | null>(null)
@@ -242,116 +239,22 @@ export function Sidebar({
     setOpenSubmenu(null)
   }
 
-  // Close color picker when clicking outside
-  useEffect(() => {
-    if (!showColorPicker) return
-    const handleClickOutside = (e: MouseEvent) => {
-      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
-        setShowColorPicker(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showColorPicker])
-
-  // Handle workspace color change
-  const handleColorChange = useCallback((color: string) => {
-    if (!activeWorkspace) return
-    dispatch(updateWorkspace({ id: activeWorkspace.id, changes: { color } }))
-    setShowColorPicker(false)
-    if (activeWorkspace.rootPath) {
-      window.electron.workspace.loadConfig(activeWorkspace.rootPath).then((config) => {
-        if (config) {
-          window.electron.workspace.saveConfig(activeWorkspace.rootPath!, { ...config, color })
-        }
-      })
-    }
-  }, [dispatch, activeWorkspace])
-
-  // Handle close workspace
-  const handleCloseWorkspace = useCallback(() => {
-    if (!activeWorkspace || activeWorkspace.id === DEFAULT_WORKSPACE_ID) return
-    const shouldClose = window.confirm(`Close workspace "${activeWorkspace.name}"?`)
-    if (!shouldClose) return
-    dispatch(removeWorkspace(activeWorkspace.id))
-    if (activeWorkspace.rootPath) {
-      window.electron.workspace.unwatchFolder(activeWorkspace.rootPath)
-    }
-    dispatch(collapseAllWorkspaces())
-  }, [dispatch, activeWorkspace])
-
-  // WTB-013: Hide the active workspace from the editor while keeping it open and
-  // browsable. No-op when it is the only visible workspace.
-  const handleHideWorkspace = useCallback(() => {
-    if (!activeWorkspace || !activeWorkspace.visibleInTabBar) return
-    const otherVisible = workspaces.filter(
-      (w) => w.id !== activeWorkspace.id && w.visibleInTabBar
+  const handleOpenSettings = useCallback((workspaceId: string, anchorRect: DOMRect) => {
+    setOpenSettings((current) =>
+      current?.workspaceId === workspaceId ? null : { workspaceId, anchorRect }
     )
-    if (otherVisible.length === 0) return
-    dispatch(setVisibleInTabBar({ id: activeWorkspace.id, visible: false }))
-    if (activeWorkspace.id === focusedPaneId) {
-      dispatch(setFocusedPane(otherVisible[0].id))
-    }
-  }, [dispatch, activeWorkspace, workspaces, focusedPaneId])
-
-  // Handle hidden files toggle
-  const handleToggleHiddenFiles = useCallback(() => {
-    if (!activeWorkspace) return
-    const newValue = !activeWorkspace.showHiddenFiles
-    dispatch(updateWorkspace({ id: activeWorkspace.id, changes: { showHiddenFiles: newValue } }))
-    if (activeWorkspace.rootPath) {
-      window.electron.workspace.loadConfig(activeWorkspace.rootPath).then((config) => {
-        if (config) {
-          window.electron.workspace.saveConfig(activeWorkspace.rootPath!, {
-            ...config,
-            showHiddenFiles: newValue
-          })
-        }
-      })
-    }
-  }, [dispatch, activeWorkspace])
-
-  // Handle workspace name rename
-  const handleStartRename = useCallback(() => {
-    if (!activeWorkspace) return
-    setEditNameValue(activeWorkspace.name)
-    setEditingName(true)
-    // Focus after React renders the input
-    setTimeout(() => nameInputRef.current?.select(), 0)
-  }, [activeWorkspace])
-
-  const handleCommitRename = useCallback(() => {
-    if (!activeWorkspace || !activeWorkspace.rootPath) return
-    setEditingName(false)
-    const trimmed = editNameValue.trim()
-    // If empty, revert to folder basename
-    const newName = trimmed || activeWorkspace.rootPath.split(/[/\\]/).filter(Boolean).pop() || 'Workspace'
-    if (newName === activeWorkspace.name) return
-    dispatch(updateWorkspace({ id: activeWorkspace.id, changes: { name: newName } }))
-    window.electron.workspace.loadConfig(activeWorkspace.rootPath).then((config) => {
-      if (config) {
-        window.electron.workspace.saveConfig(activeWorkspace.rootPath!, {
-          ...config,
-          name: newName
-        })
-      }
-    })
-  }, [dispatch, activeWorkspace, editNameValue])
-
-  const handleCancelRename = useCallback(() => {
-    setEditingName(false)
   }, [])
 
   // Handle Allotment pane size change (debounced persist)
-  // Skip saving when any section is collapsed to avoid persisting bad sizes (e.g. [28])
+  // Skip saving while the outline is collapsed to avoid persisting bad sizes (e.g. [28])
   const handlePaneSizeChange = useCallback((sizes: number[]) => {
-    if (explorerCollapsed || outlineCollapsed) return
+    if (outlineCollapsed) return
     if (paneSaveTimeout.current) clearTimeout(paneSaveTimeout.current)
     paneSaveTimeout.current = setTimeout(() => {
       dispatch(setSidebarPaneSizes(sizes))
       dispatch(saveLayoutSettings({ ...layoutSettings, sidebarPaneSizes: sizes }))
     }, 300)
-  }, [dispatch, layoutSettings, explorerCollapsed, outlineCollapsed])
+  }, [dispatch, layoutSettings, outlineCollapsed])
 
   // Cleanup debounce on unmount
   useEffect(() => {
@@ -461,7 +364,7 @@ export function Sidebar({
                         onClick={() => handleMenuItemClick(subItem.action)}
                       >
                         {hasCheckedSub && (
-                          <span className="menu-check">{subItem.checked ? '\u2713' : ''}</span>
+                          <span className="menu-check">{subItem.checked ? '✓' : ''}</span>
                         )}
                         <span>{subItem.label}</span>
                         {subItem.shortcut && <span className="shortcut">{subItem.shortcut}</span>}
@@ -479,7 +382,7 @@ export function Sidebar({
               onClick={() => handleMenuItemClick(item.action)}
             >
               {hasCheckedItems && (
-                <span className="menu-check">{item.checked ? '\u2713' : ''}</span>
+                <span className="menu-check">{item.checked ? '✓' : ''}</span>
               )}
               <span>{item.label}</span>
               {item.shortcut && <span className="shortcut">{item.shortcut}</span>}
@@ -490,9 +393,10 @@ export function Sidebar({
     )
   }
 
-  const nonDefaultWorkspaces = workspaces.filter(w => w.id !== DEFAULT_WORKSPACE_ID)
-  const hasWorkspace = activeWorkspace && activeWorkspace.id !== DEFAULT_WORKSPACE_ID && activeWorkspace.rootPath
   const hasPanels = showExplorer || showOutline
+  const settingsWorkspace = openSettings
+    ? workspaces.find(w => w.id === openSettings.workspaceId)
+    : undefined
 
   return (
     <div className="sidebar">
@@ -520,156 +424,39 @@ export function Sidebar({
         <div className="sidebar-top-drag-spacer" onMouseDown={handleDragRegionMouseDown} />
       </div>
 
-      {/* Workspace indicator */}
-      {hasWorkspace && (
-        <div className="sidebar-workspace-indicator">
-          <div className="sidebar-color-picker" ref={colorPickerRef}>
-            <div
-              className="sidebar-workspace-color"
-              style={{ backgroundColor: activeWorkspace.color }}
-              onClick={() => setShowColorPicker(!showColorPicker)}
-              role="button"
-              aria-label="Change workspace color"
-              tabIndex={0}
-            />
-            {showColorPicker && (
-              <div className="sidebar-color-dropdown">
-                {WORKSPACE_COLORS.map((color) => (
-                  <div
-                    key={color}
-                    className={`sidebar-color-option ${color === activeWorkspace.color ? 'selected' : ''}`}
-                    style={{ backgroundColor: color }}
-                    onClick={() => handleColorChange(color)}
-                    role="button"
-                    tabIndex={0}
-                  />
-                ))}
-                <div className="sidebar-color-custom">
-                  <input
-                    type="color"
-                    value={activeWorkspace.color}
-                    onChange={(e) => handleColorChange(e.target.value)}
-                    title="Pick a custom color"
-                    className="sidebar-color-input"
-                  />
-                  <span className="sidebar-color-custom-label">Custom</span>
-                </div>
-              </div>
-            )}
-          </div>
-          {editingName ? (
-            <input
-              ref={nameInputRef}
-              className="sidebar-workspace-name-input"
-              value={editNameValue}
-              onChange={(e) => setEditNameValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCommitRename()
-                if (e.key === 'Escape') handleCancelRename()
-              }}
-              onBlur={handleCommitRename}
-            />
-          ) : (
-            <span
-              className="sidebar-workspace-name"
-              onClick={handleStartRename}
-              title="Click to rename workspace"
-            >
-              {activeWorkspace.name}
-            </span>
-          )}
-          {(() => {
-            const isLastVisible =
-              !!activeWorkspace?.visibleInTabBar &&
-              workspaces.filter((w) => w.visibleInTabBar).length <= 1
-            return (
-              <button
-                className="sidebar-workspace-hide"
-                onClick={handleHideWorkspace}
-                disabled={isLastVisible}
-                title={isLastVisible ? 'Cannot hide the only visible workspace' : 'Hide from editor'}
-                aria-label="Hide workspace from editor"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                  <line x1="1" y1="1" x2="23" y2="23" />
-                </svg>
-              </button>
-            )
-          })()}
-          <button
-            className="sidebar-workspace-close"
-            onClick={handleCloseWorkspace}
-            title="Close workspace"
-            aria-label="Close workspace"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-      )}
-
-      {/* Resizable panels (Explorer + Outline) */}
+      {/* Resizable panels: workspace sections column + Outline (SBR-001) */}
       {hasPanels && (
         <div className="sidebar-panels">
           <Allotment
-            key={`panels-${explorerCollapsed}-${outlineCollapsed}`}
+            key={`panels-${outlineCollapsed}`}
             vertical
             onChange={handlePaneSizeChange}
-            defaultSizes={(!explorerCollapsed && !outlineCollapsed && sidebarPaneSizes?.every(s => s >= 50)) ? sidebarPaneSizes : undefined}
+            defaultSizes={(!outlineCollapsed && sidebarPaneSizes?.every(s => s >= 50)) ? sidebarPaneSizes : undefined}
           >
             {showExplorer && (
-              <Allotment.Pane
-                minSize={28}
-                maxSize={explorerCollapsed ? 28 : undefined}
-              >
-                <div className="sidebar-section sidebar-section-allotment">
-                  <button
-                    className="sidebar-section-header sidebar-section-toggle"
-                    onClick={() => setExplorerCollapsed(!explorerCollapsed)}
-                  >
-                    <svg className={`sidebar-section-chevron ${explorerCollapsed ? '' : 'expanded'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                    <span className="sidebar-section-title">Explorer</span>
-                  </button>
-                  {!explorerCollapsed && (
-                    <div className="sidebar-section-content">
-                      {hasWorkspace ? (
-                        <>
-                          <label className="sidebar-hidden-files-toggle">
-                            <input
-                              type="checkbox"
-                              checked={activeWorkspace.showHiddenFiles}
-                              onChange={handleToggleHiddenFiles}
-                            />
-                            Show hidden files
-                          </label>
-                          <FileTree
-                            rootPath={activeWorkspace.rootPath!}
-                            workspaceId={activeWorkspace.id}
-                            onFileOpen={onFileOpenFromTree}
-                            selectedPath={activeTab?.path}
-                            showHiddenFiles={activeWorkspace.showHiddenFiles}
-                            openPaths={openPaths}
-                          />
-                        </>
-                      ) : activeWorkspace?.id === DEFAULT_WORKSPACE_ID ? (
-                        <DefaultWorkspaceFileList />
-                      ) : nonDefaultWorkspaces.length === 0 ? (
-                        <div className="sidebar-section-empty">
-                          <button className="sidebar-add-folder-btn" onClick={onAddWorkspace}>
-                            Open Folder
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="sidebar-section-empty">
-                          Select a workspace above
-                        </div>
-                      )}
+              <Allotment.Pane minSize={60}>
+                <div className="sidebar-workspace-column">
+                  {hasLooseFiles && <OpenFilesSection />}
+                  {folderWorkspaces.map((workspace) => (
+                    <WorkspaceSection
+                      key={workspace.id}
+                      workspace={workspace}
+                      onFileOpen={onFileOpenFromTree}
+                      selectedPath={activeTab?.path}
+                      openPaths={openPaths}
+                      onOpenSettings={handleOpenSettings}
+                    />
+                  ))}
+                  {folderWorkspaces.length === 0 && !hasLooseFiles ? (
+                    <div className="sidebar-section-empty">
+                      <button className="sidebar-add-folder-btn" onClick={onAddWorkspace}>
+                        Open Folder
+                      </button>
                     </div>
+                  ) : (
+                    <button className="sidebar-add-folder-row" onClick={onAddWorkspace}>
+                      + Add Folder
+                    </button>
                   )}
                 </div>
               </Allotment.Pane>
@@ -699,6 +486,15 @@ export function Sidebar({
             )}
           </Allotment>
         </div>
+      )}
+
+      {/* SBR-005: workspace settings popover (one at a time) */}
+      {openSettings && settingsWorkspace && (
+        <WorkspaceSettingsPopover
+          workspace={settingsWorkspace}
+          anchorRect={openSettings.anchorRect}
+          onClose={() => setOpenSettings(null)}
+        />
       )}
     </div>
   )

@@ -22,7 +22,6 @@ import { CSS } from '@dnd-kit/utilities'
 interface TabGroupProps {
   workspaceId: string
   workspaceName: string
-  workspaceColor: string
   tabs: TabDocument[]
   activeTabId: string | null
   onTabClick: (tabId: string) => void
@@ -98,7 +97,6 @@ function SortableTab({ tab, isActive, onTabClick, onTabClose, onTabContextMenu }
 
 export function TabGroup({
   workspaceId,
-  workspaceColor,
   tabs,
   activeTabId,
   onTabClick,
@@ -166,14 +164,9 @@ export function TabGroup({
     return null
   }
 
-  const groupStyle: React.CSSProperties = {
-    '--workspace-color': workspaceColor
-  } as React.CSSProperties
-
   return (
     <div
       className="tab-group"
-      style={groupStyle}
       data-workspace-id={workspaceId}
     >
       {/* WTB-003/004: Scrollable wrapper - tabs scroll independently per workspace */}

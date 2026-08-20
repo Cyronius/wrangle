@@ -44,7 +44,6 @@ export function useSessionPersistence() {
   const activeWorkspaceId = useSelector((state: RootState) => state.workspaces.activeWorkspaceId)
   const viewMode = useSelector((state: RootState) => state.layout.viewMode)
   const splitRatio = useSelector((state: RootState) => state.layout.splitRatio)
-  const focusedPaneId = useSelector((state: RootState) => state.layout.focusedPaneId)
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -55,7 +54,6 @@ export function useSessionPersistence() {
   const activeWorkspaceIdRef = useRef(activeWorkspaceId)
   const viewModeRef = useRef(viewMode)
   const splitRatioRef = useRef(splitRatio)
-  const focusedPaneIdRef = useRef(focusedPaneId)
 
   tabsRef.current = tabs
   activeTabIdByWorkspaceRef.current = activeTabIdByWorkspace
@@ -63,7 +61,6 @@ export function useSessionPersistence() {
   activeWorkspaceIdRef.current = activeWorkspaceId
   viewModeRef.current = viewMode
   splitRatioRef.current = splitRatio
-  focusedPaneIdRef.current = focusedPaneId
 
   const saveAllSessions = useCallback(async () => {
     const currentTabs = tabsRef.current
@@ -72,7 +69,6 @@ export function useSessionPersistence() {
     const currentActiveWorkspaceId = activeWorkspaceIdRef.current
     const currentViewMode = viewModeRef.current
     const currentSplitRatio = splitRatioRef.current
-    const currentFocusedPaneId = focusedPaneIdRef.current
 
     // Save session for each workspace
     for (const workspace of currentWorkspaces) {
@@ -95,21 +91,19 @@ export function useSessionPersistence() {
 
     const activeWorkspace = currentWorkspaces.find(w => w.id === currentActiveWorkspaceId)
 
-    // Persist which workspaces are visible in tab bar
-    const visibleWorkspacePaths = currentWorkspaces
-      .filter(w => w.visibleInTabBar && w.rootPath)
+    // SBR-002: persist per-section collapse state
+    const expandedWorkspacePaths = currentWorkspaces
+      .filter(w => w.isExpanded && w.rootPath)
       .map(w => w.rootPath!)
-
-    const focusedPaneWorkspace = currentFocusedPaneId
-      ? currentWorkspaces.find(w => w.id === currentFocusedPaneId)
-      : null
+    const openFilesExpanded =
+      currentWorkspaces.find(w => w.id === DEFAULT_WORKSPACE_ID)?.isExpanded ?? true
 
     await window.electron.workspace.saveAppSession({
       openWorkspaces,
       activeWorkspacePath: activeWorkspace?.rootPath || null,
       lastSavedAt: Date.now(),
-      visibleWorkspacePaths,
-      focusedPaneWorkspacePath: focusedPaneWorkspace?.rootPath || null
+      expandedWorkspacePaths,
+      openFilesExpanded
     })
   }, [])
 
@@ -127,7 +121,7 @@ export function useSessionPersistence() {
   useEffect(() => {
     if (!ready) return
     scheduleSave()
-  }, [tabs, activeTabIdByWorkspace, workspaces, activeWorkspaceId, viewMode, splitRatio, focusedPaneId, scheduleSave, ready])
+  }, [tabs, activeTabIdByWorkspace, workspaces, activeWorkspaceId, viewMode, splitRatio, scheduleSave, ready])
 
   // Periodic unconditional save every 30 seconds
   useEffect(() => {

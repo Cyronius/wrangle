@@ -1,4 +1,4 @@
-import { createSlice, createSelector, PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import {
   WorkspaceId,
   WorkspaceState,
@@ -19,8 +19,7 @@ const defaultWorkspace: WorkspaceState = {
   color: WORKSPACE_COLORS[0],
   rootPath: null,
   isExpanded: true,
-  showHiddenFiles: true,
-  visibleInTabBar: true // WTB-001: Default workspace is always visible
+  showHiddenFiles: true
 }
 
 const initialState: WorkspacesState = {
@@ -42,10 +41,7 @@ const workspacesSlice = createSlice({
         state.activeWorkspaceId = existing.id
         return
       }
-      state.workspaces.push({
-        ...action.payload,
-        visibleInTabBar: action.payload.visibleInTabBar ?? true
-      })
+      state.workspaces.push(action.payload)
       state.activeWorkspaceId = action.payload.id
     },
 
@@ -55,11 +51,20 @@ const workspacesSlice = createSlice({
 
       const index = state.workspaces.findIndex((w) => w.id === action.payload)
       if (index !== -1) {
+        // Position among folder workspaces before removal, for the fallback below
+        const folderIndex = state.workspaces
+          .filter((w) => w.rootPath)
+          .findIndex((w) => w.id === action.payload)
+
         state.workspaces.splice(index, 1)
 
-        // If removed workspace was active, switch to default
+        // If removed workspace was active, fall back to the nearest remaining
+        // folder workspace (previous position), then the default workspace (SBR-004)
         if (state.activeWorkspaceId === action.payload) {
-          state.activeWorkspaceId = DEFAULT_WORKSPACE_ID
+          const remaining = state.workspaces.filter((w) => w.rootPath)
+          const fallback =
+            remaining[Math.max(0, Math.min(folderIndex - 1, remaining.length - 1))]
+          state.activeWorkspaceId = fallback ? fallback.id : DEFAULT_WORKSPACE_ID
         }
       }
     },
@@ -88,32 +93,22 @@ const workspacesSlice = createSlice({
       }
     },
 
-    // Collapse all other workspaces when expanding one
-    expandWorkspaceExclusive(state, action: PayloadAction<WorkspaceId>) {
-      state.workspaces.forEach((w) => {
-        w.isExpanded = w.id === action.payload
-      })
-    },
-
-    collapseAllWorkspaces(state) {
-      state.workspaces.forEach((w) => {
-        w.isExpanded = false
-      })
+    // SBR-002: independent per-section collapse toggle
+    toggleWorkspaceExpanded(state, action: PayloadAction<WorkspaceId>) {
+      const workspace = state.workspaces.find((w) => w.id === action.payload)
+      if (workspace) {
+        workspace.isExpanded = !workspace.isExpanded
+      }
     },
 
     // Bulk load workspaces at app startup
     loadWorkspaces(state, action: PayloadAction<WorkspaceState[]>) {
       // Ensure default workspace is always present
       const hasDefault = action.payload.some((w) => w.id === DEFAULT_WORKSPACE_ID)
-      // WTB-001: Ensure visibleInTabBar defaults to true for all loaded workspaces
-      const workspacesWithDefaults = action.payload.map(w => ({
-        ...w,
-        visibleInTabBar: w.visibleInTabBar ?? true
-      }))
       if (hasDefault) {
-        state.workspaces = workspacesWithDefaults
+        state.workspaces = action.payload
       } else {
-        state.workspaces = [defaultWorkspace, ...workspacesWithDefaults]
+        state.workspaces = [defaultWorkspace, ...action.payload]
       }
     },
 
@@ -123,22 +118,6 @@ const workspacesSlice = createSlice({
       if (oldIndex === newIndex) return
       const [moved] = state.workspaces.splice(oldIndex, 1)
       state.workspaces.splice(newIndex, 0, moved)
-    },
-
-    // WTB-001: Toggle workspace visibility in tab bar
-    toggleVisibleInTabBar(state, action: PayloadAction<WorkspaceId>) {
-      const workspace = state.workspaces.find((w) => w.id === action.payload)
-      if (workspace) {
-        workspace.visibleInTabBar = !workspace.visibleInTabBar
-      }
-    },
-
-    // WTB-001: Explicitly set workspace visibility in tab bar
-    setVisibleInTabBar(state, action: PayloadAction<{ id: WorkspaceId; visible: boolean }>) {
-      const workspace = state.workspaces.find((w) => w.id === action.payload.id)
-      if (workspace) {
-        workspace.visibleInTabBar = action.payload.visible
-      }
     }
   }
 })
@@ -159,21 +138,6 @@ export const selectWorkspaceById = (state: RootState, id: WorkspaceId) => {
 export const selectDefaultWorkspace = (state: RootState) => {
   return state.workspaces.workspaces.find((w) => w.id === DEFAULT_WORKSPACE_ID)
 }
-
-export const selectNonDefaultWorkspaces = (state: RootState) => {
-  return state.workspaces.workspaces.filter((w) => w.id !== DEFAULT_WORKSPACE_ID)
-}
-
-// WTB-001: Select workspaces that are visible in the tab bar
-export const selectVisibleWorkspaces = (state: RootState) => {
-  return state.workspaces.workspaces.filter((w) => w.visibleInTabBar)
-}
-
-// Memoized selector for visible workspace IDs (used for multi-pane derivation)
-export const selectVisibleWorkspaceIds = createSelector(
-  [(state: RootState) => state.workspaces.workspaces],
-  (workspaces) => workspaces.filter((w) => w.visibleInTabBar).map((w) => w.id)
-)
 
 // Pure: the folder-backed workspace whose rootPath is an ancestor of filePath,
 // or null if none contains it. First match wins. Used to place OS-opened files
@@ -211,12 +175,9 @@ export const {
   setActiveWorkspace,
   updateWorkspace,
   setWorkspaceExpanded,
-  expandWorkspaceExclusive,
-  collapseAllWorkspaces,
+  toggleWorkspaceExpanded,
   loadWorkspaces,
-  reorderWorkspaces,
-  toggleVisibleInTabBar,
-  setVisibleInTabBar
+  reorderWorkspaces
 } = workspacesSlice.actions
 
 export default workspacesSlice.reducer

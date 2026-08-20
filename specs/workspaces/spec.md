@@ -129,6 +129,7 @@ Each workspace folder stores its session at `.wrangle/session.json` (filename co
 
 - **Status:** Active
 - **Added:** 2026-04-23
+- **Updated:** 2026-08-19 (unified-sidebar-redesign: added `expandedWorkspacePaths`/`openFilesExpanded`; `visibleWorkspacePaths`/`focusedPaneWorkspacePath` deprecated)
 
 The application persists which workspaces were open at `~/.wrangle/app-session.json` (constants: `APP_DATA_DIR = join(homedir(), '.wrangle')`, `APP_SESSION_FILE = join(APP_DATA_DIR, 'app-session.json')`).
 
@@ -146,9 +147,11 @@ The application persists which workspaces were open at `~/.wrangle/app-session.j
     openWorkspaces: string[]              // workspace root paths
     activeWorkspacePath: string | null
     lastSavedAt: number                   // ms since epoch
-    visibleWorkspacePaths?: string[]      // workspaces with visibleInTabBar=true
+    expandedWorkspacePaths?: string[]     // SBR-002: workspaces with expanded sidebar sections
+    openFilesExpanded?: boolean           // SBR-002: Open Files section expanded
+    // Deprecated (kept for backwards compatibility on load, never read):
+    visibleWorkspacePaths?: string[]
     focusedPaneWorkspacePath?: string | null
-    // Deprecated (kept for backwards compatibility on load):
     multiPaneEnabled?: boolean
     visiblePaneWorkspacePaths?: string[]
   }

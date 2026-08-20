@@ -2,7 +2,7 @@
 
 ## Overview
 
-This specification defines the behavior of the tab bar when multiple workspaces are open in Wrangle. The tab bar displays open documents grouped by workspace, with intelligent space allocation, independent scrolling per workspace, and graceful handling of overflow scenarios.
+This specification defines the behavior of the editor tab bar in Wrangle. As of the unified-sidebar redesign (see `specs/unified-sidebar/spec.md`), the tab bar displays **only the active workspace's tabs** (WTB-014); the earlier multi-workspace tab bar (per-workspace groups, equal space allocation, overflow dropdown) and the WorkspaceBar rail are deprecated.
 
 **Feature Prefix:** `WTB` (Workspace Tab Bar)
 
@@ -12,194 +12,78 @@ This specification defines the behavior of the tab bar when multiple workspaces 
 
 ### WTB-001: Workspace Browse + Show on Single Click
 
-- **Status:** Active
+- **Status:** Deprecated
 - **Added:** 2026-02-11
-- **Updated:** 2026-06-25
-- **Source plan:** recouple-show-with-click
+- **Updated:** 2026-08-19
+- **Source plan:** recouple-show-with-click (deprecated by unified-sidebar-redesign)
 
-A single click on a workspace in the WorkspaceBar *browses it and shows it in the editor*: it makes the workspace active/expanded so the sidebar file explorer shows that workspace's file tree, opens the sidebar, focuses the workspace, AND ensures it is present in the editor as a pane (`visibleInTabBar = true`). Clicking additional workspaces adds additional side-by-side panes. Clicking the *already-active* workspace toggles it off again (hides it) — this and the explorer header hide button (WTB-013) are the ways to remove a workspace from the editor. The rail items themselves carry no hide button.
-
-**Behavior:**
-- Clicking a workspace that is not the active one (or is active but hidden) dispatches `setVisibleInTabBar({ visible: true })`, `setActiveWorkspace`, `expandWorkspaceExclusive`, `setWorkspaceSidebar(true)`, and `setFocusedPane` for it.
-- Clicking the already-active workspace while it is visible **hides** it (delegates to the WTB-013 hide path: subject to the last-visible no-op guard and focus fallback).
-- A workspace that is active but hidden is re-shown by clicking it again (toggle on).
-- The sidebar file explorer reads the active workspace independent of `visibleInTabBar`.
-
-**Interface Contract:**
-- Workspace shown/hidden state stored in Redux: `workspacesSlice.visibleInTabBar` per workspace; set true by `handleWorkspaceClick` and the file-open paths, set false via the rail click-to-hide toggle or the explorer header hide button (WTB-013).
-- WorkspaceBar workspace click handler (`handleWorkspaceClick`): if the clicked workspace is the active, visible one it calls `handleHideWorkspace`; otherwise it dispatches `setVisibleInTabBar({ visible: true })` plus the browse/activation actions.
-- The sidebar file explorer reads `selectActiveWorkspace`; TabBar / panes filter workspaces by `visibleInTabBar === true`.
-
-**E2E Test Plan:**
-- Open 3 workspaces with tabs → all appear as panes
-- Hide workspace A (rail eye-off) → pane count drops; A's rail item is dimmed
-- Single-click workspace A → verify A's pane reappears (pane count restored), A's `visibleInTabBar` is true, and A is the active workspace whose file tree shows in the sidebar
-- Single-click the active, visible workspace again → verify it is hidden (pane removed); clicking it once more re-shows it
+**Deprecated.** This requirement defined single-click semantics for the vertical WorkspaceBar rail (browse + show as editor pane, click-active-to-hide). The rail and the multi-pane editor were removed by the unified-sidebar redesign; workspace activation now happens in the unified sidebar (SBR-004) and there is no per-workspace show/hide state (`visibleInTabBar` was removed). The ID is retained and never reused.
 
 ---
 
 ### WTB-002: Equal Space Allocation Per Workspace
 
-- **Status:** Active
+- **Status:** Deprecated
 - **Added:** 2026-02-11
+- **Updated:** 2026-08-19
+- **Source plan:** deprecated by unified-sidebar-redesign
 
-The tab bar's horizontal width is divided equally among all visible workspaces.
-
-**Behavior:**
-- If 2 workspaces are visible: each gets 50% of tab bar width
-- If 3 workspaces are visible: each gets 33.3% of tab bar width
-- If N workspaces are visible: each gets `100% / N` of tab bar width
-- This equal division applies regardless of how many tabs each workspace has open
-- The minimum width constraint (WTB-006) takes precedence over equal division
-
-**Interface Contract:**
-- CSS: `.tab-group { flex: 1 1 0; min-width: var(--tab-group-min-width); }`
-- Each workspace's tab group uses `flex: 1` to share space equally
-
-**E2E Test Plan:**
-- Open 2 workspaces with tabs
-- Measure tab group widths → verify they are equal (within 2px tolerance)
-- Open a 3rd workspace
-- Measure all 3 tab group widths → verify they are equal
-- Add 10 tabs to workspace 1, leave 1 tab in workspace 2
-- Verify both workspaces still have equal width allocation
+**Deprecated.** Divided the tab bar equally among all visible workspaces. Only one workspace's tabs render at a time now (WTB-014), so there is nothing to allocate between. The ID is retained and never reused.
 
 ---
 
 ### WTB-003: Independent Horizontal Scrolling Per Workspace
 
-- **Status:** Active
+- **Status:** Deprecated
 - **Added:** 2026-02-11
+- **Updated:** 2026-08-19
+- **Source plan:** deprecated by unified-sidebar-redesign
 
-Each workspace's tab group scrolls horizontally independently when its tabs exceed the allocated width.
-
-**Behavior:**
-- When a workspace has more tabs than fit in its allocated width, a horizontal scrollbar appears within that workspace's tab group only
-- Scrolling one workspace's tabs does not affect other workspaces
-- The scrollbar appears at the bottom of the tab group area
-- Scroll position is preserved when switching between workspaces
-- The entire tab bar itself does NOT scroll—only individual workspace tab groups scroll
-
-**Interface Contract:**
-- CSS: `.tab-group-tabs { overflow-x: auto; overflow-y: hidden; }`
-- Tab bar container: `overflow: hidden` (no scrolling at bar level)
-
-**E2E Test Plan:**
-- Open 2 workspaces, add 20 tabs to workspace 1, add 2 tabs to workspace 2
-- Verify workspace 1 shows a horizontal scrollbar
-- Verify workspace 2 does NOT show a scrollbar
-- Scroll workspace 1's tabs to the right
-- Verify workspace 2's tabs did not move
-- Switch to workspace 2 and back to workspace 1
-- Verify workspace 1's scroll position was preserved
+**Deprecated.** Required per-workspace tab groups to scroll independently of one another. With a single rendered group (WTB-014), in-group scrolling is covered by WTB-008/WTB-010. The ID is retained and never reused.
 
 ---
 
 ### WTB-004: Fixed Workspace Indicator
 
-- **Status:** Active
+- **Status:** Deprecated
 - **Added:** 2026-02-11
+- **Updated:** 2026-08-19
+- **Source plan:** deprecated by unified-sidebar-redesign
 
-The workspace's colored indicator bar remains fixed (pinned) at the left edge of its allocated space while tabs scroll.
-
-**Behavior:**
-- The workspace indicator (colored vertical bar) is always visible at the leftmost position of the workspace's tab group
-- When tabs scroll horizontally, the indicator does not move—tabs scroll beside it
-- The indicator serves as a visual anchor identifying which workspace owns the scrolling tabs
-- Clicking the indicator should focus/activate that workspace
-
-**Interface Contract:**
-- TabGroupHeader positioned with `position: sticky; left: 0; z-index: 1`
-- Or: TabGroupHeader outside the scrollable container, tabs in a separate scrollable div
-
-**E2E Test Plan:**
-- Open a workspace with 15+ tabs (enough to scroll)
-- Scroll the tabs fully to the right
-- Verify the colored workspace indicator is still visible at the left edge
-- Click the indicator → verify the workspace becomes active
+**Deprecated.** Required a pinned colored indicator at the left edge of each workspace's tab group (`TabGroupHeader`, removed as dead code). Workspace identity is now conveyed by the sidebar's workspace sections (SBR-001); the colored `workspace-toolbar-bar` strip that briefly took this role was removed with the workspace color system (see remove-workspace-colors plan). The ID is retained and never reused.
 
 ---
 
 ### WTB-005: Active Tab Indicator Uses Workspace Color
 
-- **Status:** Active
+- **Status:** Deprecated
 - **Added:** 2026-02-11
+- **Updated:** 2026-08-19
+- **Source plan:** deprecated by remove-workspace-colors (specs/unified-sidebar)
 
-The underline indicator for the active tab within a workspace matches that workspace's assigned color, not the global accent color.
-
-**Behavior:**
-- Each workspace has an assigned color (used for its sidebar indicator and tab group header)
-- The active tab's bottom border uses this same workspace color
-- This allows users to quickly identify which workspace a tab belongs to even when many tabs are visible
-- The indicator remains 3px solid bottom border (same style, different color source)
-
-**Interface Contract:**
-- Tab component receives `workspaceColor` prop
-- CSS: `.tab.active { border-bottom-color: var(--workspace-color); }`
-- Or: inline style applied based on workspace color
-
-**E2E Test Plan:**
-- Open 2 workspaces with different colors (e.g., blue and green)
-- Open tabs in both workspaces
-- Activate a tab in the blue workspace → verify its underline is blue
-- Activate a tab in the green workspace → verify its underline is green
-- Verify the colors match the workspace indicator colors exactly
+**Deprecated.** Required the active-tab indicator to use the workspace's assigned color. Workspace colors were removed from the UI entirely; the active-tab overline (WTB-011) uses the theme accent color. The `color` field remains in `WorkspaceConfig`/`WorkspaceState` for persistence compatibility (WSP-002 assignment unchanged) but is never rendered. The ID is retained and never reused.
 
 ---
 
 ### WTB-006: Minimum Workspace Width
 
-- **Status:** Active
+- **Status:** Deprecated
 - **Added:** 2026-02-11
+- **Updated:** 2026-08-19
+- **Source plan:** deprecated by unified-sidebar-redesign
 
-Each visible workspace in the tab bar has a minimum width that ensures usability.
-
-**Behavior:**
-- Minimum width must accommodate: workspace indicator (16px) + at least the active tab (min 100px) + padding
-- Suggested minimum: 140px per workspace
-- When equal division (WTB-002) would result in widths below the minimum, workspaces use their minimum width instead
-- If total minimum widths exceed tab bar width, the overflow behavior (WTB-007) activates
-
-**Interface Contract:**
-- CSS variable: `--tab-group-min-width: 140px`
-- Flex item: `min-width: var(--tab-group-min-width)`
-
-**E2E Test Plan:**
-- Open 10 workspaces with tabs
-- Verify no workspace is narrower than 140px
-- Resize window to be very narrow
-- Verify workspaces maintain minimum width until overflow triggers
+**Deprecated.** Guaranteed each visible workspace ≥140px of tab bar width. Only one workspace renders at a time now (WTB-014). The ID is retained and never reused.
 
 ---
 
 ### WTB-007: Workspace Overflow Dropdown
 
-- **Status:** Active
+- **Status:** Deprecated
 - **Added:** 2026-02-11
+- **Updated:** 2026-08-19
+- **Source plan:** deprecated by unified-sidebar-redesign
 
-When too many workspaces are visible to fit at their minimum widths, excess workspaces move to an overflow dropdown menu.
-
-**Behavior:**
-- Calculate how many workspaces fit: `floor(tabBarWidth / minWorkspaceWidth)`
-- If visible workspaces exceed this count, show an overflow indicator at the right edge of the tab bar
-- The overflow indicator shows a count of hidden workspaces (e.g., "+3")
-- Clicking the overflow indicator opens a dropdown listing the hidden workspaces by name and color
-- Clicking a workspace in the dropdown activates it and brings it into the visible area (may push another workspace to overflow)
-- The currently active workspace should always be visible in the tab bar, never in overflow
-- Priority for visible slots: active workspace first, then most recently used
-
-**Interface Contract:**
-- New component: `TabBarOverflow` rendered at right edge of tab bar when overflow occurs
-- Dropdown contains: workspace name, color indicator, tab count for each hidden workspace
-- Redux selector: `selectOverflowWorkspaces` returns workspaces that don't fit
-
-**E2E Test Plan:**
-- Resize window to be narrow (e.g., 400px wide)
-- Open 5 workspaces with tabs
-- Verify overflow indicator appears showing hidden count
-- Click the overflow indicator → verify dropdown opens with hidden workspace names
-- Click a workspace in dropdown → verify it appears in tab bar and another moves to overflow
-- Verify the active workspace never appears in the overflow dropdown
+**Deprecated.** Moved excess workspaces into an overflow dropdown when they could not fit at minimum width. Only one workspace renders at a time now (WTB-014); the `TabBarOverflow` component was removed. The ID is retained and never reused.
 
 ---
 
@@ -207,8 +91,9 @@ When too many workspaces are visible to fit at their minimum widths, excess work
 
 - **Status:** Active
 - **Added:** 2026-02-11
+- **Test category:** e2e
 
-When a tab becomes active, its workspace's tab group automatically scrolls to ensure the active tab is visible.
+When a tab becomes active, the tab group automatically scrolls to ensure the active tab is visible.
 
 **Behavior:**
 - When user clicks a tab (already visible), no scroll adjustment needed
@@ -231,31 +116,74 @@ When a tab becomes active, its workspace's tab group automatically scrolls to en
 
 ---
 
-### WTB-009: Multiple Active Tabs (One Per Workspace)
+### WTB-009: Per-Workspace Active Tab Memory
 
 - **Status:** Active
 - **Added:** 2026-02-11
+- **Updated:** 2026-08-19 (unified-sidebar-redesign: only one workspace renders at a time)
+- **Test category:** unit
 
-Each workspace independently tracks its own active tab.
+Each workspace independently tracks its own active tab, and that memory survives workspace switches.
 
 **Behavior:**
-- Activating a tab in workspace A does not affect workspace B's active tab
-- When switching between workspaces, each workspace shows its last-active tab in the editor
-- The visual active indicator (underline) shows on the active tab of EVERY visible workspace, not just the currently focused workspace
-- This allows users to see at a glance which document was last viewed in each workspace
+- Activating a tab in workspace A does not affect workspace B's remembered active tab
+- When switching between workspaces, the editor and tab bar show the target workspace's last-active tab
+- (The former "underline on every visible workspace" clause is obsolete — only the active workspace's tabs render, per WTB-014)
 
 **Interface Contract:**
-- Redux state: `activeTabIdByWorkspace: Record<WorkspaceId, string | null>`
-- TabBar renders active styling for each workspace's active tab independently
-- Editor displays the active tab of the currently active workspace
+- Redux state: `activeTabIdByWorkspace: Record<WorkspaceId, string | null>` (tabsSlice)
+- `TabBar` reads `selectActiveTabIdByWorkspace(state, activeWorkspaceId)`
+
+**Acceptance criteria:**
+- `setActiveTab('a2')` for a workspace-A tab leaves `activeTabIdByWorkspace['ws-b']` unchanged
+- After `setActiveWorkspace('ws-b')` then `setActiveWorkspace('ws-a')`, `selectActiveTab` resolves to workspace A's last-active tab
+
+---
+
+### WTB-010: Tab Scroll Arrow Buttons
+
+- **Status:** Active
+- **Added:** 2026-08-19 (retroactive — behavior predates this entry)
+- **Test category:** e2e
+
+When a tab group's tabs overflow horizontally, the native scrollbar is hidden and replaced by hover scroll-arrow buttons at the group's edges.
+
+**Behavior:**
+- The native horizontal scrollbar of the tab group is hidden
+- A left arrow button appears when scrolled right of the start; a right arrow appears when more tabs exist to the right
+- Clicking an arrow scrolls the tab group smoothly by a fixed increment (~200px)
+- Arrows update on scroll, resize, and tab add/remove
+
+**Interface Contract:**
+- `TabGroup.tsx`: `checkScroll` + `.tab-group-scroll-btn` / `.tab-group-scroll-left` / `.tab-group-scroll-right` (tabs.css)
 
 **E2E Test Plan:**
-- Open workspace A with tabs doc1, doc2, doc3 - activate doc2
-- Open workspace B with tabs file1, file2 - activate file2
-- Verify both doc2 AND file2 show active underlines simultaneously
-- Switch to workspace A → verify editor shows doc2
-- Switch to workspace B → verify editor shows file2
-- Verify doc2 still shows active underline in workspace A's tab group
+- Open enough tabs to overflow → right arrow visible, left arrow hidden
+- Click right arrow → tabs scroll; left arrow appears
+- Scroll fully right → right arrow disappears
+
+---
+
+### WTB-011: Curved Overline Active Tab Indicator
+
+- **Status:** Active
+- **Added:** 2026-08-19 (retroactive — behavior predates this entry)
+- **Updated:** 2026-08-19 (remove-workspace-colors: accent color instead of workspace color)
+- **Test category:** manual
+
+The active tab is indicated by an accent-colored overline that wraps down the tab's sides and flares into concave curves at its base.
+
+**Behavior:**
+- Active tab: 2px top/left/right border in `--accent-color`, rounded top corners
+- Pseudo-element "flares" at the tab's bottom corners carve concave curves in the accent color
+- Inactive tabs have transparent borders reserving the same space (no layout shift on activation)
+
+**Interface Contract:**
+- `tabs.css`: `.tab.active`, `.tab.active::before/::after`, `.tab.active .tab-body::before/::after`
+
+**Manual verification:**
+1. Open two tabs in a workspace
+2. Activate each tab in turn — the accent overline + curved flares follow the active tab with no layout shift
 
 ---
 
@@ -266,40 +194,44 @@ Each workspace independently tracks its own active tab.
 - **Updated:** 2026-06-24
 - **Source plan:** decouple-browse-from-hide (deprecated by recouple-show-with-click)
 
-**Deprecated.** This requirement decoupled browsing from editor membership: a hidden workspace could be browsed (its file tree shown) while staying absent from the editor. The current model (WTB-001) re-couples them — a single click always shows the clicked workspace in the editor — so "browse without showing" no longer exists. A hidden workspace's rail item is still dimmed (`not-in-editor`) until it is clicked, but clicking it re-shows its pane. The ID is retained and never reused.
+**Deprecated.** This requirement decoupled browsing from editor membership: a hidden workspace could be browsed (its file tree shown) while staying absent from the editor. Superseded twice — by WTB-001's recoupled model, then by the unified-sidebar redesign which removed show/hide state entirely. The ID is retained and never reused.
 
 ---
 
 ### WTB-013: Hide Workspace From Editor
 
-- **Status:** Active
+- **Status:** Deprecated
 - **Added:** 2026-06-23
-- **Updated:** 2026-06-25
-- **Source plan:** decouple-browse-from-hide (updated by recouple-show-with-click)
+- **Updated:** 2026-08-19
+- **Source plan:** decouple-browse-from-hide (deprecated by unified-sidebar-redesign)
 
-A workspace is removed from the editor (`visibleInTabBar = false`) while staying open via two affordances: (1) the eye-off hide button in the explorer (Sidebar) workspace header, next to the × close button, and (2) clicking the *already-active, visible* workspace in the rail (the WTB-001 toggle). The narrow workspace rail itself carries no hide button. Hidden state is transient — the workspace's rail item is dimmed until it is clicked again, which re-shows it (WTB-001).
+**Deprecated.** Allowed removing a workspace from the editor (`visibleInTabBar = false`) while keeping it open, via an eye-off button and rail click-to-hide. The unified-sidebar redesign removed `visibleInTabBar` and the multi-pane editor; every open workspace is always present in the sidebar, and only the active one shows in the editor (WTB-014). Collapsing a sidebar section (SBR-002) is the closest analogue for reclaiming space. The ID is retained and never reused.
+
+---
+
+### WTB-014: Tab Bar Shows Only the Active Workspace's Tabs
+
+- **Status:** Active
+- **Added:** 2026-08-19
+- **Source plan:** unified-sidebar-redesign (specs/unified-sidebar)
+- **Test category:** unit (selector) + e2e (swap behavior)
+
+The editor tab bar renders exactly one tab group: the active workspace's. Activating a different workspace (clicking one of its files or its section body in the sidebar, cycling with Ctrl+Shift+PageUp/PageDown) swaps the tab bar to that workspace's tabs.
 
 **Behavior:**
-- Activating a hide affordance sets `visibleInTabBar = false` via `setVisibleInTabBar`.
-- Hiding is a no-op when the target is the only workspace with `visibleInTabBar === true`, so the editor is never left with zero panes.
-- Hiding does NOT change `activeWorkspaceId` or the expanded workspace.
-- If the hidden workspace held editor focus (`focusedPaneId`), focus falls back to another still-visible workspace.
-- A hidden workspace is re-shown (`visibleInTabBar = true`) by: clicking its rail item (WTB-001), or opening a file belonging to it — from its file tree, the Open dialog, or an OS file association.
-- The hide icon is an eye-off glyph; it is not the × close icon (which destroys/closes the workspace).
+- Tabs belonging to non-active workspaces are not rendered (they remain open in state)
+- The tab bar renders nothing when the active workspace has no tabs
+- Clicking a tab activates it within the (already active) workspace — it never changes the active workspace
+- Per-workspace active-tab memory (WTB-009) picks the shown tab after a switch
 
 **Interface Contract:**
-- Explorer header: `.sidebar-workspace-hide` button in the workspace indicator (Sidebar.tsx), disabled when last-visible; hides the active workspace.
-- Rail click-to-hide: `handleWorkspaceClick` (WorkspaceBar.tsx) delegates to `handleHideWorkspace` when the clicked workspace is the active, visible one. The rail item renders no hide button.
-- Both hide handlers apply the last-visible guard and redirect `focusedPaneId` if needed.
-- File-open paths (`handleFileOpenFromTree`, `handleOpen`, OS-open handler in App.tsx) dispatch `setVisibleInTabBar({ visible: true })` for the target workspace.
+- `TabBar.tsx`: memoized selector filtering `tabs` by `activeWorkspaceId`; renders a single `TabGroup`
+- `nav.nextWorkspace` / `nav.prevWorkspace` cycle `setActiveWorkspace` over the sidebar order, skipping the default workspace when it has no tabs
 
-**E2E Test Plan:**
-- Open 2 workspaces with tabs (2 panes)
-- Browse workspace A, click its explorer header hide button → verify A's pane is removed (1 pane) and A's rail item is dimmed
-- Click the already-active, visible workspace A in the rail → verify it hides (click-to-hide toggle)
-- For the last remaining visible workspace, verify the explorer hide button is disabled and the rail click-to-hide is a no-op
-- With A hidden, click A's rail item → verify A reappears as a pane (WTB-001)
-- With A hidden, open a file from A's file tree → verify A reappears in the editor with that tab active
+**Acceptance criteria:**
+- Selector: tabs `[A1(ws-a), B1(ws-b), A2(ws-a)]` with active workspace `ws-a` → `[A1, A2]`
+- Selector returns `[]` for a workspace with no tabs
+- E2E: with tabs open in two workspaces, clicking a file of the other workspace in the sidebar swaps the visible tab set
 
 ---
 
@@ -307,33 +239,17 @@ A workspace is removed from the editor (`visibleInTabBar = false`) while staying
 
 | File | Purpose |
 |------|---------|
-| `src/renderer/src/components/Tabs/TabBar.tsx` | Main tab bar container, workspace filtering, overflow detection |
-| `src/renderer/src/components/Tabs/TabGroup.tsx` | Individual workspace's tab container with independent scrolling |
-| `src/renderer/src/components/Tabs/TabGroupHeader.tsx` | Fixed workspace indicator (colored bar) |
-| `src/renderer/src/components/Tabs/Tab.tsx` | Individual tab with workspace-colored active indicator |
-| `src/renderer/src/components/Tabs/TabBarOverflow.tsx` | Overflow dropdown for hidden workspaces (new) |
-| `src/renderer/src/components/Tabs/tabs.css` | Styling for equal width, scrolling, minimum widths |
-| `src/renderer/src/store/tabsSlice.ts` | Tab state, activeTabIdByWorkspace |
-| `src/renderer/src/store/workspacesSlice.ts` | Workspace state, visibleInTabBar |
+| `src/renderer/src/components/Tabs/TabBar.tsx` | Tab bar: single group for the active workspace (WTB-014) |
+| `src/renderer/src/components/Tabs/TabGroup.tsx` | Tab container with scrolling (WTB-008/010) |
+| `src/renderer/src/components/Tabs/Tab.tsx` | Individual tab |
+| `src/renderer/src/components/Tabs/tabs.css` | Tab styling, overline indicator, scroll buttons |
+| `src/renderer/src/store/tabsSlice.ts` | Tab state, activeTabIdByWorkspace (WTB-009) |
+| `src/renderer/src/store/workspacesSlice.ts` | Workspace state, activeWorkspaceId |
 
 ---
 
-## E2E Test File Structure
+## Test Files
 
-```
-tests/e2e/workspace-tab-bar/
-├── wtb-001-browse-on-click.spec.ts
-├── wtb-002-equal-space.spec.ts
-├── wtb-003-independent-scroll.spec.ts
-├── wtb-004-fixed-indicator.spec.ts
-├── wtb-005-workspace-color-indicator.spec.ts
-├── wtb-006-minimum-width.spec.ts
-├── wtb-007-overflow-dropdown.spec.ts
-├── wtb-008-auto-scroll.spec.ts
-├── wtb-009-multiple-active-tabs.spec.ts
-└── wtb-013-hide-from-editor.spec.ts
-```
+Unit tests (vitest): `specs/workspace-tab-bar/tests/wtb-014-active-workspace-tabs.test.ts` (also covers WTB-009 memory).
 
-WTB-012 is deprecated (browse-only no longer exists); its test file was removed.
-
-Each test file tests its corresponding requirement using the test plans defined above.
+E2E (Playwright, `e2e/tests/`): WTB-008/010 verified manually or by e2e specs; the deprecated wtb-001/002/003/005/006/007/013 spec files were removed with the redesign and the color removal.

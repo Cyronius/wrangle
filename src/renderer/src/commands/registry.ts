@@ -3,16 +3,13 @@ import { isMarkdownFile as isMarkdownFilePath } from '../utils/file-type'
 import { floatingToolbarBus } from '../components/UI/floating-toolbar-bus'
 import {
   setViewMode,
-  setPaneViewMode,
   togglePreviewSync,
   toggleOutline,
   toggleExplorer,
-  toggleToolbar,
-  toggleWorkspaceSidebar
+  toggleToolbar
 } from '../store/layoutSlice'
 import { nextTab, previousTab, closeTabsToLeft, closeTabsToRight, closeTabsByWorkspace } from '../store/tabsSlice'
 import { setActiveWorkspace } from '../store/workspacesSlice'
-import { setFocusedPane } from '../store/layoutSlice'
 import { setCurrentTheme, setVimMode, saveEditorSettings } from '../store/settingsSlice'
 
 export type CommandCategory = 'file' | 'edit' | 'view' | 'navigation' | 'markdown' | 'app'
@@ -55,33 +52,41 @@ export interface CommandContext {
 
 type ViewState = {
   tabs: { tabs: { id: string; path?: string }[]; activeTabIdByWorkspace: Record<string, string> }
-  workspaces: { workspaces: { id: string; visibleInTabBar: boolean }[]; activeWorkspaceId: string }
-  layout: { focusedPaneId: string | null }
+  workspaces: { workspaces: { id: string; rootPath: string | null }[]; activeWorkspaceId: string }
 }
 
 function isActiveFileMarkdown(ctx: CommandContext): boolean {
   const state = ctx.getState() as ViewState
-  const workspaceId = state.layout.focusedPaneId ?? state.workspaces.activeWorkspaceId
+  const workspaceId = state.workspaces.activeWorkspaceId
   const activeTabId = state.tabs.activeTabIdByWorkspace[workspaceId]
   const tab = state.tabs.tabs.find(t => t.id === activeTabId)
   return isMarkdownFilePath(tab?.path)
 }
 
-// Per-pane view mode (LYT-006) only applies when multi-pane is actually
-// rendered (≥2 visible workspaces). `focusedPaneId` is set on any tab click
-// even in single-pane mode, so it's not a reliable "are we multi-pane?"
-// signal — the single-pane EditorLayout reads only the global `viewMode`,
-// so dispatching `setPaneViewMode` there is invisible to the UI and Ctrl+1/2/3
-// appear to do nothing.
 function dispatchViewMode(ctx: CommandContext, mode: 'editor-only' | 'split' | 'preview-only'): void {
-  const state = ctx.getState() as ViewState
-  const visibleCount = state.workspaces.workspaces.filter(w => w.visibleInTabBar).length
-  const focusedPaneId = state.layout.focusedPaneId
-  if (visibleCount >= 2 && focusedPaneId) {
-    ctx.dispatch(setPaneViewMode({ paneId: focusedPaneId, viewMode: mode }))
-  } else {
-    ctx.dispatch(setViewMode(mode))
+  ctx.dispatch(setViewMode(mode))
+}
+
+// Cycle the active workspace through the sidebar order. The default
+// workspace is skipped when it has no tabs (it isn't shown in the sidebar).
+function cycleWorkspace(ctx: CommandContext, direction: 1 | -1): void {
+  const state = ctx.getState() as {
+    workspaces: { workspaces: { id: string; rootPath: string | null }[]; activeWorkspaceId: string }
+    tabs: { tabs: { workspaceId: string }[] }
   }
+  const { workspaces, activeWorkspaceId } = state.workspaces
+  const defaultHasTabs = state.tabs.tabs.some(t => {
+    const ws = workspaces.find(w => w.id === t.workspaceId)
+    return ws ? !ws.rootPath : false
+  })
+  const cycleIds = workspaces
+    .filter(w => w.rootPath || defaultHasTabs)
+    .map(w => w.id)
+  if (cycleIds.length < 2) return
+
+  const currentIndex = cycleIds.indexOf(activeWorkspaceId)
+  const nextIndex = (currentIndex + direction + cycleIds.length) % cycleIds.length
+  ctx.dispatch(setActiveWorkspace(cycleIds[nextIndex]))
 }
 
 // Apply preview selection to editor (for WYSIWYG editing)
@@ -435,15 +440,6 @@ export const commands: CommandDefinition[] = [
     }
   },
   {
-    id: 'view.workspaceSidebar',
-    label: 'Toggle Workspace Sidebar',
-    category: 'view',
-    defaultBinding: 'Ctrl+Shift+B',
-    execute: (ctx) => {
-      ctx.dispatch(toggleWorkspaceSidebar())
-    }
-  },
-  {
     id: 'view.zoomScroll',
     label: 'Zoom (Mouse Wheel)',
     category: 'view',
@@ -489,7 +485,7 @@ export const commands: CommandDefinition[] = [
     defaultBinding: 'Ctrl+PageDown',
     execute: (ctx) => {
       const state = ctx.getState() as ViewState
-      const workspaceId = state.layout.focusedPaneId ?? state.workspaces.activeWorkspaceId
+      const workspaceId = state.workspaces.activeWorkspaceId
       ctx.dispatch(nextTab(workspaceId))
     }
   },
@@ -500,7 +496,7 @@ export const commands: CommandDefinition[] = [
     defaultBinding: 'Ctrl+PageUp',
     execute: (ctx) => {
       const state = ctx.getState() as ViewState
-      const workspaceId = state.layout.focusedPaneId ?? state.workspaces.activeWorkspaceId
+      const workspaceId = state.workspaces.activeWorkspaceId
       ctx.dispatch(previousTab(workspaceId))
     }
   },
@@ -722,56 +718,14 @@ export const commands: CommandDefinition[] = [
     label: 'Next Workspace',
     category: 'navigation',
     defaultBinding: 'Ctrl+Shift+PageDown',
-    execute: (ctx) => {
-      const state = ctx.getState() as {
-        workspaces: { workspaces: { id: string; visibleInTabBar: boolean }[]; activeWorkspaceId: string }
-        layout: { focusedPaneId: string | null }
-      }
-      const { workspaces, activeWorkspaceId } = state.workspaces
-      const { focusedPaneId } = state.layout
-
-      const visibleIds = workspaces.filter(w => w.visibleInTabBar).map(w => w.id)
-      if (visibleIds.length >= 2) {
-        const currentIndex = visibleIds.indexOf(focusedPaneId || '')
-        const nextIndex = (currentIndex + 1) % visibleIds.length
-        if (visibleIds[nextIndex]) {
-          ctx.dispatch(setFocusedPane(visibleIds[nextIndex]))
-          ctx.dispatch(setActiveWorkspace(visibleIds[nextIndex]))
-        }
-      } else if (workspaces.length > 1) {
-        const currentIndex = workspaces.findIndex((w: { id: string }) => w.id === activeWorkspaceId)
-        const nextIndex = (currentIndex + 1) % workspaces.length
-        ctx.dispatch(setActiveWorkspace(workspaces[nextIndex].id))
-      }
-    }
+    execute: (ctx) => cycleWorkspace(ctx, 1)
   },
   {
     id: 'nav.prevWorkspace',
     label: 'Previous Workspace',
     category: 'navigation',
     defaultBinding: 'Ctrl+Shift+PageUp',
-    execute: (ctx) => {
-      const state = ctx.getState() as {
-        workspaces: { workspaces: { id: string; visibleInTabBar: boolean }[]; activeWorkspaceId: string }
-        layout: { focusedPaneId: string | null }
-      }
-      const { workspaces, activeWorkspaceId } = state.workspaces
-      const { focusedPaneId } = state.layout
-
-      const visibleIds = workspaces.filter(w => w.visibleInTabBar).map(w => w.id)
-      if (visibleIds.length >= 2) {
-        const currentIndex = visibleIds.indexOf(focusedPaneId || '')
-        const prevIndex = currentIndex <= 0 ? visibleIds.length - 1 : currentIndex - 1
-        if (visibleIds[prevIndex]) {
-          ctx.dispatch(setFocusedPane(visibleIds[prevIndex]))
-          ctx.dispatch(setActiveWorkspace(visibleIds[prevIndex]))
-        }
-      } else if (workspaces.length > 1) {
-        const currentIndex = workspaces.findIndex((w: { id: string }) => w.id === activeWorkspaceId)
-        const prevIndex = currentIndex <= 0 ? workspaces.length - 1 : currentIndex - 1
-        ctx.dispatch(setActiveWorkspace(workspaces[prevIndex].id))
-      }
-    }
+    execute: (ctx) => cycleWorkspace(ctx, -1)
   },
 
   // App commands

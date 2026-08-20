@@ -40,9 +40,8 @@ export interface WorkspaceState {
   name: string
   color: string
   rootPath: string | null // null for default workspace
-  isExpanded: boolean
+  isExpanded: boolean // SBR-002: sidebar section expanded/collapsed
   showHiddenFiles: boolean
-  visibleInTabBar: boolean // WTB-001: Whether workspace tabs appear in tab bar
 }
 
 // File tree node for directory listing

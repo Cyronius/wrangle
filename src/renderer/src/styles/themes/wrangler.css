@@ -116,21 +116,7 @@
   color: #e7d6b8;
 }
 
-/* Colored workspace bar: soft left-to-transparent gradient instead of a flat slab.
-   --ws-bar-color is set inline alongside background-color by the React components. */
-:root[data-theme='Wrangler'] .workspace-toolbar-bar {
-  background: linear-gradient(90deg, var(--ws-bar-color, #8d6324), transparent 78%) !important;
-}
-:root[data-theme='Wrangler'] .workspace-toolbar-bar-name {
+/* Workspace section names in the sidebar use the heading face */
+:root[data-theme='Wrangler'] .workspace-section-name {
   font-family: var(--font-heading);
-  font-size: 11px;
-  letter-spacing: 1px;
-}
-
-/* Workspace bar (far left): softer corners + brass active indicator */
-:root[data-theme='Wrangler'] .workspace-bar-item {
-  border-radius: 0 8px 8px 0;
-}
-:root[data-theme='Wrangler'] .workspace-bar-item.active {
-  box-shadow: inset 3px 0 0 0 #e0b877;
 }

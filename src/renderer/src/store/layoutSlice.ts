@@ -1,5 +1,4 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-import { WorkspaceId } from '../../../shared/workspace-types'
 
 export type ViewMode = 'split' | 'editor-only' | 'preview-only'
 
@@ -11,12 +10,6 @@ interface LayoutState {
   showOutline: boolean
   showToolbar: boolean
   showExplorer: boolean
-  showWorkspaceSidebar: boolean
-  // Multi-pane state (derived from visible workspaces, not toggled)
-  focusedPaneId: WorkspaceId | null
-  paneViewModes: Record<WorkspaceId, ViewMode>
-  paneSplitRatios: Record<WorkspaceId, number>
-  paneSizes: number[] // raw pixel widths from Allotment onChange
 }
 
 const initialState: LayoutState = {
@@ -26,12 +19,7 @@ const initialState: LayoutState = {
   zoomLevel: 0,
   showOutline: false,
   showToolbar: true,
-  showExplorer: true,
-  showWorkspaceSidebar: false,
-  focusedPaneId: null,
-  paneViewModes: {},
-  paneSplitRatios: {},
-  paneSizes: []
+  showExplorer: true
 }
 
 const layoutSlice = createSlice({
@@ -64,24 +52,6 @@ const layoutSlice = createSlice({
     },
     toggleExplorer(state) {
       state.showExplorer = !state.showExplorer
-    },
-    toggleWorkspaceSidebar(state) {
-      state.showWorkspaceSidebar = !state.showWorkspaceSidebar
-    },
-    setWorkspaceSidebar(state, action: PayloadAction<boolean>) {
-      state.showWorkspaceSidebar = action.payload
-    },
-    setFocusedPane(state, action: PayloadAction<WorkspaceId>) {
-      state.focusedPaneId = action.payload
-    },
-    setPaneViewMode(state, action: PayloadAction<{ paneId: WorkspaceId; viewMode: ViewMode }>) {
-      state.paneViewModes[action.payload.paneId] = action.payload.viewMode
-    },
-    setPaneSplitRatio(state, action: PayloadAction<{ paneId: WorkspaceId; ratio: number }>) {
-      state.paneSplitRatios[action.payload.paneId] = Math.max(0.2, Math.min(0.8, action.payload.ratio))
-    },
-    setPaneSizes(state, action: PayloadAction<number[]>) {
-      state.paneSizes = action.payload
     }
   }
 })
@@ -89,8 +59,6 @@ const layoutSlice = createSlice({
 export const {
   setViewMode, setSplitRatio, togglePreviewSync,
   zoomIn, zoomOut, resetZoom,
-  toggleOutline, toggleToolbar, toggleExplorer, toggleWorkspaceSidebar, setWorkspaceSidebar,
-  setFocusedPane,
-  setPaneViewMode, setPaneSplitRatio, setPaneSizes
+  toggleOutline, toggleToolbar, toggleExplorer
 } = layoutSlice.actions
 export default layoutSlice.reducer

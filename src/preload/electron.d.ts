@@ -14,9 +14,11 @@ export interface AppSession {
   openWorkspaces: string[] // Array of workspace root paths
   activeWorkspacePath: string | null
   lastSavedAt: number
-  visibleWorkspacePaths?: string[] // Workspaces with visibleInTabBar=true
+  expandedWorkspacePaths?: string[] // SBR-002: workspaces with expanded sidebar sections
+  openFilesExpanded?: boolean // SBR-002: Open Files section expanded
+  // Deprecated fields (kept for backwards compatibility on load, never read)
+  visibleWorkspacePaths?: string[]
   focusedPaneWorkspacePath?: string | null
-  // Deprecated fields (kept for backwards compatibility on load)
   multiPaneEnabled?: boolean
   visiblePaneWorkspacePaths?: string[]
 }

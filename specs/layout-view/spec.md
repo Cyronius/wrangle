@@ -43,7 +43,6 @@ The split-pane divider ratio between editor and preview is clamped to the inclus
 - A value of `0.5` gives equal width to editor and preview
 - Values below `0.2` are coerced to `0.2`; values above `0.8` are coerced to `0.8`
 - Clamping occurs inside the reducer so no caller can bypass it
-- The clamp applies to both the global `splitRatio` (LYT-002) and per-pane `paneSplitRatios` (LYT-007)
 
 **Interface Contract:**
 - Redux state: `layout.splitRatio: number` (default `0.5`)
@@ -83,7 +82,7 @@ The `zoomLevel` affects both the editor and preview panes, but by different mech
 - **Editor (Monaco):** zoom adjusts the effective font size, scaling the base font by `1.1^zoomLevel`. Line height and layout reflow accordingly.
 - **Preview:** zoom applies a CSS transform (or equivalent scaling) of `1.1^zoomLevel` to the rendered Markdown content.
 - Both panes update in sync when `zoomIn` / `zoomOut` / `resetZoom` are dispatched.
-- Zoom does not affect the outline, toolbar, explorer, or workspace sidebar chrome.
+- Zoom does not affect the outline, toolbar, or sidebar chrome.
 
 **Interface Contract:**
 - `EditorLayout` subscribes to `layout.zoomLevel` and passes the computed scale to both the editor font configuration and the preview container's transform style.
@@ -94,76 +93,52 @@ The `zoomLevel` affects both the editor and preview panes, but by different mech
 
 - **Status:** Active
 - **Added:** 2026-04-23
+- **Updated:** 2026-08-19 (unified-sidebar-redesign: `showWorkspaceSidebar` removed)
 
-Four independent boolean toggles control visibility of auxiliary UI chrome: document outline, formatting toolbar, file explorer, and workspace sidebar.
+Three independent boolean toggles control visibility of auxiliary UI chrome: document outline, formatting toolbar, and the workspace/explorer column.
 
 **Behavior:**
 - `showOutline` — toggles the document outline panel (default `false`)
 - `showToolbar` — toggles the Markdown formatting toolbar above the editor (default `true`)
-- `showExplorer` — toggles the file explorer / file tree (default `true`)
-- `showWorkspaceSidebar` — toggles the workspace switcher sidebar (default `false`)
+- `showExplorer` — toggles the unified sidebar's workspace section column (default `true`)
 - Each toggle is independent; toggling one does not affect the others
-- `showWorkspaceSidebar` additionally supports direct set via `setWorkspaceSidebar(boolean)` (e.g., for opening it programmatically on workspace creation)
 
 **Interface Contract:**
-- Redux state: `layout.showOutline | showToolbar | showExplorer | showWorkspaceSidebar: boolean`
-- Actions: `toggleOutline()`, `toggleToolbar()`, `toggleExplorer()`, `toggleWorkspaceSidebar()`, `setWorkspaceSidebar(value: boolean)`
+- Redux state: `layout.showOutline | showToolbar | showExplorer: boolean`
+- Actions: `toggleOutline()`, `toggleToolbar()`, `toggleExplorer()`
 
 ---
 
 ### LYT-006: Per-Pane View Mode (paneViewModes)
 
-- **Status:** Active
+- **Status:** Deprecated
 - **Added:** 2026-04-23
+- **Updated:** 2026-08-19
+- **Source plan:** deprecated by unified-sidebar-redesign (specs/unified-sidebar)
 
-When multiple workspace panes are visible simultaneously, each pane tracks its own view mode independently of the others.
-
-**Behavior:**
-- `paneViewModes` is a map of `WorkspaceId` to `ViewMode`
-- Changing the view mode on one pane does not affect any other pane
-- Panes without an explicit entry fall back to the global `layout.viewMode` (LYT-001)
-- When a workspace is closed, its entry in `paneViewModes` may be cleaned up but stale entries are harmless
-
-**Interface Contract:**
-- Redux state: `layout.paneViewModes: Record<WorkspaceId, ViewMode>` (default `{}`)
-- Action: `setPaneViewMode({ paneId: WorkspaceId, viewMode: ViewMode })`
+**Deprecated.** Tracked a per-workspace-pane view mode for the multi-pane editor. The multi-pane editor was removed; the single editor uses the global `viewMode` (LYT-001). The ID is retained and never reused.
 
 ---
 
 ### LYT-007: Per-Pane Split Ratio (paneSplitRatios)
 
-- **Status:** Active
+- **Status:** Deprecated
 - **Added:** 2026-04-23
+- **Updated:** 2026-08-19
+- **Source plan:** deprecated by unified-sidebar-redesign (specs/unified-sidebar)
 
-Each visible workspace pane tracks its own split ratio independently, and each is clamped to `[0.2, 0.8]` (LYT-002).
-
-**Behavior:**
-- `paneSplitRatios` is a map of `WorkspaceId` to a number in `[0.2, 0.8]`
-- Dragging the divider in one pane updates only that pane's ratio
-- Panes without an explicit entry fall back to the global `layout.splitRatio`
-- The same `[0.2, 0.8]` clamp from LYT-002 applies on write
-
-**Interface Contract:**
-- Redux state: `layout.paneSplitRatios: Record<WorkspaceId, number>` (default `{}`)
-- Action: `setPaneSplitRatio({ paneId: WorkspaceId, ratio: number })` applies `Math.max(0.2, Math.min(0.8, ratio))`
+**Deprecated.** Tracked a per-workspace-pane split ratio for the multi-pane editor. The multi-pane editor was removed; the single editor uses the global `splitRatio` (LYT-002). The ID is retained and never reused.
 
 ---
 
 ### LYT-008: Focused-Pane Tracking (focusedPaneId)
 
-- **Status:** Active
+- **Status:** Deprecated
 - **Added:** 2026-04-23
+- **Updated:** 2026-08-19
+- **Source plan:** deprecated by unified-sidebar-redesign (specs/unified-sidebar)
 
-The layout tracks which pane currently has focus so that global actions (menu commands, keyboard shortcuts, view-mode changes) route to the correct pane.
-
-**Behavior:**
-- `focusedPaneId` holds the `WorkspaceId` of the focused pane, or `null` when no pane is focused (e.g., on cold start before any workspace is active)
-- Focus is updated when the user clicks into a pane, activates a tab within it, or otherwise interacts with it
-- When the focused pane closes, a new focus target should be selected (selection policy is out of scope for this requirement)
-
-**Interface Contract:**
-- Redux state: `layout.focusedPaneId: WorkspaceId | null` (default `null`)
-- Action: `setFocusedPane(id: WorkspaceId)`
+**Deprecated.** Tracked which editor pane held focus so global actions could route to it. With a single editor pane, `workspaces.activeWorkspaceId` is the sole routing key. The ID is retained and never reused.
 
 ---
 
@@ -171,9 +146,8 @@ The layout tracks which pane currently has focus so that global actions (menu co
 
 | File | Purpose |
 |------|---------|
-| `src/renderer/src/store/layoutSlice.ts` | Layout Redux slice: view modes, split ratio, zoom, chrome toggles, per-pane state |
+| `src/renderer/src/store/layoutSlice.ts` | Layout Redux slice: view mode, split ratio, zoom, chrome toggles |
 | `src/renderer/src/components/Layout/EditorLayout.tsx` | Renders split/editor-only/preview-only panes, applies zoom and split ratio |
-| `src/renderer/shared/workspace-types.ts` | `WorkspaceId` type used in per-pane maps |
 
 ---
 

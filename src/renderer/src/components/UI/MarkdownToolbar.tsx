@@ -8,7 +8,6 @@ import './toolbar.css'
 interface MarkdownToolbarProps {
   editorRef?: React.RefObject<monaco.editor.IStandaloneCodeEditor>
   previewSelection?: { start: number; end: number } | null
-  workspaceId?: string
   compact?: boolean
   className?: string
   getEditor?: () => monaco.editor.IStandaloneCodeEditor | null
@@ -51,17 +50,13 @@ const headingButtons: ToolbarButton[] = [
   { command: 'heading6', label: 'H6', title: 'Heading 6' }
 ]
 
-export function MarkdownToolbar({ editorRef, previewSelection, workspaceId, compact, className, getEditor }: MarkdownToolbarProps) {
+export function MarkdownToolbar({ editorRef, previewSelection, compact, className, getEditor }: MarkdownToolbarProps) {
   const resolveEditor = (): monaco.editor.IStandaloneCodeEditor | null => {
     if (getEditor) return getEditor()
     return editorRef?.current ?? null
   }
 
-  const globalViewMode = useSelector((state: RootState) => state.layout.viewMode)
-  const paneViewMode = useSelector((state: RootState) =>
-    workspaceId ? state.layout.paneViewModes[workspaceId] : undefined
-  )
-  const viewMode = paneViewMode || globalViewMode
+  const viewMode = useSelector((state: RootState) => state.layout.viewMode)
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set())
 
   // Track cursor position and detect active formatting

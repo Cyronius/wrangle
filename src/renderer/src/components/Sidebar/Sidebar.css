@@ -146,170 +146,211 @@
   padding: 4px 0;
 }
 
-/* Workspace indicator */
-.sidebar-workspace-indicator {
+/* SBR-001: unified workspace sections column */
+.sidebar-workspace-column {
+  height: 100%;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-top: 1px solid var(--border-color);
-  flex-shrink: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  /* Drag regions eat scroll/click on Windows; sidebar background is `drag`
+     by default so we explicitly opt the column out. */
   app-region: no-drag;
   -webkit-app-region: no-drag;
 }
 
-.sidebar-color-picker {
-  position: relative;
+.sidebar-workspace-column::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-workspace-column::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-workspace-column::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+
+.sidebar-workspace-column::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+.workspace-section {
   flex-shrink: 0;
+  /* Prominent divider between workspace sections (colors are gone) */
+  border-top: 2px solid var(--border-color);
+  border-left: 3px solid transparent;
 }
 
-.sidebar-workspace-color {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  cursor: pointer;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  transition: transform 0.1s ease;
+.sidebar-workspace-column > .workspace-section:first-child {
+  border-top: none;
 }
 
-.sidebar-workspace-color:hover {
-  transform: scale(1.15);
+/* SBR-004: active workspace cue */
+.workspace-section.active {
+  border-left-color: var(--accent-color);
 }
 
-.sidebar-color-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  padding: 8px;
-  background: var(--app-bg, var(--toolbar-bg));
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 100;
-}
-
-.sidebar-color-option {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  cursor: pointer;
-  border: 2px solid transparent;
-  transition: transform 0.1s ease, border-color 0.1s ease;
-}
-
-.sidebar-color-option:hover {
-  transform: scale(1.1);
-}
-
-.sidebar-color-option.selected {
-  border-color: white;
-}
-
-.sidebar-color-custom {
-  grid-column: 1 / -1;
+.workspace-section-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding-top: 4px;
-  border-top: 1px solid var(--border-color);
-  margin-top: 2px;
-}
-
-.sidebar-color-input {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 2px solid transparent;
-  border-radius: 4px;
+  padding: 6px 8px;
+  height: 32px;
+  box-sizing: border-box;
   cursor: pointer;
-  background: none;
+  transition: background-color 0.1s ease;
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
 }
 
-.sidebar-color-input::-webkit-color-swatch-wrapper {
-  padding: 0;
+.workspace-section-header:hover {
+  background-color: var(--button-hover-bg);
 }
 
-.sidebar-color-input::-webkit-color-swatch {
-  border: none;
-  border-radius: 2px;
+.workspace-section-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15.6px;
+  font-weight: 600;
+  color: var(--text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.sidebar-color-custom-label {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.sidebar-workspace-hide,
-.sidebar-workspace-close {
+/* SBR-005: hover-visible gear */
+.workspace-section-gear {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 20px;
   height: 20px;
-  margin-left: auto;
   background: transparent;
   border: none;
   border-radius: 4px;
-  color: var(--text-muted);
+  color: var(--text-color-muted);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background-color 0.1s ease, color 0.1s ease;
+  opacity: 0;
+  transition: opacity 0.1s ease, background-color 0.1s ease, color 0.1s ease;
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
 }
 
-/* When the hide button is present, keep close adjacent to it (single auto gap) */
-.sidebar-workspace-hide + .sidebar-workspace-close {
-  margin-left: 0;
+.workspace-section-header:hover .workspace-section-gear,
+.workspace-section-gear:focus-visible {
+  opacity: 1;
 }
 
-.sidebar-workspace-hide:hover:not(:disabled),
-.sidebar-workspace-close:hover {
+.workspace-section-gear:hover {
   background: var(--button-hover-bg);
   color: var(--text-color);
 }
 
-.sidebar-workspace-hide:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
+.workspace-section-gear svg {
+  width: 13px;
+  height: 13px;
 }
 
-.sidebar-workspace-hide svg,
-.sidebar-workspace-close svg {
-  width: 12px;
-  height: 12px;
+.workspace-section-body {
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
 }
 
-.sidebar-workspace-name {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-color);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: text;
-  border-radius: 2px;
-  padding: 0 2px;
-}
-
-.sidebar-workspace-name:hover {
-  background-color: var(--button-hover-bg);
-}
-
-.sidebar-workspace-name-input {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-color);
+.sidebar-add-folder-row {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--accent-color);
+  border-top: 1px solid var(--border-color);
+  color: var(--text-color-muted);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.1s ease, color 0.1s ease;
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+
+.sidebar-add-folder-row:hover {
+  background-color: var(--button-hover-bg);
+  color: var(--text-color);
+}
+
+/* SBR-005: workspace settings popover */
+.workspace-settings-popover {
+  background: var(--dropdown-bg, var(--toolbar-bg));
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+
+.workspace-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workspace-settings-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-color-muted);
+}
+
+.workspace-settings-name-input {
+  font-size: 12px;
+  color: var(--text-color);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
   outline: none;
-  padding: 0 2px;
-  min-width: 0;
-  flex: 1;
+  padding: 4px 6px;
   font-family: inherit;
+}
+
+.workspace-settings-name-input:focus {
+  border-color: var(--accent-color);
+}
+
+.workspace-settings-hidden-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-color);
+  cursor: pointer;
+}
+
+.workspace-settings-hidden-toggle input[type="checkbox"] {
+  margin: 0;
+}
+
+.workspace-settings-separator {
+  height: 1px;
+  background-color: var(--border-color);
+}
+
+.workspace-settings-close-btn {
+  padding: 5px 8px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: #ef4444;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.workspace-settings-close-btn:hover {
+  background-color: rgba(239, 68, 68, 0.1);
 }
 
 /* Resizable panels container */
@@ -331,22 +372,6 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-/* Hidden files toggle inside explorer */
-.sidebar-hidden-files-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  font-size: 11px;
-  color: var(--text-color-muted);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.sidebar-hidden-files-toggle input[type="checkbox"] {
-  margin: 0;
 }
 
 .sidebar-section-header {
@@ -388,11 +413,9 @@
 }
 
 .sidebar-section-title {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-color);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .sidebar-section-content {

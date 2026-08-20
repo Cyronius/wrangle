@@ -51,11 +51,12 @@ export function useImageDrop({
     return activeWorkspaceId
   }, [workspaces, activeWorkspaceId])
 
-  // Get the expanded folder workspace (if any)
-  const getExpandedFolderWorkspace = useCallback((): WorkspaceState | undefined => {
+  // Get the active folder workspace (if any). Multiple sidebar sections can be
+  // expanded at once (SBR-002), so dropped files route to the ACTIVE workspace.
+  const getActiveFolderWorkspace = useCallback((): WorkspaceState | undefined => {
     if (!workspaces) return undefined
-    return workspaces.find(w => w.isExpanded && w.rootPath)
-  }, [workspaces])
+    return workspaces.find(w => w.id === activeWorkspaceId && w.rootPath)
+  }, [workspaces, activeWorkspaceId])
 
   useEffect(() => {
     const handleDragEnter = (e: DragEvent) => {
@@ -142,7 +143,7 @@ export function useImageDrop({
 
       // Process text files
       if (textFiles.length > 0 && onTextFilesOpen) {
-        const expandedWorkspace = getExpandedFolderWorkspace()
+        const expandedWorkspace = getActiveFolderWorkspace()
         const filesToOpen: DroppedFileData[] = []
 
         for (const file of textFiles) {
@@ -224,7 +225,7 @@ export function useImageDrop({
     tabs,
     onTextFilesOpen,
     detectWorkspaceForPath,
-    getExpandedFolderWorkspace
+    getActiveFolderWorkspace
   ])
 
   return { isDragging }

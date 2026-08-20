@@ -75,11 +75,14 @@ test.describe('WTB-008: Active Tab Auto-Scroll', () => {
 
     await window.waitForTimeout(500)
 
-    const tabGroups = await workspaceHelpers.getVisibleTabGroups()
-    const ws1Id = tabGroups.find(g => g.workspaceId.includes('switch-scroll-1'))?.workspaceId
+    // WTB-014: ws2 is active. Switch to ws1 (the many-tab workspace).
+    await workspaceHelpers.clickWorkspaceInSidebar('switch-scroll-1')
+    await window.waitForTimeout(300)
+
+    const ws1Id = workspaceHelpers.getWorkspaceId(ws1Path)
 
     // Scroll ws1 to far right and click a middle tab
-    await workspaceHelpers.scrollTabGroup(ws1Id!, 1000)
+    await workspaceHelpers.scrollTabGroup(ws1Id, 1000)
     await window.waitForTimeout(200)
 
     // Click the middle tab (around tab 8)

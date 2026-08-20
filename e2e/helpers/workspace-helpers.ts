@@ -112,8 +112,7 @@ export class WorkspaceHelpers {
             color: cfg.color,
             rootPath: wsPath,
             isExpanded: true,
-            showHiddenFiles: cfg.showHiddenFiles !== false,
-            visibleInTabBar: true
+            showHiddenFiles: cfg.showHiddenFiles !== false
           }
         })
         // Also set it as active
@@ -173,30 +172,6 @@ export class WorkspaceHelpers {
   }
 
   /**
-   * Count workspaces that occupy the editor: visibleInTabBar === true AND have at
-   * least one open tab. Reads Redux directly so it is independent of the tab-bar
-   * vs. multi-pane rendering architecture.
-   */
-  async getEditorWorkspaceCount(): Promise<number> {
-    return this.page.evaluate(() => {
-      const store = (window as unknown as {
-        __REDUX_STORE__?: {
-          getState: () => {
-            workspaces: { workspaces: Array<{ id: string; visibleInTabBar: boolean }> }
-            tabs: { tabs: Array<{ workspaceId: string }> }
-          }
-        }
-      }).__REDUX_STORE__
-      if (!store) return 0
-      const state = store.getState()
-      const withTabs = new Set(state.tabs.tabs.map((t) => t.workspaceId))
-      return state.workspaces.workspaces.filter(
-        (w) => w.visibleInTabBar && withTabs.has(w.id)
-      ).length
-    })
-  }
-
-  /**
    * Get all visible tab groups with their workspace IDs
    */
   async getVisibleTabGroups(): Promise<Array<{ workspaceId: string; width: number }>> {
@@ -213,51 +188,55 @@ export class WorkspaceHelpers {
   }
 
   /**
-   * Click a workspace in the sidebar by name
+   * SBR-004: Activate a workspace by clicking into its sidebar section body.
+   * (Clicking the section header only toggles collapse.)
    */
   async clickWorkspaceInSidebar(workspaceName: string): Promise<void> {
-    await this.page.click(`.workspace-bar-item:has-text("${workspaceName}")`)
+    const section = this.page.locator('.workspace-section', {
+      has: this.page.locator('.workspace-section-name', { hasText: workspaceName })
+    })
+    const body = section.locator('.workspace-section-body')
+    if (await body.count() === 0) {
+      // Collapsed: expand first (header click), then activate via the body
+      await section.locator('.workspace-section-header').click()
+    }
+    await section.locator('.workspace-section-body').dispatchEvent('mousedown')
     await this.page.waitForTimeout(100) // Wait for state update
   }
 
   /**
-   * WTB-013: Hide a workspace via the explorer header hide button. Activates the
-   * named workspace first (so the explorer shows it), then clicks the hide button.
+   * SBR-002: Toggle a workspace section's collapse via its header.
    */
-  async hideWorkspaceFromHeader(workspaceName: string): Promise<void> {
-    await this.clickWorkspaceInSidebar(workspaceName)
-    await this.page.click('.sidebar-workspace-hide')
+  async toggleWorkspaceSection(workspaceName: string): Promise<void> {
+    await this.page
+      .locator('.workspace-section', {
+        has: this.page.locator('.workspace-section-name', { hasText: workspaceName })
+      })
+      .locator('.workspace-section-header')
+      .click()
     await this.page.waitForTimeout(100)
   }
 
   /**
-   * WTB-013: Whether the explorer header hide button is disabled (last-visible).
+   * SBR-005: Open the settings popover for a workspace section via its gear.
    */
-  async isHeaderHideDisabled(): Promise<boolean> {
-    return this.page.evaluate(() => {
-      const btn = document.querySelector('.sidebar-workspace-hide') as HTMLButtonElement | null
-      return btn ? btn.disabled : false
-    })
+  async openWorkspaceSettings(workspaceName: string): Promise<void> {
+    const gear = this.page
+      .locator('.workspace-section', {
+        has: this.page.locator('.workspace-section-name', { hasText: workspaceName })
+      })
+      .locator('.workspace-section-gear')
+    await gear.dispatchEvent('click')
+    await this.page.waitForTimeout(100)
   }
 
   /**
-   * Open a file from the active workspace's file tree by clicking the tree item
+   * Open a file from a workspace section's file tree by clicking the tree item
    * (exercises the real handleFileOpenFromTree flow, unlike openFileInWorkspace).
    */
   async openFileFromTree(fileName: string): Promise<void> {
     await this.page.click(`.file-tree-item:has-text("${fileName}")`)
     await this.page.waitForTimeout(150)
-  }
-
-  /**
-   * Whether a workspace's rail item is dimmed (browse-only / not in editor).
-   */
-  async isRailItemDimmed(workspaceName: string): Promise<boolean> {
-    return this.page.evaluate((name) => {
-      const items = Array.from(document.querySelectorAll('.workspace-bar-item'))
-      const item = items.find((el) => el.textContent?.includes(name))
-      return item ? item.classList.contains('not-in-editor') : false
-    }, workspaceName)
   }
 
   /**
@@ -267,21 +246,6 @@ export class WorkspaceHelpers {
     return this.page.evaluate(() => {
       const store = (window as unknown as { __REDUX_STORE__?: { getState: () => { workspaces: { activeWorkspaceId: string } } } }).__REDUX_STORE__
       return store?.getState().workspaces.activeWorkspaceId || null
-    })
-  }
-
-  /**
-   * Get visibility state for all workspaces
-   */
-  async getWorkspaceVisibility(): Promise<Record<string, boolean>> {
-    return this.page.evaluate(() => {
-      const store = (window as unknown as { __REDUX_STORE__?: { getState: () => { workspaces: { workspaces: Array<{ id: string; visibleInTabBar: boolean }> } } } }).__REDUX_STORE__
-      const workspaces = store?.getState().workspaces.workspaces || []
-      const visibility: Record<string, boolean> = {}
-      workspaces.forEach((ws: { id: string; visibleInTabBar: boolean }) => {
-        visibility[ws.id] = ws.visibleInTabBar
-      })
-      return visibility
     })
   }
 
@@ -323,32 +287,6 @@ export class WorkspaceHelpers {
       }
     }, { wsId: workspaceId, scrollAmount: amount })
     await this.page.waitForTimeout(100)
-  }
-
-  /**
-   * Check if overflow indicator is visible
-   */
-  async isOverflowIndicatorVisible(): Promise<boolean> {
-    return this.page.evaluate(() => {
-      const overflow = document.querySelector('.tab-bar-overflow')
-      if (!overflow) return false
-      // Check if it has any workspaces to show
-      return overflow.querySelector('.overflow-button') !== null ||
-             overflow.textContent?.includes('+') || false
-    })
-  }
-
-  /**
-   * Get the overflow count from the indicator
-   */
-  async getOverflowCount(): Promise<number> {
-    return this.page.evaluate(() => {
-      const overflow = document.querySelector('.tab-bar-overflow .overflow-button')
-      if (!overflow) return 0
-      const text = overflow.textContent || ''
-      const match = text.match(/\+(\d+)/)
-      return match ? parseInt(match[1], 10) : 0
-    })
   }
 
   /**

@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef as useReactRef } from 'react'
-import type { CSSProperties } from 'react'
 import { useSelector, useDispatch, Provider } from 'react-redux'
 import { store, RootState, AppDispatch } from './store/store'
-import { setViewMode, zoomIn, zoomOut, setFocusedPane } from './store/layoutSlice'
+import { setViewMode, zoomIn, zoomOut } from './store/layoutSlice'
 import {
   addTab,
   updateTab,
@@ -12,7 +11,7 @@ import {
   markSessionRestored,
   moveTabToWorkspace
 } from './store/tabsSlice'
-import { selectActiveWorkspaceId, selectAllWorkspaces, selectVisibleWorkspaceIds, addWorkspace, setActiveWorkspace, setVisibleInTabBar, findFolderWorkspaceForPath } from './store/workspacesSlice'
+import { selectActiveWorkspaceId, selectAllWorkspaces, addWorkspace, setActiveWorkspace, setWorkspaceExpanded, findFolderWorkspaceForPath } from './store/workspacesSlice'
 import { loadSettings } from './store/settingsSlice'
 import { DEFAULT_WORKSPACE_ID, type WorkspaceId } from '../../shared/workspace-types'
 import { Allotment } from 'allotment'
@@ -21,12 +20,10 @@ import { TabBar } from './components/Tabs/TabBar'
 import { FloatingToolbar } from './components/UI/FloatingToolbar'
 import { floatingToolbarBus } from './components/UI/floating-toolbar-bus'
 import { Sidebar } from './components/Sidebar/Sidebar'
-import { WorkspaceBar } from './components/Workspace/WorkspaceBar'
 import { WindowControls } from './components/UI/WindowControls'
 import { ThemeProvider } from './components/ThemeProvider'
 import { PreferencesDialog } from './components/Preferences/PreferencesDialog'
 import { EmptyState } from './components/EmptyState'
-import { MultiPaneContainer } from './components/Layout/MultiPaneContainer'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
 import { CommandDefinition, commandMap, CommandContext } from './commands/registry'
 import { selectModifierBinding, eventMatchesModifier } from './store/settingsSlice'
@@ -51,8 +48,6 @@ function AppContent() {
   const theme = useSelector((state: RootState) => state.settings.theme.current)
   const showToolbar = useSelector((state: RootState) => state.layout.showToolbar)
   const workspaces = useSelector(selectAllWorkspaces)
-  const visibleWorkspaceIds = useSelector(selectVisibleWorkspaceIds)
-  const isMultiPane = visibleWorkspaceIds.length >= 2
 
   // Editor pane hook - manages content, cursor/scroll tracking, auto-save
   const {
@@ -126,6 +121,12 @@ function AppContent() {
         // Restore workspace sessions
         const appSession = await window.electron.workspace.loadAppSession()
         if (appSession && appSession.openWorkspaces.length > 0) {
+          // SBR-002: restore per-section collapse state; sessions saved before
+          // this field existed default to all-expanded.
+          const expandedSet = appSession.expandedWorkspacePaths
+            ? new Set(appSession.expandedWorkspacePaths)
+            : null
+
           for (const workspacePath of appSession.openWorkspaces) {
             // Load workspace config
             const config = await window.electron.workspace.loadConfig(workspacePath)
@@ -137,9 +138,8 @@ function AppContent() {
               name: config.name,
               color: config.color,
               rootPath: workspacePath,
-              isExpanded: false,
-              showHiddenFiles: config.showHiddenFiles !== false,
-              visibleInTabBar: true
+              isExpanded: expandedSet ? expandedSet.has(workspacePath) : true,
+              showHiddenFiles: config.showHiddenFiles !== false
             }))
 
             // Load workspace session (tabs)
@@ -183,28 +183,11 @@ function AppContent() {
               dispatch(setActiveWorkspace(activeConfig.id))
             }
           }
+        }
 
-          // Restore workspace visibility from session
-          if (appSession.visibleWorkspacePaths) {
-            const visiblePaths = new Set(appSession.visibleWorkspacePaths)
-            for (const workspacePath of appSession.openWorkspaces) {
-              const config = await window.electron.workspace.loadConfig(workspacePath)
-              if (config) {
-                dispatch(setVisibleInTabBar({
-                  id: config.id,
-                  visible: visiblePaths.has(workspacePath)
-                }))
-              }
-            }
-          }
-
-          // Restore focused pane
-          if (appSession.focusedPaneWorkspacePath) {
-            const focusedConfig = await window.electron.workspace.loadConfig(appSession.focusedPaneWorkspacePath)
-            if (focusedConfig) {
-              dispatch(setFocusedPane(focusedConfig.id))
-            }
-          }
+        // SBR-002: restore Open Files section collapse state
+        if (appSession && appSession.openFilesExpanded === false) {
+          dispatch(setWorkspaceExpanded({ id: DEFAULT_WORKSPACE_ID, expanded: false }))
         }
         // After session restore, check for crash recovery
         try {
@@ -415,11 +398,9 @@ function AppContent() {
       lastWorkspaceId = workspaceId
     }
 
-    // Activate the last opened/found tab, re-showing its workspace (WTB-013).
+    // Activate the last opened/found tab and its workspace (SBR-004)
     if (lastWorkspaceId) {
-      dispatch(setVisibleInTabBar({ id: lastWorkspaceId, visible: true }))
       dispatch(setActiveWorkspace(lastWorkspaceId))
-      dispatch(setFocusedPane(lastWorkspaceId))
     }
     if (lastTabId) {
       dispatch(setActiveTab(lastTabId))
@@ -431,10 +412,7 @@ function AppContent() {
     // Check if file is already open
     const existingTab = tabs.find(t => t.path === filePath)
     if (existingTab) {
-      // WTB-013: re-show the workspace in the editor in case it was browse-only.
-      dispatch(setVisibleInTabBar({ id: existingTab.workspaceId, visible: true }))
       dispatch(setActiveWorkspace(existingTab.workspaceId))
-      dispatch(setFocusedPane(existingTab.workspaceId))
       dispatch(setActiveTab(existingTab.id))
       return
     }
@@ -459,10 +437,7 @@ function AppContent() {
         path: filePath,
         isDirty: false
       }))
-      // WTB-013: a file opened from a browse-only workspace must re-show its pane.
-      dispatch(setVisibleInTabBar({ id: workspaceId, visible: true }))
       dispatch(setActiveWorkspace(workspaceId))
-      dispatch(setFocusedPane(workspaceId))
       dispatch(setActiveTab(newTabId))
     } catch (error) {
       console.error('Failed to open file:', error)
@@ -482,12 +457,10 @@ function AppContent() {
         color: result.config.color,
         rootPath: result.path,
         isExpanded: true,
-        showHiddenFiles: result.config.showHiddenFiles !== false,
-        visibleInTabBar: true
+        showHiddenFiles: result.config.showHiddenFiles !== false
       })
     )
     dispatch(setActiveWorkspace(result.config.id))
-    dispatch(setFocusedPane(result.config.id))
   }, [workspaces, dispatch])
 
   const handleSaveAs = useCallback(async () => {
@@ -694,12 +667,9 @@ function AppContent() {
         }))
       }
 
-      // Make the target workspace active/focused and the file's tab active, then
+      // Make the target workspace active and the file's tab active, then
       // focus the editor after the activeTab-driven re-render has committed.
-      // WTB-013: re-show its pane in case the workspace was browse-only.
-      dispatch(setVisibleInTabBar({ id: targetWorkspaceId, visible: true }))
       dispatch(setActiveWorkspace(targetWorkspaceId))
-      dispatch(setFocusedPane(targetWorkspaceId))
       dispatch(setActiveTab(targetTabId))
       requestAnimationFrame(() => editorRef.current?.focus())
     })
@@ -896,14 +866,8 @@ function AppContent() {
   // Monaco theme based on app theme
   const monacoTheme = getMonacoThemeName(theme)
 
-  // Active workspace color for single-pane toolbar bar
-  const activeWorkspace = workspaces.find(w => w.id === activeWorkspaceId)
-  const activeWorkspaceColor = activeWorkspace?.color || 'var(--toolbar-bg)'
-  const isDefaultOnly = workspaces.length <= 1
-
   return (
     <div className={`platform-${window.electron.platform}`} style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'row' }}>
-      <WorkspaceBar />
       <Allotment>
         <Allotment.Pane minSize={180} preferredSize={250} maxSize={500}>
           <Sidebar
@@ -926,50 +890,28 @@ function AppContent() {
         </Allotment.Pane>
         <Allotment.Pane>
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0 }}>
-            {/* Tab row with window controls - hidden when multi-pane is active (controls overlay instead) */}
-            {(!isMultiPane || tabs.length === 0) && (
-              <div className="tab-row">
-                {!isMultiPane && tabs.length > 0 && (
-                  <TabBar
-                    onCloseTab={async (tabId) => {
-                      const tabToClose = tabs.find((t) => t.id === tabId)
-                      if (tabToClose && !tabToClose.path) {
-                        await window.electron.file.cleanupTemp(tabId)
-                      }
-                    }}
-                  />
-                )}
-                <div className="tab-row-drag-spacer" />
-                {window.electron.platform !== 'win32' && <WindowControls />}
-              </div>
-            )}
+            {/* Tab row with window controls */}
+            <div className="tab-row">
+              {tabs.length > 0 && (
+                <TabBar
+                  onCloseTab={async (tabId) => {
+                    const tabToClose = tabs.find((t) => t.id === tabId)
+                    if (tabToClose && !tabToClose.path) {
+                      await window.electron.file.cleanupTemp(tabId)
+                    }
+                  }}
+                />
+              )}
+              <div className="tab-row-drag-spacer" />
+              {window.electron.platform !== 'win32' && <WindowControls />}
+            </div>
 
             {/* Content area */}
             <div ref={contentAreaRef} style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}>
-              {/* In multi-pane mode, overlay window controls at top-right of the pane area */}
-              {isMultiPane && tabs.length > 0 && window.electron.platform !== 'win32' && (
-                <WindowControls className="window-controls-overlay" />
-              )}
               {tabs.length === 0 ? (
                 <EmptyState onNewFile={handleNewFile} onOpenFile={handleOpen} />
-              ) : isMultiPane ? (
-                <MultiPaneContainer />
               ) : (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                  {/* Colored workspace bar - only shown when multiple workspaces exist */}
-                  {tabs.length > 0 && !isDefaultOnly && (
-                    <div
-                      className="workspace-toolbar-bar"
-                      style={
-                        {
-                          backgroundColor: activeWorkspaceColor,
-                          '--ws-bar-color': activeWorkspaceColor
-                        } as CSSProperties
-                      }
-                    >
-                      <span className="workspace-toolbar-bar-name">{activeWorkspace?.name || ''}</span>
-                    </div>
-                  )}
                   <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                     {isDragging && (
                       <div

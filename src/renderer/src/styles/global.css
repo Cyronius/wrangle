@@ -123,43 +123,9 @@ code {
   color: white;
 }
 
-/* Multi-pane overlay: window controls float at top-right over the pane tab rows */
-.window-controls-overlay {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 10;
-  background-color: var(--tab-bar-bg);
-}
-
-/* Colored workspace toolbar bar (single-pane and multi-pane) */
-.workspace-toolbar-bar {
-  height: 24px;
-  display: flex;
-  align-items: center;
-  padding: 0 10px;
-  flex-shrink: 0;
-  gap: 8px;
-}
-
-.workspace-toolbar-bar-name {
-  font-size: 10px;
-  font-weight: 600;
-  color: #fff;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
 /* Windows: reserve space for native titleBarOverlay controls (min/max/close) */
 .platform-win32 .tab-row {
   padding-right: 140px;
-}
-
-.platform-win32 .window-controls-overlay {
-  right: 140px;
 }
 
 /* Windows: widen right-side drag gutter so there's always free drag space
@@ -171,12 +137,10 @@ code {
 /* Print styles - only show preview content */
 @media print {
   .sidebar,
-  .workspace-bar,
   .window-controls,
   .markdown-toolbar,
   .tab-bar,
   .tab-row,
-  .workspace-toolbar-bar,
   .monaco-editor,
   [class*="allotment"] {
     display: none !important;
